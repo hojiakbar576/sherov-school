@@ -1,0 +1,106 @@
+@import '@fontsource-variable/onest';
+@import 'tailwindcss';
+
+/* Sherov School design tokens. Use these names in classes, e.g. bg-surface,
+   text-ink-muted, border-line, bg-accent-soft. */
+@theme {
+  --font-sans: 'Onest Variable', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+
+  --color-canvas: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-subtle: #f1f3f6;
+  --color-ink: #172033;
+  --color-ink-muted: #5f6b7e;
+  --color-ink-faint: #8a93a3;
+  --color-line: #e5e7eb;
+  --color-line-strong: #d3d7df;
+
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-accent-soft: #eef0fe;
+  --color-accent-ink: #3730a3;
+
+  --color-success: #2f7a55;
+  --color-success-soft: #e7f3ec;
+  --color-warning: #9a5a06;
+  --color-warning-soft: #fcf1de;
+  --color-warning-mark: #e0a12b;
+  --color-danger: #b42318;
+  --color-danger-soft: #fcebe9;
+  --color-danger-mark: #d9645a;
+
+  --radius-control: 0.5rem;
+  --radius-panel: 0.75rem;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --shadow-pop: 0 1px 2px rgb(23 32 51 / 0.06), 0 8px 24px -6px rgb(23 32 51 / 0.14);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    color-scheme: light;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+  /* One visible focus style for every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+  }
+  dialog::backdrop {
+    background: rgb(23 32 51 / 0.4);
+  }
+  input[type='date']::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+  }
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+@utility field-control {
+  @apply block w-full rounded-control border border-line-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint;
+  @apply hover:border-ink-faint disabled:cursor-not-allowed disabled:bg-subtle disabled:text-ink-muted;
+  @apply aria-invalid:border-danger;
+  min-height: 2.5rem;
+}
+
+/* Native dialogs: subtle open animation, skipped with reduced motion. */
+dialog[open] {
+  animation: dialog-in 160ms ease-out;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+dialog.drawer[open] {
+  animation: drawer-in 180ms ease-out;
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
