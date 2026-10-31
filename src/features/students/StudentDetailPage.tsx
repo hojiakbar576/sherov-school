@@ -94,13 +94,13 @@ export function StudentDetailPage() {
         <Panel title="Details" className="lg:col-span-1">
           <dl className="divide-y divide-line text-sm">
             <Detail label="Phone">
-              <a href={`tel:${student.phone.replace(/s/g, '')}`} className="num hover:text-accent hover:underline">{student.phone}</a>
+              <a href={`tel:${student.phone.replace(/s/g, '')}`} className="num hover:text-brand hover:underline">{student.phone}</a>
             </Detail>
             <Detail label="Email">
-              {student.email ? <a href={`mailto:${student.email}`} className="hover:text-accent hover:underline">{student.email}</a> : <span className="text-ink-faint">Not provided</span>}
+              {student.email ? <a href={`mailto:${student.email}`} className="hover:text-brand hover:underline">{student.email}</a> : <span className="text-ink-faint">Not provided</span>}
             </Detail>
             <Detail label="Group">
-              {group ? <Link to={`/groups?q=${encodeURIComponent(group.name)}`} className="hover:text-accent hover:underline">{group.name}</Link> : <span className="text-ink-faint">No group</span>}
+              {group ? <Link to={`/groups?q=${encodeURIComponent(group.name)}`} className="hover:text-brand hover:underline">{group.name}</Link> : <span className="text-ink-faint">No group</span>}
             </Detail>
             <Detail label="Teacher">{teacher?.fullName ?? <span className="text-ink-faint">None</span>}</Detail>
             <Detail label="Enrolled">{formatDate(student.enrolledOn)}</Detail>

@@ -1,14 +1,15 @@
 // Shared chart styling so every chart in the app reads as one system.
+// Values point at the design tokens in index.css; nothing is defined here.
 
 export const CHART_COLORS = {
-  present: '#4F46E5',
-  late: '#E0A12B',
-  absent: '#D9645A',
-  revenue: '#4F46E5',
-  revenueMuted: '#C7CBF8',
-  enrolment: '#2F7A55',
-  grid: '#EEF0F3',
-  axis: '#5F6B7E',
+  present: 'var(--color-brand)',
+  late: 'var(--color-warning-mark)',
+  absent: 'var(--color-danger-mark)',
+  revenue: 'var(--color-brand)',
+  revenueMuted: 'var(--color-brand-muted)',
+  enrolment: 'var(--color-chart-2)',
+  grid: 'var(--color-chart-grid)',
+  axis: 'var(--color-ink-muted)',
 }
 
 export const axisProps = {
@@ -20,11 +21,11 @@ export const axisProps = {
 export const tooltipStyle = {
   contentStyle: {
     borderRadius: 8,
-    border: '1px solid #E5E7EB',
-    boxShadow: '0 8px 24px -6px rgb(23 32 51 / 0.14)',
+    border: '1px solid var(--color-line)',
+    boxShadow: 'var(--shadow-pop)',
     fontSize: 13,
     padding: '8px 12px',
   },
-  labelStyle: { color: '#172033', fontWeight: 600, marginBottom: 4 },
-  cursor: { fill: '#F1F3F6' },
+  labelStyle: { color: 'var(--color-ink)', fontWeight: 600, marginBottom: 4 },
+  cursor: { fill: 'var(--color-subtle)' },
 } as const

@@ -10,7 +10,7 @@ const ORDER: { kind: AttentionKind; limit: number; icon: LucideIcon; tint: strin
   { kind: 'attendance_missing', limit: 3, icon: CalendarX2, tint: 'bg-danger-soft text-danger' },
   { kind: 'overdue', limit: 3, icon: Wallet, tint: 'bg-danger-soft text-danger' },
   { kind: 'absences', limit: 3, icon: Clock, tint: 'bg-warning-soft text-warning' },
-  { kind: 'capacity', limit: 2, icon: UsersRound, tint: 'bg-accent-soft text-accent-ink' },
+  { kind: 'capacity', limit: 2, icon: UsersRound, tint: 'bg-brand-soft text-brand-ink' },
 ]
 
 const actionLabel: Record<AttentionKind, string> = {
@@ -62,7 +62,7 @@ export function NeedsAttention({ items, onRecordPayment }: NeedsAttentionProps) 
                           <span className="sr-only"> for {item.title}</span>
                         </Button>
                       ) : (
-                        <Link to={attentionLink(item)} className="shrink-0 text-sm font-medium text-accent hover:underline">
+                        <Link to={attentionLink(item)} className="shrink-0 text-sm font-medium text-brand hover:underline">
                           {actionLabel[kind]}
                           <span className="sr-only">: {item.title}</span>
                         </Link>
@@ -71,7 +71,7 @@ export function NeedsAttention({ items, onRecordPayment }: NeedsAttentionProps) 
                   ))}
                 </ul>
                 {kind === 'overdue' && overdueCount > limit && (
-                  <Link to="/students?tuition=overdue" className="mt-1 inline-block text-sm font-medium text-accent hover:underline">
+                  <Link to="/students?tuition=overdue" className="mt-1 inline-block text-sm font-medium text-brand hover:underline">
                     See all {overdueCount} students with overdue tuition
                   </Link>
                 )}

@@ -10,7 +10,7 @@ interface Toast {
 }
 
 const icons = { success: CircleCheck, error: CircleAlert, info: Info }
-const iconColors = { success: 'text-success', error: 'text-danger', info: 'text-accent' }
+const iconColors = { success: 'text-success', error: 'text-danger', info: 'text-brand' }
 
 let nextId = 1
 

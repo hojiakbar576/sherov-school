@@ -92,7 +92,7 @@ export function PaymentsPage() {
         }
       />
 
-      <div className="mb-6 flex items-start gap-2.5 rounded-panel border border-accent/20 bg-accent-soft px-4 py-3 text-sm text-accent-ink">
+      <div className="mb-6 flex items-start gap-2.5 rounded-panel border border-info/20 bg-info-soft px-4 py-3 text-sm text-info">
         <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
         <p>This is a record-keeping demo, not a payment system. Nothing here charges a card or moves money.</p>
       </div>
@@ -178,7 +178,7 @@ export function PaymentsPage() {
                         <td className={cn(td, 'num whitespace-nowrap')}>{formatDate(p.date)}</td>
                         <td className={td}>
                           {s ? (
-                            <Link to={`/students/${s.id}`} className="font-medium text-ink hover:text-accent hover:underline">
+                            <Link to={`/students/${s.id}`} className="font-medium text-ink hover:text-brand hover:underline">
                               {s.fullName}
                             </Link>
                           ) : (

@@ -15,9 +15,11 @@ interface Result {
 
 const MAX_RESULTS = 8
 
-/** Searches students, teachers and groups in the local demo data. */
+/** Searches the students, teachers and groups the signed-in person can see. */
 export function HeaderSearch({ className, autoFocus }: { className?: string; autoFocus?: boolean }) {
-  const { data } = useSchool()
+  const { data, user } = useSchool()
+  const isTeacher = user?.role === 'teacher'
+  const what = isTeacher ? 'your students and groups' : 'students, teachers and groups'
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -47,21 +49,21 @@ export function HeaderSearch({ className, autoFocus }: { className?: string; aut
     const found: Result[] = []
     for (const s of data.students) {
       if (s.fullName.toLowerCase().includes(q) || (digits.length >= 3 && s.phone.replace(/\D/g, '').includes(digits))) {
-        found.push({ id: s.id, kind: 'Student', icon: Users, title: s.fullName, detail: `${groupName.get(s.groupId ?? '') ?? 'No group'}, ${s.phone}`, to: `/students/${s.id}` })
+        found.push({ id: s.id, kind: 'Student', icon: Users, title: s.fullName, detail: `${groupName.get(s.groupId ?? '') ?? 'No group'}, ${s.phone}`, to: isTeacher ? `/teacher/students?q=${encodeURIComponent(s.fullName)}` : `/students/${s.id}` })
       }
     }
-    for (const t of data.teachers) {
+    for (const t of isTeacher ? [] : data.teachers) {
       if (t.fullName.toLowerCase().includes(q) || t.subject.toLowerCase().includes(q)) {
         found.push({ id: t.id, kind: 'Teacher', icon: GraduationCap, title: t.fullName, detail: t.subject, to: `/teachers?q=${encodeURIComponent(t.fullName)}` })
       }
     }
     for (const g of data.groups) {
       if (g.name.toLowerCase().includes(q) || g.room.toLowerCase().includes(q)) {
-        found.push({ id: g.id, kind: 'Group', icon: UsersRound, title: g.name, detail: `${teacherName.get(g.teacherId) ?? ''}, ${g.room}`, to: `/groups?q=${encodeURIComponent(g.name)}` })
+        found.push({ id: g.id, kind: 'Group', icon: UsersRound, title: g.name, detail: `${teacherName.get(g.teacherId) ?? ''}, ${g.room}`, to: isTeacher ? `/teacher/groups/${g.id}` : `/groups?q=${encodeURIComponent(g.name)}` })
       }
     }
     return found.slice(0, MAX_RESULTS)
-  }, [query, data])
+  }, [query, data, isTeacher])
 
   const go = (result: Result) => {
     navigate(result.to)
@@ -79,14 +81,14 @@ export function HeaderSearch({ className, autoFocus }: { className?: string; aut
         ref={inputRef}
         type="search"
         role="combobox"
-        aria-label="Search students, teachers and groups"
+        aria-label={`Search ${what}`}
         aria-expanded={showList}
         aria-controls={listId}
         aria-activedescendant={showList && results[active] ? `${listId}-${active}` : undefined}
         aria-autocomplete="list"
         autoFocus={autoFocus}
         value={query}
-        placeholder="Search students, teachers, groups"
+        placeholder={isTeacher ? 'Search your students and groups' : 'Search students, teachers, groups'}
         onChange={(event) => {
           setQuery(event.target.value)
           setActive(0)
@@ -116,7 +118,7 @@ export function HeaderSearch({ className, autoFocus }: { className?: string; aut
       {showList && (
         <div className="absolute top-full right-0 left-0 z-40 mt-2 overflow-hidden rounded-panel border border-line bg-surface shadow-pop">
           {results.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-ink-muted">No students, teachers or groups match “{query.trim()}”.</p>
+            <p className="px-4 py-3 text-sm text-ink-muted">Nothing in {what} matches “{query.trim()}”.</p>
           ) : (
             <ul id={listId} role="listbox" aria-label="Search results" className="max-h-96 overflow-y-auto py-1">
               {results.map((result, index) => {

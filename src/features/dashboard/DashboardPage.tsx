@@ -16,7 +16,7 @@ import { NeedsAttention } from './NeedsAttention'
 import { RecentActivity } from './RecentActivity'
 
 export function DashboardPage() {
-  const { data, now, balances } = useSchool()
+  const { data, now, balances, user, branch } = useSchool()
   const attention = useAttention()
   const [addingStudent, setAddingStudent] = useState(false)
   // undefined = closed, '' = open without a student, id = open for that student
@@ -33,9 +33,9 @@ export function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">{greeting(now)}, Admin</h1>
+          <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">{greeting(now)}, {user?.fullName.split(' ')[0] ?? 'Admin'}</h1>
           <p className="mt-1 text-ink-muted">
-            Here’s what’s happening at {data.settings.centerName} today, {formatLongDate(now)}.
+            Here’s what’s happening at {data.settings.centerName}{branch ? `, ${branch.name} branch` : ''} today, {formatLongDate(now)}.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -12,7 +12,7 @@ import { ProfileMenu } from './ProfileMenu'
 
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { pathname } = useLocation()
-  const { now } = useSchool()
+  const { now, user } = useSchool()
   const [mobileSearch, setMobileSearch] = useState(false)
 
   return (
@@ -23,7 +23,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         </IconButton>
 
         <div className="min-w-0 flex-1 md:flex-none md:w-44 xl:w-56">
-          <p className="truncate font-semibold text-ink">{pageTitle(pathname)}</p>
+          <p className="truncate font-semibold text-ink">{pageTitle(pathname, user?.role)}</p>
           <p className="hidden truncate text-xs text-ink-muted sm:block">
             <time dateTime={toISODate(now)}>{formatLongDate(now)}</time>
           </p>

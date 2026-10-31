@@ -38,12 +38,12 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
       onClick={(event) => {
         if (event.target === ref.current) onClose()
       }}
-      className="drawer m-0 h-dvh max-h-dvh w-72 max-w-[85vw] border-r border-line bg-surface p-0"
+      className="drawer on-dark m-0 h-dvh max-h-dvh w-72 max-w-[85vw] bg-sidebar p-0"
     >
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center justify-between px-5">
-          <Logo />
-          <IconButton label="Close navigation" onClick={onClose} className="-mr-2">
+          <Logo onDark />
+          <IconButton label="Close navigation" onClick={onClose} className="-mr-2 text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-ink">
             <X />
           </IconButton>
         </div>

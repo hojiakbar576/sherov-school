@@ -118,7 +118,7 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
-      <div className="flex gap-2.5 rounded-control bg-accent-soft px-3 py-2.5 text-sm text-accent-ink sm:col-span-2">
+      <div className="flex gap-2.5 rounded-control bg-info-soft px-3 py-2.5 text-sm text-info sm:col-span-2">
         <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
         <p>This only records a payment for the demo. No money is charged or transferred. Sherov School has no payment processing.</p>
       </div>

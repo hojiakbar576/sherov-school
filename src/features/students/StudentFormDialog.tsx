@@ -103,7 +103,7 @@ function StudentForm({ onClose, student, onSaved }: StudentFormDialogProps) {
     if (student) {
       actions.updateStudent(student.id, input)
       toast.show(`Saved changes to ${input.fullName}.`)
-      onSaved?.({ ...input, id: student.id })
+      onSaved?.({ ...input, id: student.id, branchId: student.branchId })
     } else {
       const created = actions.addStudent(input)
       toast.show(`${created.fullName} was added.`)

@@ -13,8 +13,8 @@ const DAY_END = 20 * 60 + 30
 const HOURS = [8, 10, 12, 14, 16, 18, 20]
 
 const blockStyle: Record<SessionStatus, string> = {
-  recorded: 'bg-accent-soft text-accent-ink border-accent/25',
-  in_progress: 'bg-accent text-white border-accent',
+  recorded: 'bg-brand-soft text-brand-ink border-brand/25',
+  in_progress: 'bg-brand text-white border-brand',
   upcoming: 'bg-surface text-ink border-line-strong',
   not_recorded: 'bg-danger-soft text-danger border-danger/30',
 }
@@ -142,7 +142,7 @@ export function TodayClasses({ sessions, now }: { sessions: Session[]; now: Date
                     </td>
                     <td className={cn(td, 'text-right')}>
                       {s.status !== 'upcoming' && (
-                        <Link to={`/attendance?group=${s.group.id}&date=${s.date}`} className="text-sm font-medium whitespace-nowrap text-accent hover:underline">
+                        <Link to={`/attendance?group=${s.group.id}&date=${s.date}`} className="text-sm font-medium whitespace-nowrap text-brand hover:underline">
                           {s.status === 'recorded' ? 'View' : 'Take attendance'}
                           <span className="sr-only"> for {s.group.name}</span>
                         </Link>

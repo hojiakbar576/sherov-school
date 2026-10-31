@@ -28,9 +28,13 @@ import {
 import { createRandom, type Random } from '../lib/random'
 import { meetsOn } from '../lib/schedule'
 import { FEMALE_FIRST_NAMES, MALE_FIRST_NAMES, PHONE_PREFIXES, SURNAMES } from './names'
+import { BRANCHES, TEACHER_BRANCH, buildUsers, seedHomework, seedNotifications } from './seed-portal'
 
-/** Bump when the stored data shape changes; older saved data is then set aside. */
-export const DATA_VERSION = 1
+/**
+ * Bump when the stored data shape changes. data/migrate.ts upgrades older
+ * saved data; anything it can't upgrade is set aside as a backup.
+ */
+export const DATA_VERSION = 2
 /** How many months of tuition history the demo covers (including this month). */
 export const HISTORY_MONTHS = 6
 
@@ -44,7 +48,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tuitionDueDay: 10,
 }
 
-const TEACHERS: Teacher[] = [
+const TEACHERS: Omit<Teacher, 'branchId'>[] = [
   { id: 'tch_01', fullName: 'Dilshod Karimov', subject: 'English', phone: '+998 90 312 44 18', email: 'dilshod.karimov@sherovschool.uz', status: 'active', joinedOn: '2021-09-01' },
   { id: 'tch_02', fullName: 'Nigora Rahimova', subject: 'English', phone: '+998 93 540 21 07', email: 'nigora.rahimova@sherovschool.uz', status: 'active', joinedOn: '2022-02-14' },
   { id: 'tch_03', fullName: 'Kamola Yusupova', subject: 'IELTS Preparation', phone: '+998 97 708 63 52', email: 'kamola.yusupova@sherovschool.uz', status: 'active', joinedOn: '2021-09-01' },
@@ -57,7 +61,7 @@ const TEACHERS: Teacher[] = [
   { id: 'tch_10', fullName: 'Otabek Ergashev', subject: 'Mathematics', phone: '+998 90 958 27 15', email: 'otabek.ergashev@sherovschool.uz', status: 'on_leave', joinedOn: '2023-09-04' },
 ]
 
-type GroupSeed = Omit<Group, 'durationMinutes' | 'status'> & { fill: number; status?: Group['status'] }
+type GroupSeed = Omit<Group, 'durationMinutes' | 'status' | 'branchId'> & { fill: number; status?: Group['status'] }
 
 // Hand-planned timetable: no teacher or room is double-booked.
 // `fill` is how many active students the group starts with.
@@ -84,6 +88,9 @@ const GROUPS: GroupSeed[] = [
   { id: 'grp_20', name: 'IELTS Writing Workshop', subject: 'IELTS Preparation', teacherId: 'tch_03', room: 'Room 201', days: 'odd', startTime: '11:00', capacity: 14, monthlyFee: 550_000, fill: 11 },
   { id: 'grp_21', name: 'English Summer Intensive', subject: 'English', teacherId: 'tch_02', room: 'Room 102', days: 'odd', startTime: '09:00', capacity: 16, monthlyFee: 600_000, fill: 0, status: 'completed' },
 ]
+
+const LATE_COMMENTS = ['Bus was late', 'Came from school', 'Arrived 15 minutes late', 'Traffic on the way']
+const ABSENT_COMMENTS = ['Ill, parent called', 'Family event', 'School exam that day', 'No reason given']
 
 const PAYMENT_METHOD_WEIGHTS: [PaymentMethod, number][] = [
   ['cash', 0.34],
@@ -148,9 +155,10 @@ export function createDemoData(now: Date = new Date()): SchoolData {
   const billingStart = addMonths(currentMonth, -(HISTORY_MONTHS - 1))
   const usedNames = new Set<string>()
 
-  const teachers = TEACHERS.map((t) => ({ ...t }))
+  const teachers: Teacher[] = TEACHERS.map((t) => ({ ...t, branchId: TEACHER_BRANCH[t.id] }))
   const groups: Group[] = GROUPS.map(({ fill: _fill, status, ...g }) => ({
     ...g,
+    branchId: TEACHER_BRANCH[g.teacherId],
     durationMinutes: 90,
     status: status ?? 'active',
   }))
@@ -180,6 +188,7 @@ export function createDemoData(now: Date = new Date()): SchoolData {
         phone: makePhone(rand),
         email: rand.chance(0.4) ? makeEmail(fullName) : undefined,
         groupId,
+        branchId: groupId ? TEACHER_BRANCH[GROUPS.find((g) => g.id === groupId)!.teacherId] : rand.pick(BRANCHES).id,
         enrolledOn: enrollmentDate(),
         monthlyTuition: tuition,
         status,
@@ -253,12 +262,16 @@ export function createDemoData(now: Date = new Date()): SchoolData {
         continue
       }
       const marks: Record<string, AttendanceMark> = {}
+      const comments: Record<string, string> = {}
       for (const g of generated) {
         const s = g.student
         if (s.groupId !== group.id || s.status !== 'active' || s.enrolledOn > date) continue
         const roll = rand.next()
         const presentChance = g.attendance === 'steady' ? 0.9 : 0.55
         marks[s.id] = roll < presentChance ? 'present' : roll < presentChance + 0.06 ? 'late' : 'absent'
+        if (marks[s.id] !== 'present' && rand.chance(0.25)) {
+          comments[s.id] = rand.pick(marks[s.id] === 'late' ? LATE_COMMENTS : ABSENT_COMMENTS)
+        }
       }
       if (Object.keys(marks).length === 0) continue
       const savedAt = atTime(date, group.startTime)
@@ -267,7 +280,10 @@ export function createDemoData(now: Date = new Date()): SchoolData {
         id: `att_${group.id}_${date}`,
         groupId: group.id,
         date,
+        startTime: group.startTime,
+        teacherId: group.teacherId,
         marks,
+        ...(Object.keys(comments).length > 0 ? { comments } : {}),
         savedAt: (savedAt > now ? now : savedAt).toISOString(),
       })
     }
@@ -277,19 +293,45 @@ export function createDemoData(now: Date = new Date()): SchoolData {
   return {
     version: DATA_VERSION,
     seededAt: now.toISOString(),
+    branches: BRANCHES.map((b) => ({ ...b })),
+    users: buildUsers(teachers),
     teachers,
     groups,
     students,
     attendance,
     payments,
+    homework: seedHomework(groups, now),
+    notifications: seedNotifications(teachers, groups, now),
     activity: buildSeedActivity(students, groups, payments, attendance, now),
     settings: { ...DEFAULT_SETTINGS },
-    readNotificationIds: [],
+    notificationReads: {},
   }
 }
 
+/** Recent activity for each branch, so every administrator starts with some. */
+export function buildSeedActivity(
+  students: Student[],
+  groups: Group[],
+  payments: Payment[],
+  attendance: AttendanceRecord[],
+  now: Date,
+): Activity[] {
+  return BRANCHES.flatMap((branch) => {
+    const branchStudents = students.filter((s) => s.branchId === branch.id)
+    const studentIds = new Set(branchStudents.map((s) => s.id))
+    const groupIds = new Set(groups.filter((g) => g.branchId === branch.id).map((g) => g.id))
+    return buildBranchActivity(
+      branchStudents,
+      groups,
+      payments.filter((p) => studentIds.has(p.studentId)),
+      attendance.filter((r) => groupIds.has(r.groupId)),
+      now,
+    ).map((a) => ({ ...a, branchId: branch.id }))
+  }).sort((a, b) => b.at.localeCompare(a.at))
+}
+
 /** Recent activity derived from the most recent generated records. */
-function buildSeedActivity(
+function buildBranchActivity(
   students: Student[],
   groups: Group[],
   payments: Payment[],

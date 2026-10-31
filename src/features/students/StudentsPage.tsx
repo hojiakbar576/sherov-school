@@ -143,7 +143,7 @@ export function StudentsPage() {
                         <div className="flex items-center gap-3">
                           <Avatar name={s.fullName} />
                           <div className="min-w-0">
-                            <Link to={`/students/${s.id}`} className="font-medium text-ink hover:text-accent hover:underline">
+                            <Link to={`/students/${s.id}`} className="font-medium text-ink hover:text-brand hover:underline">
                               {s.fullName}
                             </Link>
                             <p className="num truncate text-xs text-ink-muted">

@@ -16,7 +16,13 @@ export function EmptyState({ icon: Icon, title, children, action }: { icon: Luci
   )
 }
 
-const avatarTints = ['bg-[#E8EAFD] text-[#3730A3]', 'bg-[#E3F1EA] text-[#25603F]', 'bg-[#FBEEDD] text-[#7C4A06]', 'bg-[#EDEFF3] text-[#3A4559]', 'bg-[#F7E6EF] text-[#8A2754]']
+const avatarTints = [
+  'bg-cat-green-soft text-cat-green-ink',
+  'bg-cat-blue-soft text-cat-blue-ink',
+  'bg-cat-orange-soft text-cat-orange-ink',
+  'bg-cat-sand-soft text-cat-sand-ink',
+  'bg-cat-plum-soft text-cat-plum-ink',
+]
 
 /** Initials avatar with a tint chosen from the name, so it stays stable. */
 export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {

@@ -1,4 +1,4 @@
-import { Banknote, ClipboardCheck, GraduationCap, Settings, UserMinus, UserPen, UserPlus, UsersRound, type LucideIcon } from 'lucide-react'
+import { Banknote, ClipboardCheck, GraduationCap, NotebookPen, Settings, UserMinus, UserPen, UserPlus, UsersRound, type LucideIcon } from 'lucide-react'
 import { Panel } from '../../components/ui/Panel'
 import { EmptyState } from '../../components/ui/misc'
 import type { Activity, ActivityType } from '../../types'
@@ -13,6 +13,7 @@ const icons: Record<ActivityType, LucideIcon> = {
   group_changed: UsersRound,
   teacher_changed: GraduationCap,
   settings_changed: Settings,
+  homework_changed: NotebookPen,
 }
 
 export function RecentActivity({ activity, now }: { activity: Activity[]; now: Date }) {

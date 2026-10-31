@@ -98,7 +98,10 @@ function GroupForm({ onClose, group }: Props) {
       status: form.status,
     }
     if (!e.teacherId && !e.room && !e.startTime && input.status === 'active') {
-      const clash = findScheduleConflicts({ ...input, id: group?.id ?? '' }, data.groups)
+      const clash = findScheduleConflicts(
+        { ...input, id: group?.id ?? '', branchId: data.teachers.find((t) => t.id === input.teacherId)?.branchId ?? '' },
+        data.groups,
+      )
       if (clash.teacher) e.teacherId = `This teacher already has ${clash.teacher.name} at ${clash.teacher.startTime} on these days.`
       if (clash.room) e.room = `${clash.room.name} is already in ${input.room} at ${clash.room.startTime} on these days.`
     }
@@ -149,11 +152,11 @@ function GroupForm({ onClose, group }: Props) {
             <label
               key={d}
               className={cn(
-                'flex cursor-pointer items-center gap-2.5 rounded-control border px-3 py-2.5 text-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent',
-                form.days === d ? 'border-accent bg-accent-soft text-accent-ink' : 'border-line-strong hover:bg-subtle',
+                'flex cursor-pointer items-center gap-2.5 rounded-control border px-3 py-2.5 text-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand',
+                form.days === d ? 'border-brand bg-brand-soft text-brand-ink' : 'border-line-strong hover:bg-subtle',
               )}
             >
-              <input type="radio" name="days" value={d} checked={form.days === d} onChange={() => set('days', d)} className="accent-accent" />
+              <input type="radio" name="days" value={d} checked={form.days === d} onChange={() => set('days', d)} className="accent-brand" />
               <span>
                 <span className="block font-medium">{d === 'odd' ? 'Odd days' : 'Even days'}</span>
                 <span className="block text-xs opacity-80">{dayPatternLabel[d]}</span>

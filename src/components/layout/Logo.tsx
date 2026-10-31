@@ -1,28 +1,49 @@
 import { cn } from '../../lib/cn'
 
 /**
- * The Sherov School mark: an open book seen head-on, its two pages rising
- * from a shared spine, with a point of light above it.
+ * One ring of the Sherov School mark. Four copies, each turned a quarter,
+ * interlock in a pinwheel; the gap is where the next ring passes over.
  */
-export function LogoMark({ className }: { className?: string }) {
+const RING = 'M19.57 13A4.6 4.6 0 1 1 20.6 10.18'
+
+/**
+ * The Sherov School mark: four interlinked open rings. On dark surfaces it
+ * sits on the ivory disc, as on the school's own profile picture.
+ */
+export function LogoMark({ className, onDark = false }: { className?: string; onDark?: boolean }) {
   return (
     <svg viewBox="0 0 32 32" aria-hidden className={cn('size-8 shrink-0', className)}>
-      <rect width="32" height="32" rx="8" fill="#4F46E5" />
-      <path d="M6 10.5 15 13v11l-9-2.5z" fill="#fff" />
-      <path d="M26 10.5 17 13v11l9-2.5z" fill="#fff" fillOpacity=".72" />
-      <circle cx="16" cy="7.5" r="2" fill="#fff" />
+      {onDark && <circle cx="16" cy="16" r="16" fill="var(--color-ivory)" />}
+      <g
+        fill="none"
+        stroke="var(--color-logo)"
+        strokeWidth="2"
+        transform={onDark ? 'translate(16 16) scale(.8) translate(-16 -16)' : undefined}
+      >
+        {[0, 90, 180, 270].map((angle) => (
+          <path key={angle} d={RING} transform={`rotate(${angle} 16 16)`} />
+        ))}
+      </g>
     </svg>
   )
 }
 
-export function Logo({ compact = false }: { compact?: boolean }) {
+/** Mark plus the stacked "SHEROV / SCHOOL" wordmark. */
+export function Logo({ compact = false, onDark = false }: { compact?: boolean; onDark?: boolean }) {
   return (
     <span className="flex items-center gap-2.5">
-      <LogoMark />
-      {!compact && (
-        <span className="flex flex-col leading-tight">
-          <span className="text-[0.9375rem] font-semibold tracking-[-0.01em] text-ink">Sherov School</span>
-          <span className="text-xs text-ink-muted">Learning Center</span>
+      <LogoMark onDark={onDark} className="size-9" />
+      {compact ? (
+        <span className="sr-only">Sherov School</span>
+      ) : (
+        <span
+          className={cn(
+            'flex flex-col text-[0.8125rem] leading-[1.1] font-semibold tracking-[0.06em] uppercase',
+            onDark ? 'text-sidebar-ink' : 'text-logo',
+          )}
+        >
+          <span>Sherov</span>
+          <span>School</span>
         </span>
       )}
     </span>

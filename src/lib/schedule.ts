@@ -26,11 +26,13 @@ function overlaps(a: Group, b: Group): boolean {
   return aStart < bStart + b.durationMinutes && bStart < aStart + a.durationMinutes
 }
 
-/** Running groups that would clash with `candidate` for its teacher or room. */
+/** Running groups that would clash with `candidate` for its teacher, or its room at the same branch. */
 export function findScheduleConflicts(candidate: Group, groups: Group[]) {
   const others = groups.filter((g) => g.id !== candidate.id && g.status === 'active' && overlaps(g, candidate))
   return {
     teacher: others.find((g) => g.teacherId === candidate.teacherId),
-    room: others.find((g) => g.room.trim().toLowerCase() === candidate.room.trim().toLowerCase()),
+    room: others.find(
+      (g) => g.branchId === candidate.branchId && g.room.trim().toLowerCase() === candidate.room.trim().toLowerCase(),
+    ),
   }
 }

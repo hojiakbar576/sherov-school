@@ -1,33 +1,81 @@
 @import '@fontsource-variable/onest';
 @import 'tailwindcss';
 
-/* Sherov School design tokens. Use these names in classes, e.g. bg-surface,
-   text-ink-muted, border-line, bg-accent-soft. */
-@theme {
+/* Sherov School design tokens: the only place colours are defined.
+   Use these names in classes, e.g. bg-surface, text-ink-muted, border-line,
+   bg-brand-soft. Tailwind also exposes each one as a CSS variable
+   (var(--color-brand)) for charts and inline SVG.
+
+   Brand: Sherov green (from the logo) carries actions and selection; pine
+   holds the sidebar; ivory is the logo disc; orange is a rare highlight and
+   never carries small white text. Neutrals are warm so they sit with ivory. */
+@theme static {
   --font-sans: 'Onest Variable', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
 
-  --color-canvas: #f7f8fa;
+  /* Brand */
+  --color-brand: #1e6b3e;
+  --color-brand-hover: #17562f;
+  --color-brand-soft: #e7f0e9;
+  --color-brand-ink: #14532d;
+  --color-brand-muted: #b9d2c1;
+  --color-logo: #12993d; /* the logo's own green: logo only, too light for text */
+  --color-pine: #123b29;
+  --color-ivory: #efece0;
+  --color-accent: #e5761f;
+  --color-accent-soft: #fdf0e4;
+  --color-accent-ink: #9c4a0c;
+
+  /* Interface */
+  --color-canvas: #f6f6f2;
   --color-surface: #ffffff;
-  --color-subtle: #f1f3f6;
-  --color-ink: #172033;
-  --color-ink-muted: #5f6b7e;
-  --color-ink-faint: #8a93a3;
-  --color-line: #e5e7eb;
-  --color-line-strong: #d3d7df;
+  --color-subtle: #efefe9;
+  --color-ink: #18231d;
+  --color-ink-muted: #5b655e;
+  --color-ink-faint: #6b736d;
+  --color-line: #e3e4dd;
+  --color-line-strong: #cdd0c6;
+  --color-line-input: #8e958f;
+  --color-divider: #ecede7;
 
-  --color-accent: #4f46e5;
-  --color-accent-hover: #4338ca;
-  --color-accent-soft: #eef0fe;
-  --color-accent-ink: #3730a3;
+  /* Sidebar (dark pine, the same in every portal) */
+  --color-sidebar: #123b29;
+  --color-sidebar-active: #1e4d37;
+  --color-sidebar-hover: #19442f;
+  --color-sidebar-ink: #eaf0eb;
+  --color-sidebar-muted: #a9bfb1;
+  --color-sidebar-faint: #8fa898;
+  --color-sidebar-line: #23493a;
 
-  --color-success: #2f7a55;
-  --color-success-soft: #e7f3ec;
-  --color-warning: #9a5a06;
-  --color-warning-soft: #fcf1de;
-  --color-warning-mark: #e0a12b;
+  /* Status. Success leans teal so it never reads as a brand chip. */
+  --color-success: #0b6e58;
+  --color-success-soft: #e3f3ee;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #fbf1d9;
+  --color-warning-mark: #d99a1e;
   --color-danger: #b42318;
+  --color-danger-hover: #9a1d14;
   --color-danger-soft: #fcebe9;
   --color-danger-mark: #d9645a;
+  --color-info: #1d5c9e;
+  --color-info-soft: #e6eff9;
+
+  /* Data: chart series and categories (subjects, avatars). */
+  --color-chart-grid: #ecede7;
+  --color-chart-2: #2f6fa8;
+  --color-cat-green: #1e6b3e;
+  --color-cat-green-soft: #e7f0e9;
+  --color-cat-green-ink: #14532d;
+  --color-cat-blue: #2f6fa8;
+  --color-cat-blue-soft: #e6eff9;
+  --color-cat-blue-ink: #1a4f86;
+  --color-cat-orange: #c2611a;
+  --color-cat-orange-soft: #fbeedd;
+  --color-cat-orange-ink: #7c4a06;
+  --color-cat-plum: #6b4c8a;
+  --color-cat-plum-soft: #f1e8f4;
+  --color-cat-plum-ink: #5e3a78;
+  --color-cat-sand-soft: #efece0;
+  --color-cat-sand-ink: #5a4e24;
 
   --radius-control: 0.5rem;
   --radius-panel: 0.75rem;
@@ -35,7 +83,7 @@
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
 
-  --shadow-pop: 0 1px 2px rgb(23 32 51 / 0.06), 0 8px 24px -6px rgb(23 32 51 / 0.14);
+  --shadow-pop: 0 1px 2px rgb(24 35 29 / 0.06), 0 8px 24px -6px rgb(24 35 29 / 0.14);
 }
 
 @layer base {
@@ -50,14 +98,18 @@
   }
   /* One visible focus style for every interactive element. */
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-brand);
     outline-offset: 2px;
   }
+  /* On the dark sidebar the green ring would vanish; use ivory there. */
+  .on-dark :focus-visible {
+    outline-color: var(--color-ivory);
+  }
   ::selection {
-    background: var(--color-accent-soft);
+    background: var(--color-brand-soft);
   }
   dialog::backdrop {
-    background: rgb(23 32 51 / 0.4);
+    background: rgb(18 59 41 / 0.45);
   }
   input[type='date']::-webkit-calendar-picker-indicator {
     cursor: pointer;
@@ -71,7 +123,7 @@
 }
 
 @utility field-control {
-  @apply block w-full rounded-control border border-line-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint;
+  @apply block w-full rounded-control border border-line-input bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint;
   @apply hover:border-ink-faint disabled:cursor-not-allowed disabled:bg-subtle disabled:text-ink-muted;
   @apply aria-invalid:border-danger;
   min-height: 2.5rem;

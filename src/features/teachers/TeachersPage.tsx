@@ -108,7 +108,7 @@ export function TeachersPage() {
                       <Phone aria-label="Phone" className="size-4 text-ink-faint" />
                     </dt>
                     <dd>
-                      <a href={`tel:${t.phone.replace(/\s/g, '')}`} className="num hover:text-accent hover:underline">
+                      <a href={`tel:${t.phone.replace(/\s/g, '')}`} className="num hover:text-brand hover:underline">
                         {t.phone}
                       </a>
                     </dd>
@@ -118,7 +118,7 @@ export function TeachersPage() {
                       <Mail aria-label="Email" className="size-4 text-ink-faint" />
                     </dt>
                     <dd className="min-w-0 truncate">
-                      <a href={`mailto:${t.email}`} className="hover:text-accent hover:underline">
+                      <a href={`mailto:${t.email}`} className="hover:text-brand hover:underline">
                         {t.email}
                       </a>
                     </dd>

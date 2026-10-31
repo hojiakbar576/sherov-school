@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { Subject, Teacher, TeacherStatus } from '../../types'
 import { SUBJECTS } from '../../types'
-import { useSchool } from '../../data/school-context'
+import { useSchool, type TeacherInput } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Dialog } from '../../components/ui/Dialog'
 import { Button } from '../../components/ui/Button'
@@ -23,7 +23,7 @@ export function TeacherFormDialog(props: Props) {
   )
 }
 
-type FormState = Omit<Teacher, 'id'>
+type FormState = TeacherInput
 type Errors = Partial<Record<keyof FormState, string>>
 
 function TeacherForm({ onClose, teacher }: Props) {

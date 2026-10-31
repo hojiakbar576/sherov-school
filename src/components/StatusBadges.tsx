@@ -32,7 +32,7 @@ export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
 
 const sessionBadge: Record<SessionStatus, [Tone, string]> = {
   upcoming: ['neutral', 'Upcoming'],
-  in_progress: ['accent', 'In progress'],
+  in_progress: ['brand', 'In progress'],
   recorded: ['success', 'Attendance taken'],
   not_recorded: ['danger', 'Attendance missing'],
 }

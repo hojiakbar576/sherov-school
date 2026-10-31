@@ -55,8 +55,9 @@ export function SettingsPage() {
   }
 
   const sizeKb = Math.round(new Blob([JSON.stringify(data)]).size / 1024)
+  // Counts are for the administrator's own branch.
   const counts: [string, number][] = [
-    ['Students', data.students.length],
+    ['Students in your branch', data.students.length],
     ['Teachers', data.teachers.length],
     ['Groups', data.groups.length],
     ['Payments', data.payments.length],
@@ -164,7 +165,7 @@ export function SettingsPage() {
         }}
       >
         <p>
-          Every change made in this browser will be lost: students, teachers, groups, payments, attendance and settings you added or edited. The app will start again with fresh
+          Every change made in this browser will be lost, for all three branches and every demo account: students, teachers, groups, payments, attendance, homework and settings you added or edited. The app will start again with fresh
           sample data dated today.
         </p>
         <p>If you might need your changes, download a copy first.</p>

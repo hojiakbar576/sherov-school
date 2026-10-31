@@ -31,7 +31,7 @@ function Seats({ count, capacity }: { count: number; capacity: number }) {
         {full && <span className="ml-1.5 text-xs font-medium text-danger">Full</span>}
       </p>
       <div aria-hidden className="mt-1 h-1 w-full rounded-full bg-subtle">
-        <div className={cn('h-1 rounded-full', full ? 'bg-danger-mark' : ratio >= 0.9 ? 'bg-warning-mark' : 'bg-accent')} style={{ width: `${ratio * 100}%` }} />
+        <div className={cn('h-1 rounded-full', full ? 'bg-danger-mark' : ratio >= 0.9 ? 'bg-warning-mark' : 'bg-brand')} style={{ width: `${ratio * 100}%` }} />
       </div>
     </div>
   )
@@ -131,7 +131,7 @@ export function GroupsPage() {
                   {filtered.map((g) => (
                     <tr key={g.id} className={cn(g.status !== 'active' && 'text-ink-muted')}>
                       <td className={td}>
-                        <Link to={`/students?group=${g.id}`} className="font-medium text-ink hover:text-accent hover:underline">
+                        <Link to={`/students?group=${g.id}`} className="font-medium text-ink hover:text-brand hover:underline">
                           {g.name}
                         </Link>
                         <p className="text-xs text-ink-muted">{g.subject}</p>

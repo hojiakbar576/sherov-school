@@ -8,10 +8,10 @@ const base =
   'disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-white hover:bg-accent-hover',
+  primary: 'bg-brand text-white hover:bg-brand-hover',
   secondary: 'border border-line-strong bg-surface text-ink hover:bg-subtle',
   ghost: 'text-ink-muted hover:bg-subtle hover:text-ink',
-  danger: 'bg-danger text-white hover:bg-[#9a1d14]',
+  danger: 'bg-danger text-white hover:bg-danger-hover',
 }
 
 const sizes: Record<Size, string> = {

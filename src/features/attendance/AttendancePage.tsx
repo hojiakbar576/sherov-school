@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { CalendarOff, Check, ChevronLeft, ChevronRight, ClipboardCheck, Users } from 'lucide-react'
-import type { AttendanceMark, Student } from '../../types'
+import { CalendarOff, Check, ChevronLeft, ChevronRight, ClipboardCheck, History, Lock, MessageSquarePlus, Users } from 'lucide-react'
+import type { AttendanceMark, Group, Student } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -11,8 +11,8 @@ import { Input } from '../../components/ui/Field'
 import { Avatar, EmptyState } from '../../components/ui/misc'
 import { SessionStatusBadge } from '../../components/StatusBadges'
 import { addDays, isValidISODate, parseISODate, toISODate } from '../../lib/dates'
-import { attendanceMarkLabel, formatLongDate, formatRelative } from '../../lib/format'
-import { findRecord, groupRoster, sessionsOn, type Session } from '../../lib/metrics'
+import { attendanceMarkLabel, formatDate, formatLongDate, formatPercent, formatRelative } from '../../lib/format'
+import { findRecord, groupRoster, sessionsOn, summarizeMarks, type Session } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
 
 const MARKS: AttendanceMark[] = ['present', 'late', 'absent']
@@ -33,12 +33,16 @@ function defaultSession(sessions: Session[]): Session | undefined {
 }
 
 export function AttendancePage() {
-  const { data, now } = useSchool()
+  const { data, now, user } = useSchool()
+  const isTeacher = user?.role === 'teacher'
   const [params, setParams] = useSearchParams()
   const today = toISODate(now)
   const date = isValidISODate(params.get('date')) ? params.get('date')! : today
   const sessions = useMemo(() => sessionsOn(data, date, now), [data, date, now])
-  const selected = sessions.find((s) => s.group.id === params.get('group')) ?? defaultSession(sessions)
+  const requested = params.get('group')
+  // A class someone can't see (another teacher's, or another branch's) is never opened.
+  const notAllowed = requested !== null && !data.groups.some((g) => g.id === requested)
+  const selected = sessions.find((s) => s.group.id === requested) ?? (notAllowed ? undefined : defaultSession(sessions))
 
   const go = (next: { date?: string; group?: string }) => {
     const p = new URLSearchParams()
@@ -49,7 +53,14 @@ export function AttendancePage() {
 
   return (
     <>
-      <PageHeader title="Attendance" description="Choose a class, mark each student, then save. Saved attendance updates the dashboard straight away." />
+      <PageHeader
+        title="Attendance"
+        description={
+          isTeacher
+            ? 'Choose one of your classes, mark each student, add a note if needed, then save.'
+            : 'Choose a class, mark each student, then save. Saved attendance updates the dashboard straight away.'
+        }
+      />
 
       <div className="grid items-start gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
         <Panel title="Classes" description={formatLongDate(parseISODate(date))} flush>
@@ -88,11 +99,11 @@ export function AttendancePage() {
                       type="button"
                       aria-current={current ? 'true' : undefined}
                       onClick={() => go({ group: s.group.id })}
-                      className={cn('flex w-full items-start gap-3 px-5 py-3 text-left hover:bg-canvas', current && 'bg-accent-soft hover:bg-accent-soft')}
+                      className={cn('flex w-full items-start gap-3 px-5 py-3 text-left hover:bg-canvas', current && 'bg-brand-soft hover:bg-brand-soft')}
                     >
                       <span className="num w-11 shrink-0 pt-0.5 text-sm font-medium text-ink">{s.start}</span>
                       <span className="min-w-0 flex-1">
-                        <span className={cn('block truncate text-sm font-medium', current ? 'text-accent-ink' : 'text-ink')}>{s.group.name}</span>
+                        <span className={cn('block truncate text-sm font-medium', current ? 'text-brand-ink' : 'text-ink')}>{s.group.name}</span>
                         <span className="mt-1 block">
                           <SessionStatusBadge status={s.status} />
                         </span>
@@ -105,9 +116,20 @@ export function AttendancePage() {
           )}
         </Panel>
 
-        {selected ? (
-          // key: start fresh when switching class or date
-          <Roster key={`${selected.group.id}-${date}`} session={selected} date={date} isFuture={date > today || selected.status === 'upcoming'} />
+        {notAllowed ? (
+          <div className="rounded-panel border border-line bg-surface">
+            <EmptyState icon={Lock} title="This class isn’t yours">
+              {isTeacher
+                ? 'You can only see and record attendance for groups you teach. Pick one of your classes from the list.'
+                : 'This group belongs to another branch. Pick one of your branch’s classes from the list.'}
+            </EmptyState>
+          </div>
+        ) : selected ? (
+          <div className="min-w-0 space-y-6">
+            {/* key: start fresh when switching class or date */}
+            <Roster key={`${selected.group.id}-${date}`} session={selected} date={date} isFuture={date > today || selected.status === 'upcoming'} />
+            <RecentRecords group={selected.group} current={date} onOpen={(d) => go({ date: d, group: selected.group.id })} />
+          </div>
         ) : (
           <div className="rounded-panel border border-line bg-surface">
             <EmptyState icon={ClipboardCheck} title="Pick a day with classes">
@@ -121,9 +143,11 @@ export function AttendancePage() {
 }
 
 function Roster({ session, date, isFuture }: { session: Session; date: string; isFuture: boolean }) {
-  const { data, now, actions } = useSchool()
+  const { data, now, actions, user } = useSchool()
   const toast = useToast()
   const record = findRecord(data, session.group.id, date)
+  const [comments, setComments] = useState<Record<string, string>>(() => ({ ...record?.comments }))
+  const [noteOpen, setNoteOpen] = useState<Record<string, boolean>>({})
 
   // Current students, plus anyone marked earlier who has since left the group.
   const students = useMemo(() => {
@@ -145,9 +169,17 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
 
   const counts = MARKS.map((m) => [m, students.filter((s) => marks[s.id] === m).length] as const)
 
+  const setComment = (id: string, text: string) => {
+    setComments((c) => ({ ...c, [id]: text }))
+    setDirty(true)
+  }
+
   const save = () => {
     const toSave = Object.fromEntries(students.map((s) => [s.id, marks[s.id] ?? 'present']))
-    actions.saveAttendance(session.group.id, date, toSave)
+    if (!actions.saveAttendance(session.group.id, date, toSave, comments)) {
+      toast.show('Attendance wasn’t saved: you can only record attendance for your own groups.', 'error')
+      return
+    }
     setDirty(false)
     const attended = Object.values(toSave).filter((m) => m !== 'absent').length
     toast.show(`Attendance saved for ${session.group.name}: ${attended} of ${students.length} attended.`)
@@ -176,7 +208,9 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
     >
       {students.length === 0 ? (
         <EmptyState icon={Users} title="No students in this group yet">
-          Add students to {session.group.name} from the Students page.
+          {user?.role === 'teacher'
+            ? 'Your branch administrator adds students to groups.'
+            : `Add students to ${session.group.name} from the Students page.`}
         </EmptyState>
       ) : isFuture ? (
         <EmptyState icon={CalendarOff} title="This class hasn’t started yet">
@@ -194,8 +228,10 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
           <ul className="divide-y divide-line border-t border-line">
             {students.map((s) => {
               const inGroup = s.groupId === session.group.id
+              const comment = comments[s.id] ?? ''
+              const showNote = noteOpen[s.id] || comment !== ''
               return (
-                <li key={s.id} className="flex flex-col gap-2 px-5 py-2.5 sm:flex-row sm:items-center sm:gap-4">
+                <li key={s.id} className="flex flex-col gap-2 px-5 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <Avatar name={s.fullName} size="sm" />
                     <div className="min-w-0">
@@ -218,7 +254,7 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
                         <span
                           className={cn(
                             'flex h-8 min-w-[4.5rem] cursor-pointer items-center justify-center rounded-control border border-line-strong px-2.5 text-xs font-medium text-ink-muted select-none hover:bg-subtle',
-                            'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent',
+                            'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand',
                             markStyle[m],
                           )}
                         >
@@ -226,7 +262,28 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
                         </span>
                       </label>
                     ))}
+                    <IconButton
+                      label={`Add a note for ${s.fullName}`}
+                      onClick={() => setNoteOpen((o) => ({ ...o, [s.id]: true }))}
+                      disabled={showNote}
+                      className="size-8 disabled:opacity-40"
+                    >
+                      <MessageSquarePlus />
+                    </IconButton>
                   </fieldset>
+                  {showNote && (
+                    <div className="w-full sm:pl-11">
+                      <Input
+                        aria-label={`Note for ${s.fullName}`}
+                        value={comment}
+                        maxLength={200}
+                        autoFocus={noteOpen[s.id] && comment === ''}
+                        placeholder="Optional note, e.g. “Arrived 15 minutes late”"
+                        onChange={(e) => setComment(s.id, e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  )}
                 </li>
               )
             })}
@@ -245,6 +302,64 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
             </Button>
           </div>
         </>
+      )}
+    </Panel>
+  )
+}
+
+/** Earlier saved attendance for the group, newest first. */
+function RecentRecords({ group, current, onOpen }: { group: Group; current: string; onOpen: (date: string) => void }) {
+  const { data } = useSchool()
+  const all = useMemo(
+    () => data.attendance.filter((r) => r.groupId === group.id).sort((a, b) => b.date.localeCompare(a.date)),
+    [data.attendance, group.id],
+  )
+  const overall = summarizeMarks(all)
+
+  return (
+    <Panel
+      title="Recorded attendance"
+      description={
+        overall.rate === null
+          ? `No attendance saved for ${group.name} yet.`
+          : `${formatPercent(overall.rate)} attended across ${all.length} saved ${all.length === 1 ? 'class' : 'classes'}. Showing the latest ${Math.min(all.length, 8)}.`
+      }
+      flush
+    >
+      {all.length === 0 ? (
+        <EmptyState icon={History} title="Nothing recorded yet">
+          Saved classes appear here.
+        </EmptyState>
+      ) : (
+        <ul className="divide-y divide-line border-t border-line">
+          {all.slice(0, 8).map((r) => {
+            const summary = summarizeMarks([r])
+            const notes = Object.keys(r.comments ?? {}).length
+            const isCurrent = r.date === current
+            return (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(r.date)}
+                  aria-current={isCurrent ? 'true' : undefined}
+                  className={cn(
+                    'flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 text-left text-sm hover:bg-canvas',
+                    isCurrent && 'bg-brand-soft hover:bg-brand-soft',
+                  )}
+                >
+                  <span className="num w-36 shrink-0 font-medium whitespace-nowrap text-ink">
+                    {formatDate(r.date)}, {r.startTime}
+                  </span>
+                  <span className="num min-w-0 flex-1 text-ink-muted">
+                    {summary.present} present, {summary.late} late, {summary.absent} absent
+                    {notes > 0 && `, ${notes} ${notes === 1 ? 'note' : 'notes'}`}
+                  </span>
+                  <span className="num text-xs font-medium text-ink">{summary.rate === null ? '' : formatPercent(summary.rate)}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
       )}
     </Panel>
   )

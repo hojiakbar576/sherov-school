@@ -4,28 +4,74 @@ import { Bell, CalendarX2, Clock, UsersRound, Wallet, type LucideIcon } from 'lu
 import { useSchool } from '../../data/school-context'
 import { attentionLabel, attentionLink, useAttention } from '../../hooks/useAttention'
 import type { AttentionItem, AttentionKind } from '../../lib/metrics'
+import { notificationIcon, notificationKindLabel, teacherNotifications } from '../../lib/notifications'
 import { cn } from '../../lib/cn'
 import { Popover } from '../ui/Popover'
 
-const kindIcon: Record<AttentionKind, LucideIcon> = {
+const attentionIcon: Record<AttentionKind, LucideIcon> = {
   attendance_missing: CalendarX2,
   overdue: Wallet,
   absences: Clock,
   capacity: UsersRound,
 }
 
-/** Notifications are generated from the same "needs attention" rules as the dashboard. */
-function pickNotifications(items: AttentionItem[]): AttentionItem[] {
+/** One row in the menu, whatever produced it. */
+interface MenuItem {
+  id: string
+  icon: LucideIcon
+  label: string
+  title: string
+  detail: string
+  to: string
+}
+
+/** Administrators: generated from the same "needs attention" rules as the dashboard. */
+function pickAttention(items: AttentionItem[]): MenuItem[] {
   const take = (kind: AttentionKind, n: number) => items.filter((i) => i.kind === kind).slice(0, n)
-  return [...take('attendance_missing', 3), ...take('absences', 2), ...take('capacity', 2), ...take('overdue', 3)]
+  return [...take('attendance_missing', 3), ...take('absences', 2), ...take('capacity', 2), ...take('overdue', 3)].map((item) => ({
+    id: item.id,
+    icon: attentionIcon[item.kind],
+    label: attentionLabel[item.kind],
+    title: item.title,
+    detail: item.reason,
+    to: attentionLink(item),
+  }))
 }
 
 export function NotificationsMenu() {
-  const { data, actions } = useSchool()
-  const items = useAttention()
-  const notifications = useMemo(() => pickNotifications(items), [items])
-  const read = new Set(data.readNotificationIds)
-  const unread = notifications.filter((n) => !read.has(n.id))
+  const { user } = useSchool()
+  return user?.role === 'teacher' ? <TeacherNotificationsMenu /> : <AdminNotificationsMenu />
+}
+
+function AdminNotificationsMenu() {
+  const attention = useAttention()
+  const items = useMemo(() => pickAttention(attention), [attention])
+  return <Menu items={items} empty="Nothing needs your attention right now." />
+}
+
+function TeacherNotificationsMenu() {
+  const { data, now } = useSchool()
+  const items = useMemo<MenuItem[]>(
+    () =>
+      teacherNotifications(data, now)
+        .slice(0, 8)
+        .map((n) => ({
+          id: n.id,
+          icon: notificationIcon[n.kind],
+          label: notificationKindLabel[n.kind],
+          title: n.title,
+          detail: n.body,
+          to: n.link ?? '/teacher/notifications',
+        })),
+    [data, now],
+  )
+  return <Menu items={items} empty="No notifications yet." footerLink="/teacher/notifications" />
+}
+
+function Menu({ items, empty, footerLink }: { items: MenuItem[]; empty: string; footerLink?: string }) {
+  const { data, user, actions } = useSchool()
+  const read = new Set(user ? data.notificationReads[user.id] : [])
+  const unread = items.filter((n) => !read.has(n.id))
 
   return (
     <Popover
@@ -54,23 +100,23 @@ export function NotificationsMenu() {
             <button
               type="button"
               disabled={unread.length === 0}
-              onClick={() => actions.markNotificationsRead(notifications.map((n) => n.id))}
-              className="text-xs font-medium text-accent hover:underline disabled:text-ink-faint disabled:no-underline"
+              onClick={() => actions.markNotificationsRead(items.map((n) => n.id))}
+              className="text-xs font-medium text-brand hover:underline disabled:text-ink-faint disabled:no-underline"
             >
               Mark all as read
             </button>
           </div>
-          {notifications.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-ink-muted">Nothing needs your attention right now.</p>
+          {items.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-ink-muted">{empty}</p>
           ) : (
             <ul className="max-h-[min(28rem,70vh)] divide-y divide-line overflow-y-auto">
-              {notifications.map((item) => {
-                const Icon = kindIcon[item.kind]
+              {items.map((item) => {
+                const Icon = item.icon
                 const isUnread = !read.has(item.id)
                 return (
                   <li key={item.id}>
                     <Link
-                      to={attentionLink(item)}
+                      to={item.to}
                       onClick={() => {
                         actions.markNotificationsRead([item.id])
                         close()
@@ -79,18 +125,24 @@ export function NotificationsMenu() {
                     >
                       <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-faint" />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-xs text-ink-muted">{attentionLabel[item.kind]}</span>
+                        <span className="block text-xs text-ink-muted">{item.label}</span>
                         <span className={cn('block truncate text-sm', isUnread ? 'font-semibold text-ink' : 'text-ink')}>{item.title}</span>
-                        <span className="block text-xs text-ink-muted">{item.reason}</span>
+                        <span className="line-clamp-2 block text-xs text-ink-muted">{item.detail}</span>
                       </span>
-                      {isUnread && <span aria-label="Unread" className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" />}
+                      {isUnread && <span aria-label="Unread" className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" />}
                     </Link>
                   </li>
                 )
               })}
             </ul>
           )}
-          <p className="border-t border-line px-4 py-2.5 text-xs text-ink-muted">Generated from the demo data in this browser.</p>
+          {footerLink ? (
+            <Link to={footerLink} onClick={close} className="block border-t border-line px-4 py-2.5 text-xs font-medium text-brand hover:bg-subtle">
+              See all notifications
+            </Link>
+          ) : (
+            <p className="border-t border-line px-4 py-2.5 text-xs text-ink-muted">Generated from the demo data in this browser.</p>
+          )}
         </>
       )}
     </Popover>

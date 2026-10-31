@@ -43,7 +43,7 @@ function RateBar({ rate, neutral = false }: { rate: number | null; neutral?: boo
   return (
     <div className="flex items-center gap-2">
       <div aria-hidden className="h-1.5 w-20 rounded-full bg-subtle">
-        <div className={cn('h-1.5 rounded-full', neutral ? 'bg-accent' : rate < 0.8 ? 'bg-danger-mark' : rate < 0.88 ? 'bg-warning-mark' : 'bg-success')} style={{ width: `${rate * 100}%` }} />
+        <div className={cn('h-1.5 rounded-full', neutral ? 'bg-brand' : rate < 0.8 ? 'bg-danger-mark' : rate < 0.88 ? 'bg-warning-mark' : 'bg-success')} style={{ width: `${rate * 100}%` }} />
       </div>
       <span className="num">{formatPercent(rate)}</span>
     </div>
