@@ -37,6 +37,8 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
       payments: data.payments.filter((p) => studentIds.has(p.studentId)),
       attendance: data.attendance.filter((r) => groupIds.has(r.groupId)),
       homework: data.homework.filter((h) => groupIds.has(h.groupId)),
+      homeworkResults: data.homeworkResults.filter((r) => studentIds.has(r.studentId)),
+      studentNotes: data.studentNotes.filter((n) => studentIds.has(n.studentId)),
       notifications,
       activity: data.activity.filter((a) => !a.branchId || a.branchId === branchId),
     }
@@ -45,15 +47,22 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
   // Teacher: their own groups and the students in them. No payments or tuition.
   const groups = data.groups.filter((g) => g.teacherId === user.teacherId)
   const groupIds = new Set(groups.map((g) => g.id))
+  const students = data.students.filter((s) => s.groupId !== null && groupIds.has(s.groupId) && s.status !== 'left')
+  const studentIds = new Set(students.map((s) => s.id))
+  const homework = data.homework.filter((h) => groupIds.has(h.groupId))
+  const homeworkIds = new Set(homework.map((h) => h.id))
   return {
     ...data,
     users: data.users.filter((u) => u.id === user.id),
     teachers: data.teachers.filter((t) => t.id === user.teacherId),
     groups,
-    students: data.students.filter((s) => s.groupId !== null && groupIds.has(s.groupId) && s.status !== 'left'),
+    students,
     payments: [],
     attendance: data.attendance.filter((r) => groupIds.has(r.groupId)),
-    homework: data.homework.filter((h) => groupIds.has(h.groupId)),
+    homework,
+    // Results for their own homework, for students still in their groups.
+    homeworkResults: data.homeworkResults.filter((r) => homeworkIds.has(r.homeworkId) && studentIds.has(r.studentId)),
+    studentNotes: data.studentNotes.filter((n) => studentIds.has(n.studentId)),
     notifications,
     activity: [],
   }

@@ -28,13 +28,14 @@ import {
 import { createRandom, type Random } from '../lib/random'
 import { meetsOn } from '../lib/schedule'
 import { FEMALE_FIRST_NAMES, MALE_FIRST_NAMES, PHONE_PREFIXES, SURNAMES } from './names'
-import { BRANCHES, TEACHER_BRANCH, buildUsers, seedHomework, seedNotifications } from './seed-portal'
+import { BRANCHES, TEACHER_BRANCH, buildUsers, seedNotifications } from './seed-portal'
+import { seedHomework, seedHomeworkResults, seedStudentNotes, studentProfile } from './seed-learning'
 
 /**
  * Bump when the stored data shape changes. data/migrate.ts upgrades older
  * saved data; anything it can't upgrade is set aside as a backup.
  */
-export const DATA_VERSION = 2
+export const DATA_VERSION = 3
 /** How many months of tuition history the demo covers (including this month). */
 export const HISTORY_MONTHS = 6
 
@@ -190,6 +191,7 @@ export function createDemoData(now: Date = new Date()): SchoolData {
         groupId,
         branchId: groupId ? TEACHER_BRANCH[GROUPS.find((g) => g.id === groupId)!.teacherId] : rand.pick(BRANCHES).id,
         enrolledOn: enrollmentDate(),
+        guardians: [],
         monthlyTuition: tuition,
         status,
       },
@@ -289,7 +291,9 @@ export function createDemoData(now: Date = new Date()): SchoolData {
     }
   }
 
-  const students = generated.map((g) => g.student)
+  // Birthdays, addresses and parents come from each student's id (see seed-learning.ts).
+  const students = generated.map(({ student }) => ({ ...student, ...studentProfile(student, now) }))
+  const homework = seedHomework(groups, students, now)
   return {
     version: DATA_VERSION,
     seededAt: now.toISOString(),
@@ -300,7 +304,9 @@ export function createDemoData(now: Date = new Date()): SchoolData {
     students,
     attendance,
     payments,
-    homework: seedHomework(groups, now),
+    homework,
+    homeworkResults: seedHomeworkResults(homework, now),
+    studentNotes: seedStudentNotes(students, groups, teachers, now),
     notifications: seedNotifications(teachers, groups, now),
     activity: buildSeedActivity(students, groups, payments, attendance, now),
     settings: { ...DEFAULT_SETTINGS },

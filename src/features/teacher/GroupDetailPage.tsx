@@ -11,6 +11,8 @@ import { dayPatternLabel, formatDate, formatPercent } from '../../lib/format'
 import { studentAttendance, summarizeMarks } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
 import { rateTone, splitHomework } from './teacher-metrics'
+import { GuardianContacts } from './LearningBadges'
+import { homeworkProgress } from '../../lib/performance'
 
 export function GroupDetailPage() {
   const { groupId } = useParams()
@@ -103,7 +105,7 @@ export function GroupDetailPage() {
                       Student
                     </th>
                     <th scope="col" className={th}>
-                      Phone
+                      Main contact
                     </th>
                     <th scope="col" className={cn(th, 'text-right')}>
                       Attendance
@@ -117,15 +119,13 @@ export function GroupDetailPage() {
                   {students.map(({ student, rate }) => (
                     <tr key={student.id}>
                       <td className={td}>
-                        <span className="flex items-center gap-3">
+                        <Link to={`/teacher/students/${student.id}`} className="flex items-center gap-3 font-medium text-ink hover:text-brand-ink hover:underline">
                           <Avatar name={student.fullName} size="sm" />
-                          <span className="font-medium text-ink">{student.fullName}</span>
-                        </span>
+                          {student.fullName}
+                        </Link>
                       </td>
-                      <td className={cn(td, 'num whitespace-nowrap text-ink-muted')}>
-                        <a href={`tel:${student.phone.replace(/\s/g, '')}`} className="hover:text-ink hover:underline">
-                          {student.phone}
-                        </a>
+                      <td className={cn(td, 'py-2.5')}>
+                        <GuardianContacts guardians={student.guardians.slice(0, 1)} ownPhone={student.phone} compact />
                       </td>
                       <td className={cn(td, 'num text-right font-medium', rateTone(rate))}>{rate === null ? '—' : formatPercent(rate)}</td>
                       <td className={td}>
@@ -154,11 +154,13 @@ export function GroupDetailPage() {
           ) : (
             <ul className="divide-y divide-line border-t border-line">
               {[...current, ...past.slice(0, 4)].map((h) => (
-                <li key={h.id} className="px-5 py-3">
-                  <p className="text-sm font-medium text-ink">{h.title}</p>
-                  <p className="num text-xs text-ink-muted">
-                    {past.includes(h) ? 'Was due' : 'Due'} {formatDate(h.dueDate)}
-                  </p>
+                <li key={h.id}>
+                  <Link to={`/teacher/homework/${h.id}`} className="block px-5 py-3 hover:bg-canvas">
+                    <p className="text-sm font-medium text-ink">{h.title}</p>
+                    <p className="num text-xs text-ink-muted">
+                      {past.includes(h) ? 'Was due' : 'Due'} {formatDate(h.dueDate)} · {homeworkProgress(data, h).evaluated} evaluated
+                    </p>
+                  </Link>
                 </li>
               ))}
             </ul>

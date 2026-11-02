@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SchoolData, User } from '../types'
-import { createDemoData } from '../data/seed'
+import { createDemoData, DATA_VERSION } from '../data/seed'
 import { migrate } from '../data/migrate'
 import { validateSchoolData } from '../data/storage'
 import { DEMO_PASSWORD, demoSignIn } from './auth'
@@ -124,7 +124,7 @@ describe('upgrading saved data', () => {
         seededAt: d.seededAt,
         teachers: strip(d.teachers, 'branchId'),
         groups: strip(d.groups, 'branchId'),
-        students: strip(d.students, 'branchId'),
+        students: strip(d.students, 'branchId', 'guardians', 'dateOfBirth', 'gender', 'address'),
         attendance: strip(d.attendance, 'startTime', 'teacherId', 'comments'),
         payments: d.payments,
         activity: strip(d.activity, 'branchId'),
@@ -135,7 +135,7 @@ describe('upgrading saved data', () => {
   }
 
   it('keeps every record and local change, and passes validation', () => {
-    const upgraded = migrate(asVersion1(data), 2, NOW) as unknown as SchoolData
+    const upgraded = migrate(asVersion1(data), DATA_VERSION, NOW) as unknown as SchoolData
     expect(validateSchoolData(upgraded)).toBeNull()
     expect(upgraded.students).toHaveLength(data.students.length)
     expect(upgraded.payments).toHaveLength(data.payments.length)
@@ -146,9 +146,12 @@ describe('upgrading saved data', () => {
     const admin = upgraded.users.find((u: User) => u.username === 'admin.chilonzor')!
     expect(upgraded.notificationReads[admin.id]).toEqual(['missing:grp_01:2026-10-28'])
     expect(upgraded).not.toHaveProperty('readNotificationIds')
+    // Profiles and homework history are the same as freshly generated data.
+    expect(upgraded.students.map((s) => s.guardians)).toEqual(data.students.map((s) => s.guardians))
+    expect(upgraded.homeworkResults).toHaveLength(data.homeworkResults.length)
   })
 
   it('refuses data from a version it does not know', () => {
-    expect(migrate({ version: 99 }, 2, NOW)).toBeNull()
+    expect(migrate({ version: 99 }, DATA_VERSION, NOW)).toBeNull()
   })
 })

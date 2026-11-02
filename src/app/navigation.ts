@@ -1,5 +1,4 @@
 import {
-  Bell,
   CalendarDays,
   ChartColumn,
   ClipboardCheck,
@@ -31,6 +30,8 @@ export interface PortalNav {
   sections: NavSection[]
   /** Pinned to the bottom of the sidebar. */
   footer?: NavItem
+  /** Pages reached from elsewhere (e.g. the bell), named here only for the header title. */
+  hidden?: Pick<NavItem, 'to' | 'label'>[]
 }
 
 /** Administrator sidebar. Every entry here has a matching route in App.tsx. */
@@ -79,12 +80,11 @@ const TEACHER_NAV: PortalNav = {
     },
     {
       label: 'People',
-      items: [
-        { to: '/teacher/students', label: 'My students', icon: Users },
-        { to: '/teacher/notifications', label: 'Notifications', icon: Bell },
-      ],
+      items: [{ to: '/teacher/students', label: 'My students', icon: Users }],
     },
   ],
+  // Notifications open from the bell in the header.
+  hidden: [{ to: '/teacher/notifications', label: 'Notifications' }],
 }
 
 /** The owner portal isn't built yet; the owner would see the administrator pages. */
@@ -95,7 +95,7 @@ export function navFor(role: Role): PortalNav {
 /** Title for the header, e.g. "/students/stu_001" -> "Students". */
 export function pageTitle(pathname: string, role: Role = 'admin'): string {
   const nav = navFor(role)
-  const items = [...nav.sections.flatMap((s) => s.items), ...(nav.footer ? [nav.footer] : [])]
+  const items = [...nav.sections.flatMap((s) => s.items), ...(nav.footer ? [nav.footer] : []), ...(nav.hidden ?? [])]
   const home = nav.base || '/'
   if (pathname === home || pathname === `${home}/`) return 'Dashboard'
   const match = items.find((item) => item.to !== home && pathname.startsWith(item.to))

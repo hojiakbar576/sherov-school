@@ -1,7 +1,9 @@
 import type {
   AttendanceMark,
   DayPattern,
+  Gender,
   GroupStatus,
+  GuardianRelationship,
   ISODate,
   ISODateTime,
   MonthKey,
@@ -122,6 +124,11 @@ export function formatPhone(value: string): string {
   return `+998 ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 10)} ${digits.slice(10)}`
 }
 
+/** Link that dials a phone number. */
+export function telHref(phone: string): string {
+  return `tel:${phone.replace(/\s/g, '')}`
+}
+
 export function isValidPhone(value: string): boolean {
   const digits = value.replace(/\D/g, '')
   return digits.length === 9 || (digits.length === 12 && digits.startsWith('998'))
@@ -173,6 +180,26 @@ export const attendanceMarkLabel: Record<AttendanceMark, string> = {
 export const dayPatternLabel: Record<DayPattern, string> = {
   odd: 'Mon, Wed, Fri',
   even: 'Tue, Thu, Sat',
+}
+
+export const guardianRelationshipLabel: Record<GuardianRelationship, string> = {
+  mother: 'Mother',
+  father: 'Father',
+  grandmother: 'Grandmother',
+  grandfather: 'Grandfather',
+  guardian: 'Guardian',
+}
+
+export const genderLabel: Record<Gender, string> = {
+  female: 'Female',
+  male: 'Male',
+}
+
+/** Age in full years on the given day. */
+export function ageOn(dateOfBirth: ISODate, now: Date): number {
+  const [y, m, d] = dateOfBirth.split('-').map(Number)
+  const birthdayPassed = now.getMonth() + 1 > m || (now.getMonth() + 1 === m && now.getDate() >= d)
+  return now.getFullYear() - y - (birthdayPassed ? 0 : 1)
 }
 
 export const dayPatternShort: Record<DayPattern, string> = {

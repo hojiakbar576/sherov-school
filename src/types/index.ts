@@ -76,11 +76,32 @@ export interface Group {
 }
 
 export type StudentStatus = 'active' | 'paused' | 'left'
+export type Gender = 'female' | 'male'
+
+export const GUARDIAN_RELATIONSHIPS = ['mother', 'father', 'grandmother', 'grandfather', 'guardian'] as const
+export type GuardianRelationship = (typeof GUARDIAN_RELATIONSHIPS)[number]
+
+/** A parent or guardian. A student can have several; the first is the main contact. */
+export interface Guardian {
+  id: string
+  fullName: string
+  relationship: GuardianRelationship
+  phone: string
+  /** A second number, e.g. work or a relative. */
+  altPhone?: string
+}
+
 export interface Student {
   id: string
   fullName: string
+  /** The student's own phone, where they have one. */
   phone: string
   email?: string
+  dateOfBirth?: ISODate
+  gender?: Gender
+  address?: string
+  /** Parents or guardians, main contact first. Empty when not collected yet. */
+  guardians: Guardian[]
   groupId: string | null
   /** Branch the student studies at (their group's branch while they have one). */
   branchId: string
@@ -128,9 +149,51 @@ export interface Homework {
   teacherId: string
   title: string
   description: string
+  /** Optional link or reference, e.g. "Workbook p. 54" or a URL. */
+  resource?: string
+  assignedOn: ISODate
   dueDate: ISODate
+  /** Students in the group when it was set. They each get a result. */
+  studentIds: string[]
   createdAt: ISODateTime
   updatedAt?: ISODateTime
+}
+
+/** Whether the student handed the work in. "Evaluated" is a result with a score. */
+export type SubmissionState = 'not_submitted' | 'submitted' | 'late'
+
+/** The teacher's assessment. Kept separate so other scales can be added later. */
+export interface HomeworkEvaluation {
+  /** 0–100. */
+  score: number
+  feedback: string
+  evaluatedAt: ISODateTime
+  evaluatedBy: string
+}
+
+/**
+ * One student's result for one homework: the unit a future parent view or
+ * ranking reads. Missing means "not submitted, not evaluated".
+ */
+export interface HomeworkResult {
+  id: string
+  homeworkId: string
+  studentId: string
+  submission: SubmissionState
+  submittedOn?: ISODate
+  evaluation?: HomeworkEvaluation
+  updatedAt: ISODateTime
+}
+
+/** A teacher's note about a student. Staff only, never meant for parents. */
+export interface StudentNote {
+  id: string
+  studentId: string
+  authorId: string
+  authorName: string
+  text: string
+  important: boolean
+  createdAt: ISODateTime
 }
 
 // ---------------------------------------------------------------- messages
@@ -196,6 +259,8 @@ export interface SchoolData {
   attendance: AttendanceRecord[]
   payments: Payment[]
   homework: Homework[]
+  homeworkResults: HomeworkResult[]
+  studentNotes: StudentNote[]
   notifications: Notification[]
   activity: Activity[]
   settings: Settings

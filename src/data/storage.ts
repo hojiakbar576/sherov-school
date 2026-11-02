@@ -50,7 +50,7 @@ const validators: Record<string, (v: Obj) => boolean> = {
     isStr(g.id) && isStr(g.name) && isStr(g.teacherId) && isStr(g.branchId) && oneOf(g.days, ['odd', 'even']) &&
     isStr(g.startTime) && isNum(g.capacity) && isNum(g.monthlyFee) && isNum(g.durationMinutes),
   students: (s) =>
-    isStr(s.id) && isStr(s.fullName) && isStr(s.branchId) && (s.groupId === null || isStr(s.groupId)) &&
+    isStr(s.id) && isStr(s.fullName) && isStr(s.branchId) && Array.isArray(s.guardians) && (s.groupId === null || isStr(s.groupId)) &&
     isValidISODate(s.enrolledOn) && isNum(s.monthlyTuition) && oneOf(s.status, ['active', 'paused', 'left']),
   attendance: (r) =>
     isStr(r.id) && isStr(r.groupId) && isValidISODate(r.date) && isStr(r.startTime) && isStr(r.teacherId) &&
@@ -58,7 +58,13 @@ const validators: Record<string, (v: Obj) => boolean> = {
   payments: (p) =>
     isStr(p.id) && isStr(p.studentId) && isNum(p.amount) && isValidISODate(p.date) &&
     isStr(p.period) && oneOf(p.method, PAYMENT_METHODS) && oneOf(p.status, ['paid', 'pending', 'refunded']),
-  homework: (h) => isStr(h.id) && isStr(h.groupId) && isStr(h.teacherId) && isStr(h.title) && isValidISODate(h.dueDate),
+  homework: (h) =>
+    isStr(h.id) && isStr(h.groupId) && isStr(h.teacherId) && isStr(h.title) && isValidISODate(h.assignedOn) &&
+    isValidISODate(h.dueDate) && Array.isArray(h.studentIds),
+  homeworkResults: (r) =>
+    isStr(r.id) && isStr(r.homeworkId) && isStr(r.studentId) && oneOf(r.submission, ['not_submitted', 'submitted', 'late']) &&
+    (r.evaluation === undefined || (isObj(r.evaluation) && isNum(r.evaluation.score) && r.evaluation.score >= 0 && r.evaluation.score <= 100)),
+  studentNotes: (n) => isStr(n.id) && isStr(n.studentId) && isStr(n.text) && isStr(n.createdAt),
   notifications: (n) => isStr(n.id) && isStr(n.title) && isStr(n.body) && isStr(n.createdAt) && isObj(n.audience),
   activity: (a) => isStr(a.id) && isStr(a.title) && isStr(a.at),
 }

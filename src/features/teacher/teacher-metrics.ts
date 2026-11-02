@@ -15,16 +15,6 @@ export function attendanceTasks(data: SchoolData, now: Date): Session[] {
   return tasks
 }
 
-/** The next classes that haven't started, soonest first. */
-export function upcomingClasses(data: SchoolData, now: Date, limit: number): Session[] {
-  const found: Session[] = []
-  for (let i = 0; i < 8 && found.length < limit; i++) {
-    const date = toISODate(addDays(now, i))
-    found.push(...sessionsOn(data, date, now).filter((s) => s.status === 'upcoming'))
-  }
-  return found.slice(0, limit)
-}
-
 /** Homework split into what's still due and what's past its deadline. */
 export function splitHomework(items: Homework[], now: Date) {
   const today = toISODate(now)

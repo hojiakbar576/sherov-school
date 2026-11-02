@@ -17,6 +17,8 @@ import { MyGroupsPage } from '../features/teacher/MyGroupsPage'
 import { GroupDetailPage } from '../features/teacher/GroupDetailPage'
 import { MyStudentsPage } from '../features/teacher/MyStudentsPage'
 import { HomeworkPage } from '../features/teacher/HomeworkPage'
+import { HomeworkDetailPage } from '../features/teacher/HomeworkDetailPage'
+import { StudentProfilePage } from '../features/teacher/StudentProfilePage'
 import { NotificationsPage } from '../features/teacher/NotificationsPage'
 import { NotFoundPage } from './NotFoundPage'
 
@@ -63,7 +65,9 @@ export function App() {
         <Route path="groups/:groupId" element={<GroupDetailPage />} />
         <Route path="attendance" element={<AttendancePage />} />
         <Route path="students" element={<MyStudentsPage />} />
+        <Route path="students/:studentId" element={<StudentProfilePage />} />
         <Route path="homework" element={<HomeworkPage />} />
+        <Route path="homework/:homeworkId" element={<HomeworkDetailPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

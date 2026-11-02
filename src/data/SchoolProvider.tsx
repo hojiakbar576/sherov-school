@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { Activity, ActivityType, Notification, SchoolData, User } from '../types'
+import type { Activity, ActivityType, HomeworkResult, Notification, SchoolData, StudentNote, User } from '../types'
 import { createId } from '../lib/id'
 import { dayPatternLabel, formatUZS } from '../lib/format'
 import { computeBalances } from '../lib/metrics'
 import { demoSignIn, readSession, SESSION_KEY, SIGN_IN_ROLES, writeSession } from '../lib/auth'
 import { canTeachGroup, scopeData, userBranchId } from '../lib/scope'
+import { toISODate } from '../lib/dates'
 import { useNow } from '../hooks/useNow'
 import { createDemoData } from './seed'
 import { DEFAULT_BRANCH_ID, teacherUser } from './seed-portal'
+import { homeworkStudents } from './seed-learning'
 import { loadData, saveData, STORAGE_KEY, validateSchoolData } from './storage'
 import { SchoolContext, type SchoolActions, type SchoolContextValue } from './school-context'
 
@@ -115,7 +117,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     return {
       addStudent(input) {
         requireManager()
-        const student = { ...input, id: createId('stu'), branchId: branchForGroup(input.groupId) }
+        const student = { guardians: [], ...input, id: createId('stu'), branchId: branchForGroup(input.groupId) }
         requireInBranch(student.branchId)
         update((d) =>
           withActivity(
@@ -135,7 +137,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
           const entry = moved
             ? activity('group_changed', 'Student added to a group', `${input.fullName} moved to ${groupName(d, input.groupId) ?? 'a group'}`, branchId)
             : activity('student_updated', 'Student details updated', input.fullName, branchId)
-          return withActivity({ ...d, students: d.students.map((s) => (s.id === id ? { ...input, id, branchId } : s)) }, entry)
+          return withActivity({ ...d, students: d.students.map((s) => (s.id === id ? { ...s, ...input, id, branchId } : s)) }, entry)
         })
       },
       deleteStudent(id) {
@@ -155,6 +157,8 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
               ...d,
               students: d.students.filter((s) => s.id !== id),
               payments: d.payments.filter((p) => p.studentId !== id),
+              homeworkResults: d.homeworkResults.filter((r) => r.studentId !== id),
+              studentNotes: d.studentNotes.filter((n) => n.studentId !== id),
               attendance,
             },
             activity('student_removed', 'Student record deleted', student?.fullName ?? 'A student', student?.branchId),
@@ -277,6 +281,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
               students: d.students.map((s) => (s.groupId === id ? { ...s, groupId: null } : s)),
               attendance: d.attendance.filter((r) => r.groupId !== id),
               homework: d.homework.filter((h) => h.groupId !== id),
+              homeworkResults: d.homeworkResults.filter((r) => d.homework.find((h) => h.id === r.homeworkId)?.groupId !== id),
             },
             activity('group_changed', 'Group deleted', `${name}. Its students are now unassigned`, group?.branchId),
           )
@@ -332,7 +337,16 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       addHomework(input) {
         const group = teachableGroup(input.groupId)
         if (!group) return null
-        const homework = { ...input, id: createId('hw'), teacherId: group.teacherId, createdAt: new Date().toISOString() }
+        const today = toISODate(new Date())
+        const homework = {
+          ...input,
+          id: createId('hw'),
+          teacherId: group.teacherId,
+          assignedOn: today,
+          // Everyone in the group today gets a result row for this homework.
+          studentIds: homeworkStudents(fullData.students, group.id, today),
+          createdAt: new Date().toISOString(),
+        }
         update((d) =>
           withActivity(
             { ...d, homework: [...d.homework, homework] },
@@ -343,12 +357,12 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       },
       updateHomework(id, input) {
         const before = fullData.homework.find((h) => h.id === id)
-        // Both the current group and the new one must be the teacher's.
-        const group = before && teachableGroup(before.groupId) && teachableGroup(input.groupId)
+        const group = before && teachableGroup(before.groupId)
         if (!before || !group) return false
+        const changes = { title: input.title, description: input.description, dueDate: input.dueDate, resource: input.resource || undefined }
         update((d) =>
           withActivity(
-            { ...d, homework: d.homework.map((h) => (h.id === id ? { ...h, ...input, teacherId: group.teacherId, updatedAt: new Date().toISOString() } : h)) },
+            { ...d, homework: d.homework.map((h) => (h.id === id ? { ...h, ...changes, updatedAt: new Date().toISOString() } : h)) },
             activity('homework_changed', 'Homework updated', `${group.name}: ${input.title}`, group.branchId),
           ),
         )
@@ -360,10 +374,85 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         if (!before || !group) return false
         update((d) =>
           withActivity(
-            { ...d, homework: d.homework.filter((h) => h.id !== id) },
+            { ...d, homework: d.homework.filter((h) => h.id !== id), homeworkResults: d.homeworkResults.filter((r) => r.homeworkId !== id) },
             activity('homework_changed', 'Homework removed', `${group.name}: ${before.title}`, group.branchId),
           ),
         )
+        return true
+      },
+      saveHomeworkResults(homeworkId, rows) {
+        const homework = fullData.homework.find((h) => h.id === homeworkId)
+        const group = homework && teachableGroup(homework.groupId)
+        if (!homework || !group || !user) return null
+        const now = new Date()
+        const today = toISODate(now)
+        const assigned = new Set(homework.studentIds)
+        const existing = new Map(fullData.homeworkResults.filter((r) => r.homeworkId === homeworkId).map((r) => [r.studentId, r]))
+        const next = new Map(existing)
+        let changed = 0
+
+        for (const row of rows) {
+          // Only students the homework was set for, and only valid scores.
+          if (!assigned.has(row.studentId)) continue
+          const score = row.score === null ? null : Math.round(row.score)
+          if (score !== null && (!Number.isFinite(score) || score < 0 || score > 100)) continue
+          const before = existing.get(row.studentId)
+          const feedback = row.feedback.trim().slice(0, 1000)
+          // A score means the work was handed in.
+          const submission = score !== null && row.submission === 'not_submitted' ? 'submitted' : row.submission
+          const same =
+            (before?.submission ?? 'not_submitted') === submission &&
+            (before?.evaluation?.score ?? null) === score &&
+            (score === null || before?.evaluation?.feedback === feedback)
+          if (same) continue
+          changed += 1
+          if (submission === 'not_submitted' && score === null) {
+            next.delete(row.studentId)
+            continue
+          }
+          const result: HomeworkResult = {
+            id: before?.id ?? `res_${homeworkId}_${row.studentId}`,
+            homeworkId,
+            studentId: row.studentId,
+            submission,
+            ...(submission !== 'not_submitted' ? { submittedOn: before?.submittedOn ?? today } : {}),
+            ...(score !== null
+              ? {
+                  evaluation:
+                    before?.evaluation && before.evaluation.score === score && before.evaluation.feedback === feedback
+                      ? before.evaluation
+                      : { score, feedback, evaluatedAt: now.toISOString(), evaluatedBy: user.id },
+                }
+              : {}),
+            updatedAt: now.toISOString(),
+          }
+          next.set(row.studentId, result)
+        }
+        if (changed === 0) return 0
+        update((d) =>
+          withActivity(
+            { ...d, homeworkResults: [...d.homeworkResults.filter((r) => r.homeworkId !== homeworkId), ...next.values()] },
+            activity('homework_changed', 'Homework evaluated', `${group.name}: ${homework.title} (${changed} ${changed === 1 ? 'student' : 'students'})`, group.branchId),
+          ),
+        )
+        return changed
+      },
+
+      addStudentNote(studentId, text, important) {
+        const student = fullData.students.find((s) => s.id === studentId)
+        const clean = text.trim().slice(0, 1000)
+        if (!student || !user || !clean) return null
+        // Teachers: students in their groups. Administrators: their branch.
+        const allowed = user.role === 'teacher' ? Boolean(teachableGroup(student.groupId ?? '')) : user.role === 'owner' || student.branchId === user.branchId
+        if (!allowed) return null
+        const note: StudentNote = { id: createId('note'), studentId, authorId: user.id, authorName: user.fullName, text: clean, important, createdAt: new Date().toISOString() }
+        update((d) => ({ ...d, studentNotes: [note, ...d.studentNotes] }))
+        return note
+      },
+      deleteStudentNote(id) {
+        const note = fullData.studentNotes.find((n) => n.id === id)
+        if (!note || !user || note.authorId !== user.id) return false
+        update((d) => ({ ...d, studentNotes: d.studentNotes.filter((n) => n.id !== id) }))
         return true
       },
 

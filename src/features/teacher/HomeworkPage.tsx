@@ -1,78 +1,92 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { NotebookPen, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router'
+import { ChevronRight, NotebookPen, Plus } from 'lucide-react'
 import type { Homework } from '../../types'
-import { useSchool, type HomeworkInput } from '../../data/school-context'
+import { useSchool } from '../../data/school-context'
 import { useListParams } from '../../hooks/useListParams'
-import { useToast } from '../../components/ui/toast-context'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Panel } from '../../components/ui/Panel'
-import { Button, IconButton } from '../../components/ui/Button'
-import { ConfirmDialog, Dialog } from '../../components/ui/Dialog'
-import { Field, Input, Select, Textarea } from '../../components/ui/Field'
+import { Button } from '../../components/ui/Button'
+import { Select } from '../../components/ui/Field'
+import { RangeToggle } from '../../components/ui/RangeToggle'
 import { EmptyState } from '../../components/ui/misc'
 import { Badge } from '../../components/ui/Badge'
-import { addDays, isValidISODate, toISODate } from '../../lib/dates'
-import { formatDate, formatRelative } from '../../lib/format'
+import { addDays, toISODate } from '../../lib/dates'
+import { formatDate } from '../../lib/format'
+import { homeworkProgress, type HomeworkProgress } from '../../lib/performance'
 import { splitHomework } from './teacher-metrics'
+import { HomeworkFormDialog } from './HomeworkFormDialog'
 
-const FILTERS = ['group'] as const
+const FILTERS = ['group', 'show'] as const
 
+/** Every assignment with how far evaluation has got. Each opens its evaluation table. */
 export function HomeworkPage() {
-  const { data, now, actions } = useSchool()
-  const toast = useToast()
+  const { data, now } = useSchool()
+  const navigate = useNavigate()
   const { values, set } = useListParams(FILTERS)
-  const [editing, setEditing] = useState<Homework | 'new' | null>(null)
-  const [deleting, setDeleting] = useState<Homework | null>(null)
+  const [creating, setCreating] = useState(false)
   const groupName = useMemo(() => new Map(data.groups.map((g) => [g.id, g.name])), [data.groups])
+  const progress = useMemo(() => new Map(data.homework.map((h) => [h.id, homeworkProgress(data, h)])), [data])
+  const toEvaluateOnly = values.show === 'to-evaluate'
   const { current, past } = splitHomework(
-    data.homework.filter((h) => !values.group || h.groupId === values.group),
+    data.homework.filter((h) => (!values.group || h.groupId === values.group) && (!toEvaluateOnly || (progress.get(h.id)?.toEvaluate ?? 0) > 0)),
     now,
   )
   const today = toISODate(now)
   const tomorrow = toISODate(addDays(now, 1))
+  const waiting = [...progress.values()].reduce((sum, p) => sum + p.toEvaluate, 0)
 
-  const item = (h: Homework, isPast: boolean) => (
-    <li key={h.id} className="flex gap-4 px-5 py-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-medium text-ink">{h.title}</h3>
-          {h.dueDate === today && <Badge tone="warning">Due today</Badge>}
-          {h.dueDate === tomorrow && <Badge tone="accent">Due tomorrow</Badge>}
-        </div>
-        <p className="num mt-0.5 text-sm text-ink-muted">
-          {groupName.get(h.groupId) ?? 'Group'} · {isPast ? 'was due' : 'due'} {formatDate(h.dueDate)}
-        </p>
-        <p className="mt-2 max-w-[70ch] text-sm whitespace-pre-line text-ink">{h.description}</p>
-        <p className="mt-2 text-xs text-ink-faint">
-          Set {formatRelative(h.createdAt, now).replace(/^(Today|Yesterday|Just now)/, (w) => w.toLowerCase())}
-          {h.updatedAt && `, edited ${formatRelative(h.updatedAt, now).replace(/^(Today|Yesterday|Just now)/, (w) => w.toLowerCase())}`}
-        </p>
-      </div>
-      <div className="flex shrink-0 gap-0.5">
-        <IconButton label={`Edit ${h.title}`} onClick={() => setEditing(h)}>
-          <Pencil />
-        </IconButton>
-        <IconButton label={`Delete ${h.title}`} onClick={() => setDeleting(h)} className="hover:bg-danger-soft hover:text-danger">
-          <Trash2 />
-        </IconButton>
-      </div>
-    </li>
-  )
+  const row = (h: Homework) => {
+    const p = progress.get(h.id) as HomeworkProgress
+    return (
+      <li key={h.id}>
+        <Link to={`/teacher/homework/${h.id}`} className="group flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4 hover:bg-canvas">
+          <div className="min-w-0 flex-1 basis-64">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-medium text-ink group-hover:text-brand-ink">{h.title}</h3>
+              {h.dueDate === today && <Badge tone="warning">Due today</Badge>}
+              {h.dueDate === tomorrow && <Badge tone="info">Due tomorrow</Badge>}
+            </div>
+            <p className="num mt-0.5 text-sm text-ink-muted">
+              {groupName.get(h.groupId) ?? 'Group'} · set {formatDate(h.assignedOn)} · {h.dueDate < today ? 'was due' : 'due'} {formatDate(h.dueDate)}
+            </p>
+          </div>
+          <dl className="num flex gap-6 text-sm">
+            <div>
+              <dt className="text-xs text-ink-muted">Handed in</dt>
+              <dd className="font-medium text-ink">
+                {p.handedIn}/{p.assigned}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-muted">Evaluated</dt>
+              <dd className="font-medium text-ink">{p.evaluated}</dd>
+            </div>
+            <div className="w-24">
+              <dt className="text-xs text-ink-muted">To evaluate</dt>
+              <dd>{p.toEvaluate > 0 ? <Badge tone="accent">{p.toEvaluate} waiting</Badge> : <span className="text-ink-faint">None</span>}</dd>
+            </div>
+          </dl>
+          <ChevronRight aria-hidden className="hidden size-4 text-ink-faint sm:block" />
+        </Link>
+      </li>
+    )
+  }
 
   return (
     <>
       <PageHeader
         title="Homework"
-        description="Set homework for your groups. Students don’t submit work here yet; this is a record of what was set."
+        description="Set homework for your groups, then open an assignment to record who handed it in and evaluate each student."
         actions={
-          <Button variant="primary" onClick={() => setEditing('new')} disabled={data.groups.length === 0}>
+          <Button variant="primary" onClick={() => setCreating(true)} disabled={data.groups.length === 0}>
             <Plus aria-hidden />
             New homework
           </Button>
         }
       />
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <Select aria-label="Filter by group" value={values.group} onChange={(e) => set('group', e.target.value)} className="sm:w-64">
           <option value="">All my groups</option>
           {data.groups.map((g) => (
@@ -81,129 +95,37 @@ export function HomeworkPage() {
             </option>
           ))}
         </Select>
+        <RangeToggle
+          label="Show"
+          value={toEvaluateOnly ? 'to-evaluate' : 'all'}
+          onChange={(v) => set('show', v === 'all' ? '' : v)}
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'to-evaluate', label: `To evaluate (${waiting})` },
+          ]}
+        />
       </div>
 
       <div className="space-y-6">
-        <Panel title="Current" description={`${current.length} still due`} flush>
+        <Panel title="Current" description={`${current.length} not yet past the deadline`} flush>
           {current.length === 0 ? (
-            <EmptyState icon={NotebookPen} title="No homework due" action={<Button onClick={() => setEditing('new')}>Set homework</Button>}>
-              Nothing is due{values.group ? ' for this group' : ''} from today on.
+            <EmptyState icon={NotebookPen} title={toEvaluateOnly ? 'Nothing waiting here' : 'No homework due'} action={toEvaluateOnly ? undefined : <Button onClick={() => setCreating(true)}>Set homework</Button>}>
+              {toEvaluateOnly ? 'Everything handed in for current homework is evaluated.' : `Nothing is due${values.group ? ' for this group' : ''} from today on.`}
             </EmptyState>
           ) : (
-            <ul className="divide-y divide-line border-t border-line">{current.map((h) => item(h, false))}</ul>
+            <ul className="divide-y divide-line border-t border-line">{current.map(row)}</ul>
           )}
         </Panel>
-        <Panel title="Previous" description={past.length ? `${past.length} past deadlines` : undefined} flush>
+        <Panel title="Previous" description={past.length ? `${past.length} past the deadline` : undefined} flush>
           {past.length === 0 ? (
-            <EmptyState icon={NotebookPen} title="No previous homework" />
+            <EmptyState icon={NotebookPen} title={toEvaluateOnly ? 'All evaluated' : 'No previous homework'} />
           ) : (
-            <ul className="divide-y divide-line border-t border-line">{past.map((h) => item(h, true))}</ul>
+            <ul className="divide-y divide-line border-t border-line">{past.map(row)}</ul>
           )}
         </Panel>
       </div>
 
-      <Dialog open={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? 'New homework' : 'Edit homework'}>
-        {editing !== null && (
-          <HomeworkForm
-            homework={editing === 'new' ? undefined : editing}
-            defaultGroup={values.group}
-            onClose={() => setEditing(null)}
-          />
-        )}
-      </Dialog>
-
-      <ConfirmDialog
-        open={deleting !== null}
-        title="Delete this homework?"
-        confirmLabel="Delete homework"
-        onClose={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting && actions.deleteHomework(deleting.id)) toast.show(`Deleted “${deleting.title}”.`)
-        }}
-      >
-        <p>“{deleting?.title}” will be removed from {groupName.get(deleting?.groupId ?? '') ?? 'the group'}. This can’t be undone.</p>
-      </ConfirmDialog>
+      <HomeworkFormDialog open={creating} onClose={() => setCreating(false)} defaultGroup={values.group} onSaved={(id) => navigate(`/teacher/homework/${id}`)} />
     </>
-  )
-}
-
-type Errors = Partial<Record<keyof HomeworkInput, string>>
-
-function HomeworkForm({ homework, defaultGroup, onClose }: { homework?: Homework; defaultGroup: string; onClose: () => void }) {
-  const { data, now, actions } = useSchool()
-  const toast = useToast()
-  const running = data.groups.filter((g) => g.status === 'active' || g.id === homework?.groupId)
-  const [form, setForm] = useState<HomeworkInput>(() => ({
-    groupId: homework?.groupId ?? (running.some((g) => g.id === defaultGroup) ? defaultGroup : (running[0]?.id ?? '')),
-    title: homework?.title ?? '',
-    description: homework?.description ?? '',
-    dueDate: homework?.dueDate ?? toISODate(addDays(now, 2)),
-  }))
-  const [errors, setErrors] = useState<Errors>({})
-
-  const update = <K extends keyof HomeworkInput>(key: K, value: HomeworkInput[K]) => {
-    setForm((f) => ({ ...f, [key]: value }))
-    if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }))
-  }
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    const e: Errors = {}
-    if (!form.groupId) e.groupId = 'Choose a group.'
-    if (form.title.trim().length < 3) e.title = 'Give the homework a short title.'
-    if (form.description.trim().length < 5) e.description = 'Describe what students should do.'
-    if (!isValidISODate(form.dueDate)) e.dueDate = 'Choose a deadline.'
-    else if (!homework && form.dueDate < toISODate(now)) e.dueDate = 'The deadline can’t be in the past.'
-    setErrors(e)
-    if (Object.keys(e).length) return
-
-    const input = { ...form, title: form.title.trim(), description: form.description.trim() }
-    const ok = homework ? actions.updateHomework(homework.id, input) : actions.addHomework(input) !== null
-    if (!ok) {
-      toast.show('Homework wasn’t saved: you can only set homework for your own groups.', 'error')
-      return
-    }
-    toast.show(homework ? `Saved “${input.title}”.` : `Homework set for ${data.groups.find((g) => g.id === input.groupId)?.name}.`)
-    onClose()
-  }
-
-  return (
-    <form onSubmit={submit} noValidate className="space-y-4">
-      <Field label="Group" error={errors.groupId}>
-        {(control) => (
-          <Select {...control} value={form.groupId} onChange={(e) => update('groupId', e.target.value)}>
-            {running.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </Select>
-        )}
-      </Field>
-      <Field label="Title" error={errors.title}>
-        {(control) => <Input {...control} value={form.title} maxLength={120} onChange={(e) => update('title', e.target.value)} placeholder="e.g. Unit 7 vocabulary" />}
-      </Field>
-      <Field label="Description" error={errors.description}>
-        {(control) => (
-          <Textarea
-            {...control}
-            rows={5}
-            maxLength={2000}
-            value={form.description}
-            onChange={(e) => update('description', e.target.value)}
-            placeholder="What should students do, and how should they bring it to class?"
-          />
-        )}
-      </Field>
-      <Field label="Deadline" error={errors.dueDate}>
-        {(control) => <Input {...control} type="date" value={form.dueDate} onChange={(e) => update('dueDate', e.target.value)} className="sm:w-48" />}
-      </Field>
-      <div className="flex justify-end gap-2 border-t border-line pt-4">
-        <Button onClick={onClose}>Cancel</Button>
-        <Button type="submit" variant="primary">
-          {homework ? 'Save changes' : 'Set homework'}
-        </Button>
-      </div>
-    </form>
   )
 }

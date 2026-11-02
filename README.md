@@ -43,11 +43,11 @@ Other commands:
 
 ## Demo data
 
-- Generated for today's date on first visit: 3 branches, 248 active students in 20 running groups, 10 teachers, six months of tuition payments, six weeks of attendance (with a few teacher notes), homework for every running group and notifications for teachers.
+- Generated for today's date on first visit: 3 branches, 248 active students in 20 running groups, 10 teachers, six months of tuition payments, six weeks of attendance (with a few teacher notes), six weeks of homework per running group with each student's result, student profiles with parents or guardians, a few teacher notes, and notifications for teachers.
 - Each teacher works at one branch; their groups and those groups' students belong to that branch too.
 - Every change (add, edit, delete, attendance, payments, settings) is saved in `localStorage` under the key `sherov-school:data`.
 - **Reset:** Settings → Demo data → *Reset demo data*. A confirmation explains that local changes will be lost. You can download a JSON copy first.
-- Data saved by the previous version of the app (before branches and sign-in) is upgraded automatically and nothing is lost; a copy of the old data is kept under `sherov-school:backup:<time>`.
+- Data saved by earlier versions of the app (before branches and sign-in, or before homework evaluation) is upgraded automatically and nothing is lost; a copy of the old data is kept under `sherov-school:backup:<time>`.
 - If saved data can't be read (corrupted, or from a newer version), the app keeps a copy under `sherov-school:backup:<time>`, loads fresh sample data and shows a banner. It never overwrites silently.
 
 ### Rules used for the numbers
@@ -66,10 +66,12 @@ src/
   features/       One folder per page: dashboard, students, teachers, groups,
                   attendance, schedule, payments, reports, settings;
                   teacher/ holds the teacher portal pages
-  data/           Store context and provider, demo data (seed.ts, seed-portal.ts),
+  data/           Store context and provider, demo data (seed.ts, seed-portal.ts,
+                  seed-learning.ts for profiles, homework results and notes),
                   localStorage layer and upgrades of older saved data (migrate.ts)
   hooks/          Small React hooks (current time, URL filters, attention items)
   lib/            Pure helpers: dates, formatting, metrics, schedule, CSV,
+                  homework results and progress indicators (performance.ts),
                   demo sign-in (auth.ts), what each role can see (scope.ts), notifications
   types/          Domain types (Student, Group, Payment, ...)
 ```
@@ -80,14 +82,21 @@ Start with `src/types/index.ts` (the data model), then `src/data/seed.ts` (how s
 
 - `/login`: demo sign-in.
 - Administrator: `/`, `/students`, `/teachers`, `/groups`, `/attendance`, `/schedule`, `/payments`, `/reports`, `/settings`.
-- Teacher: `/teacher` (dashboard), `/teacher/schedule` (day and week view), `/teacher/groups` and `/teacher/groups/:id`, `/teacher/attendance`, `/teacher/students`, `/teacher/homework`, `/teacher/notifications`.
+- Teacher: `/teacher` (dashboard), `/teacher/schedule` (day and week view), `/teacher/groups` and `/teacher/groups/:id`, `/teacher/attendance`, `/teacher/students` and `/teacher/students/:id` (profile), `/teacher/homework` and `/teacher/homework/:id` (evaluation), `/teacher/notifications` (opened from the bell).
 - Adding the owner portal: add routes under `/owner`, a navigation entry in `app/navigation.ts`, and `'owner'` to `SIGN_IN_ROLES` in `lib/auth.ts`. The owner already sees every branch in `scopeData`.
+
+### Homework evaluation and progress
+
+- Each homework records the students in the group on the day it was set. Each student gets one result: submission (not submitted, submitted, late), and once the teacher gives a score out of 100, an evaluation with feedback, date and who evaluated it.
+- Student indicators (`lib/performance.ts`) are separate numbers: average homework score, completion rate (handed in ÷ homework past its deadline), attendance rate, number evaluated, and a trend (average of the last 3 scores against the 3 before, ±5 points). The label (Excellent 85+, Good 70–84, Needs improvement) comes from the average score only and needs at least 2 scores. **Nothing combines attendance and homework into a ranking**; that formula is still to be decided.
+- The same functions can later feed a parent view (what was set, whether it was handed in, score and feedback). Teacher notes are kept separately and are for staff only.
 
 ## Not built yet
 
 - Real backend, database and authentication (sign-in is a labelled demo; permissions are enforced only in the browser)
 - Owner portal, and moving teachers between branches (owner only)
-- Homework submissions from students; notifications are in-app only
+- Students and parents can't hand in or view homework yet: teachers record who handed it in. Notifications are in-app only
+- Administrators can't edit parents or guardians yet (they come from the demo data)
 - Centre settings are shared by all branches
 - Real payment processing or receipts
 - Multi-device sync; data stays in one browser

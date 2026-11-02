@@ -1,8 +1,7 @@
-// Sample organisation data: branches, sign-in accounts, homework and
-// notifications. Kept apart from seed.ts so both the generator and the
+// Sample organisation data: branches, sign-in accounts and notifications. Kept apart from seed.ts so both the generator and the
 // upgrade of older saved data (migrate.ts) can use it.
 
-import type { Branch, Group, Homework, Notification, Subject, Teacher, User } from '../types'
+import type { Branch, Group, Notification, Teacher, User } from '../types'
 import { addDays, atTime, toISODate } from '../lib/dates'
 import { dayPatternLabel, formatDate } from '../lib/format'
 
@@ -50,68 +49,6 @@ export function buildUsers(teachers: Teacher[]): User[] {
   const users: User[] = [OWNER_USER, ...ADMIN_USERS].map((u) => ({ ...u }))
   for (const t of teachers) users.push(teacherUser(t, users))
   return users
-}
-
-// ---------------------------------------------------------------- homework
-
-const HOMEWORK_IDEAS: Record<Subject, [string, string][]> = {
-  English: [
-    ['Unit 7 vocabulary', 'Learn the 20 new words from Unit 7 and write one sentence with each.'],
-    ['Past Simple or Present Perfect', 'Complete the worksheet handed out in class (exercises A–D).'],
-    ['Reading: “The Lost Key”', 'Read the story on pages 54–55 and answer questions 1–8 in your notebook.'],
-    ['Email to a friend', 'Write a 120-word email inviting a friend to your birthday. Use at least three future forms.'],
-  ],
-  'IELTS Preparation': [
-    ['Writing Task 2: opinion essay', 'Write 250+ words on: “Should university education be free?” Plan for 5 minutes first.'],
-    ['Reading test 4, passages 1–2', 'Complete under exam timing (40 minutes) and mark difficult questions.'],
-    ['Listening section 3', 'Do the practice test, then check your answers against the transcript.'],
-    ['Speaking part 2 cue cards', 'Record yourself answering three cue cards, 2 minutes each.'],
-  ],
-  Mathematics: [
-    ['Quadratic equations', 'Exercises 4.12 to 4.30. Show every step.'],
-    ['Similar triangles worksheet', 'Problems 1–12 from the geometry sheet. Draw a diagram for each.'],
-    ['Admission test, variant 3', 'Solve the full variant in 90 minutes and note the time you spent per section.'],
-    ['Fractions and percentages', 'Review sheet, both sides. Bring questions to the next class.'],
-  ],
-  'Computer Science': [
-    ['Loops, exercise set 3', 'Solve tasks 1–6 in Python and save each as a separate file.'],
-    ['Personal web page', 'Build a one-page site about yourself using HTML and CSS from the last two lessons.'],
-    ['Animate your name', 'In Scratch, make each letter of your name move or change colour when clicked.'],
-    ['Typing practice', 'Practise for 15 minutes a day and write down your speed each day.'],
-  ],
-}
-
-/** Two homework items per running group: one finished, one coming up. */
-export function seedHomework(groups: Group[], now: Date): Homework[] {
-  const items: Homework[] = []
-  groups
-    .filter((g) => g.status === 'active')
-    .forEach((g, index) => {
-      const ideas = HOMEWORK_IDEAS[g.subject]
-      const past = ideas[index % ideas.length]
-      const next = ideas[(index + 1) % ideas.length]
-      items.push(
-        {
-          id: `hw_${g.id}_1`,
-          groupId: g.id,
-          teacherId: g.teacherId,
-          title: past[0],
-          description: past[1],
-          dueDate: toISODate(addDays(now, -4 - (index % 3))),
-          createdAt: atTime(toISODate(addDays(now, -10 - (index % 3))), '19:30').toISOString(),
-        },
-        {
-          id: `hw_${g.id}_2`,
-          groupId: g.id,
-          teacherId: g.teacherId,
-          title: next[0],
-          description: next[1],
-          dueDate: toISODate(addDays(now, 1 + (index % 5))),
-          createdAt: atTime(toISODate(addDays(now, -1 - (index % 2))), '20:10').toISOString(),
-        },
-      )
-    })
-  return items
 }
 
 // ---------------------------------------------------------------- notifications

@@ -12,12 +12,13 @@ import { formatPercent } from '../../lib/format'
 import { studentAttendance } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
 import { rateTone } from './teacher-metrics'
+import { GuardianContacts } from './LearningBadges'
 
 const FILTERS = ['q', 'group', 'status'] as const
 
 /**
- * Students in the teacher's own groups. Only what's needed for teaching is
- * shown: phone for contacting the family, no email, tuition or payments.
+ * Students in the teacher's own groups, with the parent or guardian to call.
+ * No tuition or payments: those stay with the administrator.
  */
 export function MyStudentsPage() {
   const { data } = useSchool()
@@ -26,18 +27,29 @@ export function MyStudentsPage() {
 
   const rows = useMemo(() => {
     const q = values.q.trim().toLowerCase()
+    const digits = q.replace(/\D/g, '')
     return data.students
-      .filter((s) => (!q || s.fullName.toLowerCase().includes(q)) && (!values.group || s.groupId === values.group) && (!values.status || s.status === values.status))
+      .filter((s) => {
+        if (values.group && s.groupId !== values.group) return false
+        if (values.status && s.status !== values.status) return false
+        if (!q) return true
+        // Search by student or parent name, or a parent's phone number.
+        if (s.fullName.toLowerCase().includes(q)) return true
+        return s.guardians.some((g) => g.fullName.toLowerCase().includes(q) || (digits.length >= 3 && g.phone.replace(/\D/g, '').includes(digits)))
+      })
       .sort((a, b) => a.fullName.localeCompare(b.fullName))
       .map((s) => ({ student: s, rate: studentAttendance(data, s.id).rate }))
   }, [data, values])
 
   return (
     <>
-      <PageHeader title="My students" description={`${data.students.filter((s) => s.status === 'active').length} active students across your groups.`} />
+      <PageHeader
+        title="My students"
+        description={`${data.students.filter((s) => s.status === 'active').length} active students across your groups. Open a student to see their profile, attendance and homework.`}
+      />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <SearchInput label="Search students" placeholder="Search by name" value={values.q} onChange={(v) => set('q', v)} />
+        <SearchInput label="Search students or parents" placeholder="Student, parent or phone" value={values.q} onChange={(v) => set('q', v)} />
         <div className="grid grid-cols-2 gap-3 sm:flex">
           <Select aria-label="Filter by group" value={values.group} onChange={(e) => set('group', e.target.value)} className="sm:w-56">
             <option value="">All my groups</option>
@@ -67,7 +79,7 @@ export function MyStudentsPage() {
           </EmptyState>
         ) : (
           <TableScroll>
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <caption className="sr-only">Students in your groups</caption>
               <thead className="border-b border-line bg-canvas">
                 <tr>
@@ -81,7 +93,7 @@ export function MyStudentsPage() {
                     Attendance
                   </th>
                   <th scope="col" className={th}>
-                    Phone
+                    Parent / guardian
                   </th>
                   <th scope="col" className={th}>
                     Status
@@ -90,23 +102,21 @@ export function MyStudentsPage() {
               </thead>
               <tbody className="divide-y divide-line">
                 {rows.map(({ student, rate }) => (
-                  <tr key={student.id}>
+                  <tr key={student.id} className="hover:bg-canvas">
                     <td className={td}>
-                      <span className="flex items-center gap-3">
+                      <Link to={`/teacher/students/${student.id}`} className="flex items-center gap-3 font-medium text-ink hover:text-brand-ink hover:underline">
                         <Avatar name={student.fullName} size="sm" />
-                        <span className="font-medium text-ink">{student.fullName}</span>
-                      </span>
+                        {student.fullName}
+                      </Link>
                     </td>
                     <td className={td}>
-                      <Link to={`/teacher/groups/${student.groupId}`} className="text-ink hover:text-brand hover:underline">
+                      <Link to={`/teacher/groups/${student.groupId}`} className="text-ink-muted hover:text-ink hover:underline">
                         {groupName.get(student.groupId ?? '') ?? '—'}
                       </Link>
                     </td>
                     <td className={cn(td, 'num text-right font-medium', rateTone(rate))}>{rate === null ? '—' : formatPercent(rate)}</td>
-                    <td className={cn(td, 'num whitespace-nowrap text-ink-muted')}>
-                      <a href={`tel:${student.phone.replace(/\s/g, '')}`} className="hover:text-ink hover:underline">
-                        {student.phone}
-                      </a>
+                    <td className={cn(td, 'py-2.5')}>
+                      <GuardianContacts guardians={student.guardians} ownPhone={student.phone} compact />
                     </td>
                     <td className={td}>
                       <StudentStatusBadge status={student.status} />

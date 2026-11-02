@@ -1,13 +1,24 @@
 import { createContext, useContext } from 'react'
-import type { AttendanceMark, Branch, Group, Homework, Payment, SchoolData, Settings, Student, Teacher, User } from '../types'
+import type { AttendanceMark, Branch, Group, Homework, Payment, SchoolData, Settings, Student, StudentNote, SubmissionState, Teacher, User } from '../types'
 import type { TuitionBalance } from '../lib/metrics'
 
 // The branch is never typed in: it follows the group, teacher or signed-in administrator.
-export type StudentInput = Omit<Student, 'id' | 'branchId'>
+type StudentProfile = 'guardians' | 'dateOfBirth' | 'gender' | 'address'
+/** The administrator's student form. Profile details are kept as they are unless given. */
+export type StudentInput = Omit<Student, 'id' | 'branchId' | StudentProfile> & Partial<Pick<Student, StudentProfile>>
 export type TeacherInput = Omit<Teacher, 'id' | 'branchId'>
 export type GroupInput = Omit<Group, 'id' | 'branchId'>
 export type PaymentInput = Omit<Payment, 'id'>
-export type HomeworkInput = Pick<Homework, 'groupId' | 'title' | 'description' | 'dueDate'>
+/** The group can't change after homework is set: its students already have results. */
+export type HomeworkInput = Pick<Homework, 'groupId' | 'title' | 'description' | 'dueDate' | 'resource'>
+
+/** One row of the evaluation table. A score makes the result "evaluated". */
+export interface ResultInput {
+  studentId: string
+  submission: SubmissionState
+  score: number | null
+  feedback: string
+}
 
 export interface SchoolActions {
   addStudent(input: StudentInput): Student
@@ -37,6 +48,12 @@ export interface SchoolActions {
   addHomework(input: HomeworkInput): Homework | null
   updateHomework(id: string, input: HomeworkInput): boolean
   deleteHomework(id: string): boolean
+  /** Saves results for students the homework was set for; returns how many changed, or null if refused. */
+  saveHomeworkResults(homeworkId: string, rows: ResultInput[]): number | null
+
+  /** Notes are for staff only. Teachers can delete their own notes. */
+  addStudentNote(studentId: string, text: string, important: boolean): StudentNote | null
+  deleteStudentNote(id: string): boolean
 
   addPayment(input: PaymentInput): Payment
   updatePayment(id: string, input: PaymentInput): void
