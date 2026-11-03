@@ -27,7 +27,7 @@ import { cn } from '../../lib/cn'
 import { PerformanceBadge, ResultStatusBadge } from './LearningBadges'
 import { rateTone } from './teacher-metrics'
 import { GradeChip } from './group/GradeChip'
-import { formatAverage } from './group/grade-style'
+import { formatAverage, formatScoreAsGrade, scoreToGrade } from './group/grade-style'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -179,14 +179,14 @@ function Details({ rows }: { rows: [string, ReactNode][] }) {
   )
 }
 
-const score = (n: number | null) => (n === null ? '—' : String(Math.round(n)))
+const score = (n: number | null) => formatScoreAsGrade(n)
 
 function SummaryStrip({ performance: p }: { performance: PerformanceSummary }) {
   const items: [string, ReactNode, string][] = [
     ['Attendance', p.attendanceRate === null ? '—' : formatPercent(p.attendanceRate), 'Of all marked classes'],
-    ['Homework average', score(p.averageScore), p.evaluated ? `Out of 100, from ${p.evaluated} evaluated` : 'Nothing evaluated yet'],
+    ['Homework average', score(p.averageScore), p.evaluated ? `Average grade out of 5, from ${p.evaluated} graded` : 'Nothing graded yet'],
     ['Homework completed', p.completionRate === null ? '—' : formatPercent(p.completionRate), p.pastDeadline ? `${p.pastDeadline - p.missing} of ${p.pastDeadline} past their deadline` : 'No deadlines passed yet'],
-    ['Recent trend', p.trend ? trendText[p.trend] : '—', p.trend ? 'Last 3 scores against the 3 before' : 'Needs at least 4 scores'],
+    ['Recent trend', p.trend ? trendText[p.trend] : '—', p.trend ? 'Last 3 grades against the 3 before' : 'Needs at least 4 grades'],
   ]
   return (
     <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line lg:grid-cols-4">
@@ -283,7 +283,7 @@ function OverviewTab({ student, performance }: { student: Student; performance: 
             ],
           ]}
         />
-        <p className="mt-3 text-xs text-ink-muted">Progress is an indicative label from homework scores only, not a ranking.</p>
+        <p className="mt-3 text-xs text-ink-muted">Progress is an indicative label from homework grades only, not a ranking.</p>
       </Panel>
     </div>
   )
@@ -396,12 +396,12 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
             {(
               [
-                ['Average score', score(p.averageScore)],
+                ['Average grade', score(p.averageScore)],
                 ['Completion', p.completionRate === null ? '—' : formatPercent(p.completionRate)],
                 ['Attendance', p.attendanceRate === null ? '—' : formatPercent(p.attendanceRate)],
                 ['Assigned', String(p.assigned)],
                 ['Submitted', `${p.submitted}${p.late ? ` (${p.late} late)` : ''}`],
-                ['Evaluated', String(p.evaluated)],
+                ['Graded', String(p.evaluated)],
               ] as const
             ).map(([label, value]) => (
               <div key={label}>
@@ -416,26 +416,26 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
             {p.trend && <span className="text-sm text-ink-muted">· {trendText[p.trend]}</span>}
           </div>
           <p className="mt-2 text-xs text-ink-muted">
-            Level comes from the average homework score only: {LABEL_THRESHOLDS.excellent}+ excellent, {LABEL_THRESHOLDS.good}–{LABEL_THRESHOLDS.excellent - 1} good, below{' '}
-            {LABEL_THRESHOLDS.good} needs improvement.
+            Level comes from the average homework grade only: {formatScoreAsGrade(LABEL_THRESHOLDS.excellent)}+ excellent, {formatScoreAsGrade(LABEL_THRESHOLDS.good)}+ good, lower needs
+            improvement.
           </p>
         </Panel>
 
-        <Panel title="Recent scores" description={recentScores.length ? 'Oldest to newest, out of 100.' : undefined} className="xl:col-span-5">
+        <Panel title="Recent grades" description={recentScores.length ? 'Homework, oldest to newest.' : undefined} className="xl:col-span-5">
           {recentScores.length === 0 ? (
-            <p className="text-sm text-ink-muted">No evaluated homework yet.</p>
+            <p className="text-sm text-ink-muted">No graded homework yet.</p>
           ) : (
-            <ol className="flex h-36 items-end gap-2" aria-label="Recent homework scores">
+            <ol className="flex h-36 items-end gap-2" aria-label="Recent homework grades">
               {recentScores.map((s) => (
-                <li key={s.homework.id} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${s.homework.title}: ${s.score}`}>
-                  <span className="num text-xs font-medium text-ink">{s.score}</span>
+                <li key={s.homework.id} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${s.homework.title}: ${scoreToGrade(s.score)}`}>
+                  <span className="num text-xs font-medium text-ink">{scoreToGrade(s.score)}</span>
                   <span
                     aria-hidden
                     className={cn('w-full max-w-8 rounded-t-[3px]', s.score >= LABEL_THRESHOLDS.good ? 'bg-brand' : 'bg-warning-mark')}
                     style={{ height: `${Math.max(4, s.score)}%` }}
                   />
                   <span className="sr-only">
-                    {s.homework.title}, due {formatDate(s.homework.dueDate)}: {s.score}
+                    {s.homework.title}, due {formatDate(s.homework.dueDate)}: grade {scoreToGrade(s.score)}
                   </span>
                 </li>
               ))}
@@ -451,7 +451,7 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
               <li key={homework.id} className="border-l-2 border-brand-muted pl-3">
                 <p className="text-sm text-ink">“{evaluation.feedback}”</p>
                 <p className="num mt-0.5 text-xs text-ink-muted">
-                  {homework.title} · {evaluation.score}/100 · {formatDate(evaluation.evaluatedAt.slice(0, 10))}
+                  {homework.title} · grade {scoreToGrade(evaluation.score)} · {formatDate(evaluation.evaluatedAt.slice(0, 10))}
                 </p>
               </li>
             ))}
@@ -470,7 +470,7 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
                   <th scope="col" className={th}>Homework</th>
                   <th scope="col" className={th}>Due</th>
                   <th scope="col" className={th}>Status</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Score</th>
+                  <th scope="col" className={cn(th, 'text-right')}>Grade</th>
                   <th scope="col" className={th}>Feedback</th>
                 </tr>
               </thead>
@@ -486,7 +486,7 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
                     <td className={td}>
                       <ResultStatusBadge status={l.status} overdue={l.due} />
                     </td>
-                    <td className={cn(td, 'num text-right font-medium')}>{l.result?.evaluation?.score ?? '—'}</td>
+                    <td className={cn(td, 'py-2 text-right')}>{l.result?.evaluation ? <GradeChip grade={scoreToGrade(l.result.evaluation.score)} size="sm" /> : <span className="text-ink-faint">—</span>}</td>
                     <td className={cn(td, 'max-w-72 text-ink-muted')}>{l.result?.evaluation?.feedback ?? ''}</td>
                   </tr>
                 ))}

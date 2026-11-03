@@ -13,6 +13,7 @@ import { formatDayShort } from '../../../lib/format'
 import { cn } from '../../../lib/cn'
 import { GradeChip } from './GradeChip'
 import { gradeTone } from './grade-style'
+import { ToolButton } from './ToolButton'
 
 /** What a tap on a student does. Pick it once, then tap as many students as needed. */
 type Tool = 'absent' | 'late' | Grade | 'clear'
@@ -220,40 +221,5 @@ function Sheet({ group, date, onClose }: { group: Group; date: ISODate; onClose:
         </div>
       </div>
     </div>
-  )
-}
-
-function ToolButton({
-  active,
-  onClick,
-  children,
-  shortcut,
-  label,
-  className,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-  shortcut: string
-  label?: string
-  className?: string
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      aria-label={label}
-      data-active={active}
-      title={`${label ?? ''} (key ${shortcut})`.trim()}
-      onClick={onClick}
-      className={cn(
-        'inline-flex h-11 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-medium transition-colors',
-        active ? 'border-transparent shadow-sm ring-2 ring-ink/80 ring-offset-2' : 'border-line-strong bg-surface text-ink hover:bg-subtle',
-        className,
-      )}
-    >
-      {children}
-    </button>
   )
 }
