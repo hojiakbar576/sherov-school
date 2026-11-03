@@ -3,9 +3,11 @@ import {
   ChartColumn,
   ClipboardCheck,
   GraduationCap,
+  House,
   LayoutDashboard,
   NotebookPen,
   Settings,
+  UserRound,
   Users,
   UsersRound,
   Wallet,
@@ -65,26 +67,29 @@ export const SETTINGS_ITEM: NavItem = { to: '/settings', label: 'Settings', icon
 
 const ADMIN_NAV: PortalNav = { base: '', sections: NAV_SECTIONS, footer: SETTINGS_ITEM }
 
+/**
+ * Teacher sidebar, modelled on LC UP's teacher side (without chat): one short
+ * list. Groups open from Home; attendance and grades are taken inside a group.
+ */
 const TEACHER_NAV: PortalNav = {
   base: '/teacher',
   sections: [
-    { label: 'Overview', items: [{ to: '/teacher', label: 'Dashboard', icon: LayoutDashboard }] },
     {
-      label: 'Teaching',
+      label: '',
       items: [
-        { to: '/teacher/schedule', label: 'My schedule', icon: CalendarDays },
-        { to: '/teacher/groups', label: 'My groups', icon: UsersRound },
-        { to: '/teacher/attendance', label: 'Attendance', icon: ClipboardCheck },
+        { to: '/teacher', label: 'Home', icon: House },
+        { to: '/teacher/students', label: 'Students', icon: GraduationCap },
+        { to: '/teacher/statistics', label: 'Statistics', icon: ChartColumn },
         { to: '/teacher/homework', label: 'Homework', icon: NotebookPen },
+        { to: '/teacher/profile', label: 'Profile', icon: UserRound },
       ],
     },
-    {
-      label: 'People',
-      items: [{ to: '/teacher/students', label: 'My students', icon: Users }],
-    },
   ],
-  // Notifications open from the bell in the header.
-  hidden: [{ to: '/teacher/notifications', label: 'Notifications' }],
+  hidden: [
+    { to: '/teacher/notifications', label: 'Notifications' },
+    { to: '/teacher/groups', label: 'Group' },
+    { to: '/teacher/schedule', label: 'Schedule' },
+  ],
 }
 
 /** The owner portal isn't built yet; the owner would see the administrator pages. */
@@ -97,7 +102,7 @@ export function pageTitle(pathname: string, role: Role = 'admin'): string {
   const nav = navFor(role)
   const items = [...nav.sections.flatMap((s) => s.items), ...(nav.footer ? [nav.footer] : []), ...(nav.hidden ?? [])]
   const home = nav.base || '/'
-  if (pathname === home || pathname === `${home}/`) return 'Dashboard'
+  if (pathname === home || pathname === `${home}/`) return role === 'teacher' ? 'Home' : 'Dashboard'
   const match = items.find((item) => item.to !== home && pathname.startsWith(item.to))
   return match?.label ?? 'Page not found'
 }

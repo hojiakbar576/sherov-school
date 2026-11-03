@@ -1,7 +1,7 @@
 import { useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { ChevronLeft, History, Lock, NotebookPen, Phone, StickyNote, Trash2, TriangleAlert } from 'lucide-react'
-import type { Student } from '../../types'
+import type { Grade, Student } from '../../types'
 import { useSchool, useUser } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Panel } from '../../components/ui/Panel'
@@ -26,6 +26,8 @@ import { LABEL_THRESHOLDS, studentHomework, studentPerformance, trendText, type 
 import { cn } from '../../lib/cn'
 import { PerformanceBadge, ResultStatusBadge } from './LearningBadges'
 import { rateTone } from './teacher-metrics'
+import { GradeChip } from './group/GradeChip'
+import { formatAverage } from './group/grade-style'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -300,6 +302,9 @@ function AttendanceTab({ student }: { student: Student }) {
   const absences = history.filter((h) => h.mark === 'absent')
   const shown = showAll ? history : history.slice(0, 15)
   const markTone = { present: 'text-success', late: 'text-warning', absent: 'text-danger' } as const
+  const gradeFor = (groupId: string, date: string) => data.attendance.find((r) => r.groupId === groupId && r.date === date)?.grades?.[student.id]
+  const lessonGrades = history.map((h) => gradeFor(h.groupId, h.date)).filter((g): g is Grade => g !== undefined)
+  const avgGrade = lessonGrades.length ? lessonGrades.reduce((a, b) => a + b, 0) / lessonGrades.length : null
 
   return (
     <div className="grid items-start gap-6 xl:grid-cols-12">
@@ -310,6 +315,7 @@ function AttendanceTab({ student }: { student: Student }) {
               ['Attendance', <span key="rate" className={cn('num font-semibold', rateTone(rate))}>{rate === null ? '—' : formatPercent(rate)}</span>],
               ['Classes attended', <span key="att" className="num">{attended} of {history.length}{late ? `, ${late} late` : ''}</span>],
               ['Classes missed', <span key="miss" className="num">{absences.length}</span>],
+              ['Average lesson grade', <span key="grade" className="num font-semibold">{formatAverage(avgGrade)}{lessonGrades.length ? ` (${lessonGrades.length} grades)` : ''}</span>],
             ]}
           />
         </Panel>
@@ -341,6 +347,7 @@ function AttendanceTab({ student }: { student: Student }) {
                     <th scope="col" className={th}>Date</th>
                     <th scope="col" className={th}>Group</th>
                     <th scope="col" className={th}>Mark</th>
+                    <th scope="col" className={th}>Grade</th>
                     <th scope="col" className={th}>Note</th>
                   </tr>
                 </thead>
@@ -350,6 +357,7 @@ function AttendanceTab({ student }: { student: Student }) {
                       <td className={cn(td, 'num whitespace-nowrap')}>{formatDate(h.date)}</td>
                       <td className={cn(td, 'text-ink-muted')}>{groupName.get(h.groupId) ?? '—'}</td>
                       <td className={cn(td, 'font-medium', markTone[h.mark])}>{attendanceMarkLabel[h.mark]}</td>
+                      <td className={cn(td, 'py-2')}>{(() => { const g = gradeFor(h.groupId, h.date); return g ? <GradeChip grade={g} size="sm" /> : <span className="text-ink-faint">—</span> })()}</td>
                       <td className={cn(td, 'text-ink-muted')}>{noteFor(h.groupId, h.date) ?? ''}</td>
                     </tr>
                   ))}

@@ -10,6 +10,27 @@ interface SidebarNavProps {
   onNavigate?: () => void
 }
 
+/** Teachers get the light, LC UP-style sidebar: white card, green pill for the open page. */
+function LightNavEntry({ item, onNavigate }: { item: NavItem } & SidebarNavProps) {
+  const Icon = item.icon
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === '/teacher'}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        cn(
+          'flex h-12 items-center gap-3 rounded-xl px-4 text-[0.9375rem] font-medium transition-colors',
+          isActive ? 'bg-brand text-white shadow-[0_6px_16px_-6px_rgb(30_107_62/0.55)]' : 'text-ink-muted hover:bg-subtle hover:text-ink',
+        )
+      }
+    >
+      <Icon aria-hidden className="size-5 shrink-0" />
+      <span>{item.label}</span>
+    </NavLink>
+  )
+}
+
 function NavEntry({ item, collapsed, onNavigate }: { item: NavItem } & SidebarNavProps) {
   const Icon = item.icon
   return (
@@ -41,6 +62,19 @@ function NavEntry({ item, collapsed, onNavigate }: { item: NavItem } & SidebarNa
 export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
   const { user } = useSchool()
   const nav = navFor(user?.role ?? 'admin')
+  if (user?.role === 'teacher') {
+    return (
+      <nav aria-label="Main" className="flex flex-1 flex-col overflow-y-auto px-4 py-3">
+        <ul className="space-y-1.5">
+          {nav.sections.flatMap((section) => section.items).map((item) => (
+            <li key={item.to}>
+              <LightNavEntry item={item} onNavigate={onNavigate} />
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )
+  }
   return (
     <nav aria-label="Main" className="flex flex-1 flex-col overflow-y-auto px-3 py-2">
       {nav.sections.map((section) => (
@@ -78,6 +112,21 @@ export function DemoDataNote({ collapsed }: { collapsed?: boolean }) {
       <p className="font-medium text-sidebar-ink">Demo mode</p>
       <p className="mt-0.5">Sample data and temporary demo sign-in, saved only in this browser. No server or database yet.</p>
     </div>
+  )
+}
+
+/** The teacher's sidebar: a light rounded card beside the page. */
+export function TeacherSidebar() {
+  return (
+    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 p-3 pr-0 lg:block">
+      <div className="flex h-full flex-col rounded-2xl border border-line bg-surface">
+        <div className="flex h-16 items-center px-6">
+          <Logo />
+        </div>
+        <SidebarNav />
+        <p className="mx-4 mb-4 rounded-xl bg-canvas px-3 py-2.5 text-xs text-ink-muted">Demo: data is saved in this browser only.</p>
+      </div>
+    </aside>
   )
 }
 

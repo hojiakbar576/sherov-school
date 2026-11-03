@@ -3,9 +3,10 @@ import { Outlet, useLocation } from 'react-router'
 import { TriangleAlert, X } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { Logo } from '../components/layout/Logo'
-import { DemoDataNote, Sidebar, SidebarNav } from '../components/layout/Sidebar'
+import { DemoDataNote, Sidebar, SidebarNav, TeacherSidebar } from '../components/layout/Sidebar'
 import { IconButton } from '../components/ui/Button'
 import { useSchool } from '../data/school-context'
+import { cn } from '../lib/cn'
 
 const COLLAPSED_KEY = 'sherov-school:sidebar-collapsed'
 
@@ -19,6 +20,8 @@ function readCollapsed(): boolean {
 
 /** Mobile navigation drawer, built on <dialog> for focus trapping and Escape. */
 function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { user } = useSchool()
+  const light = user?.role === 'teacher'
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current
@@ -38,17 +41,17 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
       onClick={(event) => {
         if (event.target === ref.current) onClose()
       }}
-      className="drawer on-dark m-0 h-dvh max-h-dvh w-72 max-w-[85vw] bg-sidebar p-0"
+      className={cn('drawer m-0 h-dvh max-h-dvh w-72 max-w-[85vw] p-0', light ? 'bg-surface' : 'on-dark bg-sidebar')}
     >
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center justify-between px-5">
-          <Logo onDark />
-          <IconButton label="Close navigation" onClick={onClose} className="-mr-2 text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-ink">
+          <Logo onDark={!light} />
+          <IconButton label="Close navigation" onClick={onClose} className={cn('-mr-2', !light && 'text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-ink')}>
             <X />
           </IconButton>
         </div>
         <SidebarNav onNavigate={onClose} />
-        <DemoDataNote />
+        {!light && <DemoDataNote />}
       </div>
     </dialog>
   )
@@ -73,6 +76,8 @@ export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { pathname, hash } = useLocation()
   const mainRef = useRef<HTMLElement>(null)
+  const { user } = useSchool()
+  const isTeacher = user?.role === 'teacher'
 
   useEffect(() => {
     try {
@@ -93,7 +98,7 @@ export function AppLayout() {
       <a href="#main" className="sr-only z-50 rounded bg-surface px-3 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
         Skip to content
       </a>
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
+      {isTeacher ? <TeacherSidebar /> : <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />}
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onOpenMenu={() => setDrawerOpen(true)} />

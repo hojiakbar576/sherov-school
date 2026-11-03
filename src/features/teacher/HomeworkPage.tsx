@@ -24,7 +24,8 @@ export function HomeworkPage() {
   const { data, now } = useSchool()
   const navigate = useNavigate()
   const { values, set } = useListParams(FILTERS)
-  const [creating, setCreating] = useState(false)
+  // ?new=1 (from a group page) opens the form straight away.
+  const [creating, setCreating] = useState(() => new URLSearchParams(window.location.search).get('new') === '1')
   const groupName = useMemo(() => new Map(data.groups.map((g) => [g.id, g.name])), [data.groups])
   const progress = useMemo(() => new Map(data.homework.map((h) => [h.id, homeworkProgress(data, h)])), [data])
   const toEvaluateOnly = values.show === 'to-evaluate'

@@ -6,17 +6,24 @@ import { useSchool } from '../../data/school-context'
 import { toISODate } from '../../lib/dates'
 import { formatLongDate } from '../../lib/format'
 import { IconButton } from '../ui/Button'
+import { cn } from '../../lib/cn'
 import { HeaderSearch } from './HeaderSearch'
 import { NotificationsMenu } from './NotificationsMenu'
 import { ProfileMenu } from './ProfileMenu'
 
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { pathname } = useLocation()
-  const { now, user } = useSchool()
+  const { now, user, branch } = useSchool()
   const [mobileSearch, setMobileSearch] = useState(false)
+  const isTeacher = user?.role === 'teacher'
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85">
+    <header
+      className={cn(
+        'sticky top-0 z-30 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85',
+        isTeacher ? 'mx-3 mt-3 rounded-2xl border border-line lg:mx-4' : 'border-b border-line',
+      )}
+    >
       <div className="flex h-16 items-center gap-2 px-4 sm:gap-3 lg:px-8">
         <IconButton label="Open navigation" onClick={onOpenMenu} className="-ml-1 lg:hidden">
           <Menu />
@@ -32,6 +39,12 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <HeaderSearch className="hidden max-w-md flex-1 md:block" />
 
         <div className="ml-auto flex items-center gap-1">
+          {isTeacher && branch && (
+            <span className="mr-2 hidden items-center gap-2 rounded-xl bg-canvas px-3 py-2 text-sm font-medium text-ink lg:inline-flex">
+              <span aria-hidden className="size-2 rounded-full bg-brand" />
+              {branch.name} branch
+            </span>
+          )}
           <IconButton label={mobileSearch ? 'Close search' : 'Search'} onClick={() => setMobileSearch((v) => !v)} className="md:hidden">
             {mobileSearch ? <X /> : <Search />}
           </IconButton>

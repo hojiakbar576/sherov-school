@@ -82,7 +82,7 @@ Start with `src/types/index.ts` (the data model), then `src/data/seed.ts` (how s
 
 - `/login`: demo sign-in.
 - Administrator: `/`, `/students`, `/teachers`, `/groups`, `/attendance`, `/schedule`, `/payments`, `/reports`, `/settings`.
-- Teacher: `/teacher` (dashboard), `/teacher/schedule` (day and week view), `/teacher/groups` and `/teacher/groups/:id`, `/teacher/attendance`, `/teacher/students` and `/teacher/students/:id` (profile), `/teacher/homework` and `/teacher/homework/:id` (evaluation), `/teacher/notifications` (opened from the bell).
+- Teacher (laid out like LC UP's teacher side, without chat): `/teacher` (Home: rating, salary, groups with All/Today), `/teacher/groups/:id` (the group's month journal: Attendance, Grades, Homework, Ranking; `?lesson=YYYY-MM-DD` opens the lesson sheet), `/teacher/students` and `/teacher/students/:id`, `/teacher/statistics` (rating breakdown, all teachers, salary breakdown), `/teacher/homework` and `/teacher/homework/:id`, `/teacher/profile` (details and salary history), `/teacher/notifications` (from the bell). Old links to `/teacher/groups` and `/teacher/attendance` redirect.
 - Adding the owner portal: add routes under `/owner`, a navigation entry in `app/navigation.ts`, and `'owner'` to `SIGN_IN_ROLES` in `lib/auth.ts`. The owner already sees every branch in `scopeData`.
 
 ### Homework evaluation and progress
@@ -91,10 +91,18 @@ Start with `src/types/index.ts` (the data model), then `src/data/seed.ts` (how s
 - Student indicators (`lib/performance.ts`) are separate numbers: average homework score, completion rate (handed in ÷ homework past its deadline), attendance rate, number evaluated, and a trend (average of the last 3 scores against the 3 before, ±5 points). The label (Excellent 85+, Good 70–84, Needs improvement) comes from the average score only and needs at least 2 scores. **Nothing combines attendance and homework into a ranking**; that formula is still to be decided.
 - The same functions can later feed a parent view (what was set, whether it was handed in, score and feedback). Teacher notes are kept separately and are for staff only.
 
+### Lessons, grades, salary and teacher rating
+
+- **Lesson sheet** (attendance + grades on one screen): every student starts as present. The teacher picks a mark (Absent, Late, or a grade 5–1) and taps the students it applies to; "Give 4 to the 7 not graded yet" fills the rest. Keys: 1–5, A, L, C. Grades are stored on the lesson (`AttendanceRecord.grades`).
+- **Salary** (`lib/salary.ts`): tuition *paid* for a month by students in the teacher's groups × the teacher's share (`Teacher.salaryPercent`, set by the administrator in the teacher form; demo shares are 30–50%). Teachers see only the result, hidden behind ***** until they tap the eye.
+- **Teacher rating** (`lib/rating.ts`): a score out of 100 per month from lessons recorded (25), student attendance (20), homework checked (20), students graded (15) and groups filled (20). Change `RATING_WEIGHTS` to rebalance. How high the grades are doesn't count. The top 3 (`BONUS_PLACES`) are marked as bonus places.
+- The older teacher files `TeacherDashboardPage.tsx`, `MyGroupsPage.tsx`, `GroupDetailPage.tsx`, `StatStrip.tsx` and `ClassList.tsx` are no longer used and can be deleted.
+
 ## Not built yet
 
 - Real backend, database and authentication (sign-in is a labelled demo; permissions are enforced only in the browser)
-- Owner portal, and moving teachers between branches (owner only)
+- Owner portal (where the owner would review the teacher rating and award bonuses), and moving teachers between branches (owner only)
+- Recording actual salary payouts (salary is calculated, not paid out, in the app)
 - Students and parents can't hand in or view homework yet: teachers record who handed it in. Notifications are in-app only
 - Administrators can't edit parents or guardians yet (they come from the demo data)
 - Centre settings are shared by all branches

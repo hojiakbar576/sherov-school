@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react'
-import type { AttendanceMark, Branch, Group, Homework, Payment, SchoolData, Settings, Student, StudentNote, SubmissionState, Teacher, User } from '../types'
+import type { AttendanceMark, Branch, Grade, MonthKey, Group, Homework, Payment, SchoolData, Settings, Student, StudentNote, SubmissionState, Teacher, User } from '../types'
 import type { TuitionBalance } from '../lib/metrics'
+import type { SalaryMonth } from '../lib/salary'
+import type { TeacherRating } from '../lib/rating'
 
 // The branch is never typed in: it follows the group, teacher or signed-in administrator.
 type StudentProfile = 'guardians' | 'dateOfBirth' | 'gender' | 'address'
@@ -42,6 +44,8 @@ export interface SchoolActions {
     date: string,
     marks: Record<string, AttendanceMark>,
     comments?: Record<string, string>,
+    /** Lesson grades. Left out, the lesson keeps the grades it already had. */
+    grades?: Record<string, Grade>,
   ): boolean
 
   /** Each returns null/false for a group the signed-in person doesn't teach or manage. */
@@ -66,12 +70,23 @@ export interface SchoolActions {
   resetDemoData(): void
 }
 
+/** Pay and rating for the signed-in teacher, worked out from data they can't see directly. */
+export interface TeacherView {
+  teacher: Teacher
+  /** Last six months, newest first. */
+  salary: SalaryMonth[]
+  /** This month and last month, every teacher, best first. */
+  ratings: { month: MonthKey; rows: TeacherRating[] }[]
+}
+
 export interface SchoolContextValue {
   /** Only what the signed-in person may see (their branch, or their groups). */
   data: SchoolData
   now: Date
   /** Tuition balance for every visible student, derived from payments. */
   balances: Map<string, TuitionBalance>
+  /** Only for a signed-in teacher; null for everyone else. */
+  teacherView: TeacherView | null
   /** false when changes cannot be kept after a refresh. */
   persistent: boolean
   loadProblem: string | null

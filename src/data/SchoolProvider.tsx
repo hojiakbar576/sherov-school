@@ -5,13 +5,15 @@ import { dayPatternLabel, formatUZS } from '../lib/format'
 import { computeBalances } from '../lib/metrics'
 import { demoSignIn, readSession, SESSION_KEY, SIGN_IN_ROLES, writeSession } from '../lib/auth'
 import { canTeachGroup, scopeData, userBranchId } from '../lib/scope'
-import { toISODate } from '../lib/dates'
+import { addMonths, monthKey, parseISODate, toISODate } from '../lib/dates'
+import { salaryHistory } from '../lib/salary'
+import { teacherRatings } from '../lib/rating'
 import { useNow } from '../hooks/useNow'
 import { createDemoData } from './seed'
 import { DEFAULT_BRANCH_ID, teacherUser } from './seed-portal'
 import { homeworkStudents } from './seed-learning'
 import { loadData, saveData, STORAGE_KEY, validateSchoolData } from './storage'
-import { SchoolContext, type SchoolActions, type SchoolContextValue } from './school-context'
+import { SchoolContext, type SchoolActions, type SchoolContextValue, type TeacherView } from './school-context'
 
 const MAX_ACTIVITY = 100
 
@@ -288,7 +290,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         })
       },
 
-      saveAttendance(groupId, date, marks, comments) {
+      saveAttendance(groupId, date, marks, comments, grades) {
         const group = teachableGroup(groupId)
         if (!group || !user) return false
         const existing = fullData.attendance.find((r) => r.groupId === groupId && r.date === date)
@@ -303,6 +305,12 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
             .map(([id, text]) => [id, text.trim().slice(0, 200)] as const)
             .filter(([id, text]) => allowed.has(id) && text !== ''),
         )
+        // Grades only for students marked as attending, and only 1–5.
+        const cleanGrades = grades
+          ? Object.fromEntries(
+              Object.entries(grades).filter(([id, g]) => allowed.has(id) && cleanMarks[id] && cleanMarks[id] !== 'absent' && [1, 2, 3, 4, 5].includes(g)),
+            )
+          : existing?.grades
         const record = {
           id: existing?.id ?? createId('att'),
           groupId,
@@ -312,6 +320,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
           teacherId: existing?.teacherId ?? group.teacherId,
           marks: cleanMarks,
           ...(Object.keys(cleanComments).length > 0 ? { comments: cleanComments } : {}),
+          ...(cleanGrades && Object.keys(cleanGrades).length > 0 ? { grades: cleanGrades } : {}),
           savedAt: new Date().toISOString(),
           recordedBy: user.id,
         }
@@ -515,6 +524,20 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   }, [update, fullData, user])
 
   const balances = useMemo(() => computeBalances(data, now), [data, now])
+  // Pay and rating need everyone's payments and lessons, so they're worked out
+  // here from the full data; the teacher only receives the results.
+  const month = monthKey(now)
+  const today = toISODate(now)
+  const teacherView = useMemo<TeacherView | null>(() => {
+    const teacher = user?.role === 'teacher' ? fullData.teachers.find((t) => t.id === user.teacherId) : undefined
+    if (!teacher) return null
+    return {
+      teacher,
+      salary: salaryHistory(fullData, teacher.id, month, 6),
+      ratings: [month, addMonths(month, -1)].map((m) => ({ month: m, rows: teacherRatings(fullData, m, parseISODate(today)) })),
+    }
+    // Recalculated when data changes or the day turns, not every minute.
+  }, [fullData, user, month, today])
   const branch = useMemo(() => {
     const id = user ? userBranchId(fullData, user) : null
     return fullData.branches.find((b) => b.id === id) ?? null
@@ -526,6 +549,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       data,
       now,
       balances,
+      teacherView,
       persistent,
       loadProblem,
       dismissLoadProblem: () => setLoadProblem(null),
@@ -536,7 +560,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
     }),
-    [data, now, balances, persistent, loadProblem, actions, user, branch, demoAccounts, signIn, signOut],
+    [data, now, balances, teacherView, persistent, loadProblem, actions, user, branch, demoAccounts, signIn, signOut],
   )
 
   return <SchoolContext.Provider value={value}>{children}</SchoolContext.Provider>

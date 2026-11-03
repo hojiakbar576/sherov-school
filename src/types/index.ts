@@ -56,6 +56,11 @@ export interface Teacher {
   joinedOn: ISODate
   /** The one branch the teacher currently works at. Only the owner may change it. */
   branchId: string
+  /**
+   * The teacher's share of the tuition their students pay, in percent (e.g. 40).
+   * Set by the administrator; salary = paid tuition × this share (lib/salary.ts).
+   */
+  salaryPercent: number
 }
 
 export type GroupStatus = 'active' | 'paused' | 'completed'
@@ -111,6 +116,10 @@ export interface Student {
 }
 
 export type AttendanceMark = 'present' | 'absent' | 'late'
+
+/** Lesson grade on the usual Uzbek 5-point scale: 5 is excellent, 1 is very poor. */
+export const GRADES = [5, 4, 3, 2, 1] as const
+export type Grade = (typeof GRADES)[number]
 /**
  * One class session: a group's class on a date, with a mark (and optional
  * comment) for each student. The teacher and start time are copied in when
@@ -124,6 +133,8 @@ export interface AttendanceRecord {
   teacherId: string
   marks: Record<string, AttendanceMark> // studentId -> mark
   comments?: Record<string, string> // studentId -> note
+  /** Lesson grades (1–5) for students who took part. Not every student gets one every lesson. */
+  grades?: Record<string, Grade> // studentId -> grade
   savedAt: ISODateTime
   /** User who last saved it, when known. */
   recordedBy?: string

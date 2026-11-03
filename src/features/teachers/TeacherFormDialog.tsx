@@ -7,6 +7,7 @@ import { Dialog } from '../../components/ui/Dialog'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/Field'
 import { toISODate } from '../../lib/dates'
+import { DEFAULT_SALARY_PERCENT } from '../../data/seed-learning'
 import { formatPhone, isValidEmail, isValidPhone, teacherStatusLabel } from '../../lib/format'
 
 interface Props {
@@ -36,6 +37,7 @@ function TeacherForm({ onClose, teacher }: Props) {
     email: teacher?.email ?? '',
     status: teacher?.status ?? 'active',
     joinedOn: teacher?.joinedOn ?? toISODate(now),
+    salaryPercent: teacher?.salaryPercent ?? DEFAULT_SALARY_PERCENT,
   }))
   const [errors, setErrors] = useState<Errors>({})
 
@@ -51,6 +53,7 @@ function TeacherForm({ onClose, teacher }: Props) {
     if (!isValidPhone(form.phone)) e.phone = 'Enter a phone number like +998 90 123 45 67.'
     if (!isValidEmail(form.email.trim())) e.email = 'Enter a valid email address.'
     if (!form.joinedOn) e.joinedOn = 'Choose the start date.'
+    if (!Number.isFinite(form.salaryPercent) || form.salaryPercent < 0 || form.salaryPercent > 100) e.salaryPercent = 'Enter a share from 0 to 100.'
     setErrors(e)
     if (Object.keys(e).length) return
 
@@ -98,6 +101,20 @@ function TeacherForm({ onClose, teacher }: Props) {
       </Field>
       <Field label="Teaching since" error={errors.joinedOn}>
         {(p) => <Input {...p} type="date" value={form.joinedOn} onChange={(e) => set('joinedOn', e.target.value)} />}
+      </Field>
+      <Field label="Salary share (%)" hint="Part of each student's paid tuition the teacher earns." error={errors.salaryPercent}>
+        {(p) => (
+          <Input
+            {...p}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={100}
+            step={1}
+            value={Number.isFinite(form.salaryPercent) ? form.salaryPercent : ''}
+            onChange={(e) => set('salaryPercent', e.target.value === '' ? Number.NaN : Number(e.target.value))}
+          />
+        )}
       </Field>
       <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4 sm:col-span-2">
         <Button onClick={onClose}>Cancel</Button>

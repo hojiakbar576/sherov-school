@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router'
+import { Navigate, Route, Routes, useSearchParams } from 'react-router'
 import { AppLayout } from './AppLayout'
 import { LoginPage } from './LoginPage'
 import { RequireRole } from './RequireRole'
@@ -12,9 +12,10 @@ import { SchedulePage } from '../features/schedule/SchedulePage'
 import { PaymentsPage } from '../features/payments/PaymentsPage'
 import { ReportsPage } from '../features/reports/ReportsPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
-import { TeacherDashboardPage } from '../features/teacher/TeacherDashboardPage'
-import { MyGroupsPage } from '../features/teacher/MyGroupsPage'
-import { GroupDetailPage } from '../features/teacher/GroupDetailPage'
+import { HomePage } from '../features/teacher/HomePage'
+import { GroupPage } from '../features/teacher/group/GroupPage'
+import { StatisticsPage } from '../features/teacher/StatisticsPage'
+import { ProfilePage } from '../features/teacher/ProfilePage'
 import { MyStudentsPage } from '../features/teacher/MyStudentsPage'
 import { HomeworkPage } from '../features/teacher/HomeworkPage'
 import { HomeworkDetailPage } from '../features/teacher/HomeworkDetailPage'
@@ -59,11 +60,14 @@ export function App() {
           </RequireRole>
         }
       >
-        <Route index element={<TeacherDashboardPage />} />
+        <Route index element={<HomePage />} />
         <Route path="schedule" element={<SchedulePage />} />
-        <Route path="groups" element={<MyGroupsPage />} />
-        <Route path="groups/:groupId" element={<GroupDetailPage />} />
-        <Route path="attendance" element={<AttendancePage />} />
+        {/* Groups are listed on Home; attendance and grades are taken inside a group. */}
+        <Route path="groups" element={<Navigate to="/teacher" replace />} />
+        <Route path="groups/:groupId" element={<GroupPage />} />
+        <Route path="attendance" element={<OldAttendanceLink />} />
+        <Route path="statistics" element={<StatisticsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="students" element={<MyStudentsPage />} />
         <Route path="students/:studentId" element={<StudentProfilePage />} />
         <Route path="homework" element={<HomeworkPage />} />
@@ -73,4 +77,13 @@ export function App() {
       </Route>
     </Routes>
   )
+}
+
+/** Older links (e.g. in notifications) to /teacher/attendance?group=…&date=… open that lesson in its group. */
+function OldAttendanceLink() {
+  const [params] = useSearchParams()
+  const group = params.get('group')
+  const date = params.get('date')
+  if (!group) return <Navigate to="/teacher" replace />
+  return <Navigate to={`/teacher/groups/${group}${date ? `?lesson=${date}` : ''}`} replace />
 }

@@ -29,13 +29,13 @@ import { createRandom, type Random } from '../lib/random'
 import { meetsOn } from '../lib/schedule'
 import { FEMALE_FIRST_NAMES, MALE_FIRST_NAMES, PHONE_PREFIXES, SURNAMES } from './names'
 import { BRANCHES, TEACHER_BRANCH, buildUsers, seedNotifications } from './seed-portal'
-import { seedHomework, seedHomeworkResults, seedStudentNotes, studentProfile } from './seed-learning'
+import { SALARY_PERCENT, seedHomework, seedHomeworkResults, seedStudentNotes, studentProfile, withSampleGrades } from './seed-learning'
 
 /**
  * Bump when the stored data shape changes. data/migrate.ts upgrades older
  * saved data; anything it can't upgrade is set aside as a backup.
  */
-export const DATA_VERSION = 3
+export const DATA_VERSION = 4
 /** How many months of tuition history the demo covers (including this month). */
 export const HISTORY_MONTHS = 6
 
@@ -49,7 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tuitionDueDay: 10,
 }
 
-const TEACHERS: Omit<Teacher, 'branchId'>[] = [
+const TEACHERS: Omit<Teacher, 'branchId' | 'salaryPercent'>[] = [
   { id: 'tch_01', fullName: 'Dilshod Karimov', subject: 'English', phone: '+998 90 312 44 18', email: 'dilshod.karimov@sherovschool.uz', status: 'active', joinedOn: '2021-09-01' },
   { id: 'tch_02', fullName: 'Nigora Rahimova', subject: 'English', phone: '+998 93 540 21 07', email: 'nigora.rahimova@sherovschool.uz', status: 'active', joinedOn: '2022-02-14' },
   { id: 'tch_03', fullName: 'Kamola Yusupova', subject: 'IELTS Preparation', phone: '+998 97 708 63 52', email: 'kamola.yusupova@sherovschool.uz', status: 'active', joinedOn: '2021-09-01' },
@@ -156,7 +156,7 @@ export function createDemoData(now: Date = new Date()): SchoolData {
   const billingStart = addMonths(currentMonth, -(HISTORY_MONTHS - 1))
   const usedNames = new Set<string>()
 
-  const teachers: Teacher[] = TEACHERS.map((t) => ({ ...t, branchId: TEACHER_BRANCH[t.id] }))
+  const teachers: Teacher[] = TEACHERS.map((t) => ({ ...t, branchId: TEACHER_BRANCH[t.id], salaryPercent: SALARY_PERCENT[t.id] }))
   const groups: Group[] = GROUPS.map(({ fill: _fill, status, ...g }) => ({
     ...g,
     branchId: TEACHER_BRANCH[g.teacherId],
@@ -248,7 +248,7 @@ export function createDemoData(now: Date = new Date()): SchoolData {
   }
 
   // ---- Attendance ----
-  const attendance: AttendanceRecord[] = []
+  let attendance: AttendanceRecord[] = []
   const minutesNow = minutesSinceMidnight(now)
   const firstDay = startOfWeek(addDays(now, -7 * 6))
   let skipped = 0
@@ -294,6 +294,7 @@ export function createDemoData(now: Date = new Date()): SchoolData {
   // Birthdays, addresses and parents come from each student's id (see seed-learning.ts).
   const students = generated.map(({ student }) => ({ ...student, ...studentProfile(student, now) }))
   const homework = seedHomework(groups, students, now)
+  attendance = withSampleGrades(attendance)
   return {
     version: DATA_VERSION,
     seededAt: now.toISOString(),

@@ -45,7 +45,8 @@ const validators: Record<string, (v: Obj) => boolean> = {
     isStr(u.id) && isStr(u.fullName) && isStr(u.username) && oneOf(u.role, ROLES) &&
     (u.branchId === null || isStr(u.branchId)) && !('password' in u),
   teachers: (t) =>
-    isStr(t.id) && isStr(t.fullName) && isStr(t.branchId) && oneOf(t.subject, SUBJECTS) && oneOf(t.status, ['active', 'on_leave']),
+    isStr(t.id) && isStr(t.fullName) && isStr(t.branchId) && oneOf(t.subject, SUBJECTS) && oneOf(t.status, ['active', 'on_leave']) &&
+    isNum(t.salaryPercent) && t.salaryPercent >= 0 && t.salaryPercent <= 100,
   groups: (g) =>
     isStr(g.id) && isStr(g.name) && isStr(g.teacherId) && isStr(g.branchId) && oneOf(g.days, ['odd', 'even']) &&
     isStr(g.startTime) && isNum(g.capacity) && isNum(g.monthlyFee) && isNum(g.durationMinutes),
@@ -54,7 +55,8 @@ const validators: Record<string, (v: Obj) => boolean> = {
     isValidISODate(s.enrolledOn) && isNum(s.monthlyTuition) && oneOf(s.status, ['active', 'paused', 'left']),
   attendance: (r) =>
     isStr(r.id) && isStr(r.groupId) && isValidISODate(r.date) && isStr(r.startTime) && isStr(r.teacherId) &&
-    isObj(r.marks) && (r.comments === undefined || isObj(r.comments)),
+    isObj(r.marks) && (r.comments === undefined || isObj(r.comments)) &&
+    (r.grades === undefined || (isObj(r.grades) && Object.values(r.grades).every((g) => isNum(g) && g >= 1 && g <= 5 && Number.isInteger(g)))),
   payments: (p) =>
     isStr(p.id) && isStr(p.studentId) && isNum(p.amount) && isValidISODate(p.date) &&
     isStr(p.period) && oneOf(p.method, PAYMENT_METHODS) && oneOf(p.status, ['paid', 'pending', 'refunded']),

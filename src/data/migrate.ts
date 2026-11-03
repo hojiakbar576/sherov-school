@@ -5,14 +5,14 @@
 import type { Activity, AttendanceRecord, Group, Homework, SchoolData, Student, Teacher } from '../types'
 import { toISODate } from '../lib/dates'
 import { BRANCHES, DEFAULT_BRANCH_ID, TEACHER_BRANCH, buildUsers, seedNotifications, ADMIN_USERS } from './seed-portal'
-import { homeworkStudents, seedHomework, seedHomeworkResults, seedStudentNotes, studentProfile } from './seed-learning'
+import { DEFAULT_SALARY_PERCENT, SALARY_PERCENT, homeworkStudents, seedHomework, seedHomeworkResults, seedStudentNotes, studentProfile, withSampleGrades } from './seed-learning'
 
 type Obj = Record<string, unknown>
 
 /** Version 1 had one centre and no sign-in: add branches, accounts and messages. */
 function v1ToV2(old: Obj, now: Date): Obj {
   const teachers = (old.teachers as Omit<Teacher, 'branchId'>[]).map(
-    (t): Teacher => ({ ...t, branchId: TEACHER_BRANCH[t.id] ?? DEFAULT_BRANCH_ID }),
+    (t) => ({ ...t, branchId: TEACHER_BRANCH[t.id] ?? DEFAULT_BRANCH_ID }) as Teacher,
   )
   const teacherBranch = new Map(teachers.map((t) => [t.id, t.branchId]))
   const groups = (old.groups as Omit<Group, 'branchId'>[]).map(
@@ -72,7 +72,21 @@ function v2ToV3(old: Obj, now: Date): SchoolData {
   }
 }
 
-const STEPS: Record<number, (old: Obj, now: Date) => unknown> = { 1: v1ToV2, 2: v2ToV3 }
+/**
+ * Version 3 had no lesson grades or teacher pay share. Give every teacher a
+ * share (administrators can change it) and sample grades on saved lessons.
+ */
+function v3ToV4(old: Obj): SchoolData {
+  const data = old as unknown as SchoolData
+  return {
+    ...data,
+    version: 4,
+    teachers: data.teachers.map((t) => ({ ...t, salaryPercent: t.salaryPercent ?? SALARY_PERCENT[t.id] ?? DEFAULT_SALARY_PERCENT })),
+    attendance: withSampleGrades(data.attendance),
+  }
+}
+
+const STEPS: Record<number, (old: Obj, now: Date) => unknown> = { 1: v1ToV2, 2: v2ToV3, 3: v3ToV4 }
 
 /**
  * Brings saved data up to `target`. Returns null when there's no upgrade path

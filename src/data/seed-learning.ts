@@ -4,7 +4,9 @@
 // (migrate.ts) produce exactly the same details for the same student.
 
 import type {
+  AttendanceRecord,
   Gender,
+  Grade,
   Group,
   Guardian,
   Homework,
@@ -294,4 +296,34 @@ export function seedStudentNotes(students: Student[], groups: Group[], teachers:
     })
   }
   return notes
+}
+
+// ---------------------------------------------------------------- lesson grades and pay
+
+/** Each demo teacher's share of their students' tuition, in percent. */
+export const SALARY_PERCENT: Record<string, number> = {
+  tch_01: 40, tch_02: 45, tch_03: 50, tch_04: 40, tch_05: 35,
+  tch_06: 40, tch_07: 45, tch_08: 30, tch_09: 35, tch_10: 40,
+}
+export const DEFAULT_SALARY_PERCENT = 40
+
+/**
+ * Sample 1–5 grades for saved lessons. Teachers differ in how often they
+ * grade, and students in their usual level, so ratings differ realistically.
+ * Records that already have grades are left as they are.
+ */
+export function withSampleGrades(records: AttendanceRecord[]): AttendanceRecord[] {
+  return records.map((r) => {
+    if (r.grades) return r
+    const habit = randomFor(r.teacherId, 'grading')
+    const gradingRate = 0.3 + habit.next() * 0.6
+    const rand = randomFor(r.id, 'grades')
+    const grades: Record<string, Grade> = {}
+    for (const [studentId, mark] of Object.entries(r.marks)) {
+      if (mark === 'absent' || !rand.chance(gradingRate)) continue
+      const level = 2.6 + randomFor(studentId, 'level').next() * 2.4 // 2.6–5.0
+      grades[studentId] = Math.max(1, Math.min(5, Math.round(level + (rand.next() - 0.5) * 1.6))) as Grade
+    }
+    return Object.keys(grades).length ? { ...r, grades } : r
+  })
 }
