@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from 'react'
-import type { Student, StudentStatus } from '../../types'
-import { useSchool } from '../../data/school-context'
+import type { Gender, Guardian, GuardianRelationship, Student, TuitionAdjustmentKind } from '../../types'
+import { GUARDIAN_RELATIONSHIPS } from '../../types'
+import { useSchool, type StudentInput } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Dialog } from '../../components/ui/Dialog'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/Field'
 import { toISODate } from '../../lib/dates'
-import { formatPhone, formatUZS, isValidEmail, isValidPhone, studentStatusLabel } from '../../lib/format'
+import { formatPhone, formatUZS, genderLabel, guardianRelationshipLabel, isValidEmail, isValidPhone, tuitionAdjustmentLabel } from '../../lib/format'
+import { createId } from '../../lib/id'
 import { enrolmentByGroup } from '../../lib/metrics'
 
 interface StudentFormDialogProps {
@@ -15,19 +17,40 @@ interface StudentFormDialogProps {
   /** Edit this student; leave empty to add a new one. */
   student?: Student
   onSaved?: (student: Student) => void
+  /** Pre-fills a new student, e.g. from an admissions enquiry. */
+  initial?: { fullName?: string; parentName?: string; parentPhone?: string; groupId?: string }
+  /** Creates the student another way (e.g. enrolling an enquiry). Defaults to adding a student. */
+  create?: (input: StudentInput) => Student
+  title?: string
+}
+
+interface GuardianRow {
+  id: string
+  fullName: string
+  relationship: GuardianRelationship
+  phone: string
+  altPhone: string
 }
 
 interface FormState {
   fullName: string
   phone: string
   email: string
+  dateOfBirth: string
+  gender: Gender | ''
+  address: string
+  guardians: GuardianRow[]
   groupId: string
   enrolledOn: string
   monthlyTuition: string
-  status: StudentStatus
+  adjustmentKind: TuitionAdjustmentKind
+  adjustmentReason: string
 }
 
-type Errors = Partial<Record<keyof FormState, string>>
+type Errors = Partial<Record<Exclude<keyof FormState, 'guardians'>, string>> & { guardians?: Record<number, { fullName?: string; phone?: string; altPhone?: string }> }
+
+const emptyGuardian = (relationship: GuardianRelationship): GuardianRow => ({ id: createId('gdn'), fullName: '', relationship, phone: '', altPhone: '' })
+const isBlank = (g: GuardianRow) => !g.fullName.trim() && !g.phone.trim() && !g.altPhone.trim()
 
 export function StudentFormDialog(props: StudentFormDialogProps) {
   // Remount the form each time it opens so it starts from the right values.
@@ -35,36 +58,53 @@ export function StudentFormDialog(props: StudentFormDialogProps) {
     <Dialog
       open={props.open}
       onClose={props.onClose}
-      title={props.student ? 'Edit student' : 'Add student'}
-      description={props.student ? props.student.fullName : 'Register a new student and place them in a group.'}
+      title={props.title ?? (props.student ? 'Edit student' : 'Add student')}
+      description={props.student ? props.student.fullName : 'Four short steps: the student, a parent, the group and tuition.'}
+      size="lg"
     >
       {props.open && <StudentForm {...props} />}
     </Dialog>
   )
 }
 
-function StudentForm({ onClose, student, onSaved }: StudentFormDialogProps) {
+function StudentForm({ onClose, student, onSaved, initial, create }: StudentFormDialogProps) {
   const { data, now, actions } = useSchool()
   const toast = useToast()
   const enrolment = enrolmentByGroup(data)
   const activeGroups = data.groups.filter((g) => g.status === 'active' || g.id === student?.groupId)
 
   const [form, setForm] = useState<FormState>(() => ({
-    fullName: student?.fullName ?? '',
+    fullName: student?.fullName ?? initial?.fullName ?? '',
     phone: student?.phone ?? '',
     email: student?.email ?? '',
-    groupId: student?.groupId ?? '',
+    dateOfBirth: student?.dateOfBirth ?? '',
+    gender: student?.gender ?? '',
+    address: student?.address ?? '',
+    guardians: student?.guardians.length
+      ? student.guardians.map((g) => ({ id: g.id, fullName: g.fullName, relationship: g.relationship, phone: g.phone, altPhone: g.altPhone ?? '' }))
+      : initial?.parentName || initial?.parentPhone
+        ? [{ ...emptyGuardian('mother'), fullName: initial.parentName ?? '', phone: initial.parentPhone ?? '' }]
+        : [emptyGuardian('mother')],
+    groupId: student?.groupId ?? initial?.groupId ?? '',
     enrolledOn: student?.enrolledOn ?? toISODate(now),
-    monthlyTuition: student ? String(student.monthlyTuition) : '',
-    status: student?.status ?? 'active',
+    monthlyTuition: student ? String(student.monthlyTuition) : String(data.groups.find((g) => g.id === initial?.groupId)?.monthlyFee ?? ''),
+    adjustmentKind: student?.tuitionAdjustment?.kind ?? 'discount',
+    adjustmentReason: student?.tuitionAdjustment?.reason ?? '',
   }))
+  // The standard price is the group's fee; anything else needs a reason.
+  const standardFee = data.groups.find((g) => g.id === form.groupId)?.monthlyFee
+  const priceDiffers = standardFee !== undefined && Number(form.monthlyTuition) > 0 && Number(form.monthlyTuition) !== standardFee
   const [errors, setErrors] = useState<Errors>({})
   // Tuition follows the group's fee until the user types their own amount.
   const [tuitionEdited, setTuitionEdited] = useState(Boolean(student))
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }))
-    if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }))
+    if (key !== 'guardians' && errors[key as Exclude<K, 'guardians'>]) setErrors((e) => ({ ...e, [key]: undefined }))
+  }
+  const setGuardian = (index: number, patch: Partial<GuardianRow>) => {
+    setForm((f) => ({ ...f, guardians: f.guardians.map((g, i) => (i === index ? { ...g, ...patch } : g)) }))
+    if (errors.guardians?.[index]) setErrors((e) => ({ ...e, guardians: { ...e.guardians, [index]: {} } }))
   }
 
   const validate = (): Errors => {
@@ -72,13 +112,24 @@ function StudentForm({ onClose, student, onSaved }: StudentFormDialogProps) {
     if (form.fullName.trim().length < 3) e.fullName = 'Enter the student’s full name.'
     if (!isValidPhone(form.phone)) e.phone = 'Enter a phone number like +998 90 123 45 67.'
     if (form.email.trim() && !isValidEmail(form.email.trim())) e.email = 'This email address doesn’t look right.'
+    if (form.dateOfBirth && form.dateOfBirth >= toISODate(now)) e.dateOfBirth = 'Date of birth must be in the past.'
+    // A parent row is optional (adult students), but a started one must be complete.
+    form.guardians.forEach((g, i) => {
+      if (isBlank(g)) return
+      const ge: { fullName?: string; phone?: string; altPhone?: string } = {}
+      if (g.fullName.trim().length < 3) ge.fullName = 'Enter the parent’s full name.'
+      if (!isValidPhone(g.phone)) ge.phone = 'Enter a phone like +998 90 123 45 67.'
+      if (g.altPhone.trim() && !isValidPhone(g.altPhone)) ge.altPhone = 'This number doesn’t look right.'
+      if (Object.keys(ge).length) e.guardians = { ...e.guardians, [i]: ge }
+    })
     if (!form.enrolledOn) e.enrolledOn = 'Choose the enrolment date.'
     else if (form.enrolledOn > toISODate(now)) e.enrolledOn = 'Enrolment date can’t be in the future.'
     const tuition = Number(form.monthlyTuition)
     if (!form.monthlyTuition || !Number.isFinite(tuition) || tuition <= 0) e.monthlyTuition = 'Enter the monthly tuition in UZS.'
     else if (tuition > 50_000_000) e.monthlyTuition = 'That amount is too large for monthly tuition.'
+    if (priceDiffers && form.adjustmentReason.trim().length < 3) e.adjustmentReason = 'Say why this student pays a different price.'
     const group = data.groups.find((g) => g.id === form.groupId)
-    const joiningGroup = group && form.status === 'active' && (student?.groupId !== group.id || student?.status !== 'active')
+    const joiningGroup = group && !student
     if (group && joiningGroup && (enrolment.get(group.id) ?? 0) >= group.capacity) {
       e.groupId = `${group.name} is full (${group.capacity} seats). Choose another group or raise its capacity.`
     }
@@ -89,105 +140,227 @@ function StudentForm({ onClose, student, onSaved }: StudentFormDialogProps) {
     event.preventDefault()
     const found = validate()
     setErrors(found)
-    if (Object.values(found).some(Boolean)) return
+    const guardianErrors = Object.values(found.guardians ?? {}).some((g) => Object.keys(g).length > 0)
+    if (Object.entries(found).some(([k, v]) => k !== 'guardians' && Boolean(v)) || guardianErrors) return
+
+    const guardians: Guardian[] = form.guardians
+      .filter((g) => !isBlank(g))
+      .map((g) => ({
+        id: g.id,
+        fullName: g.fullName.trim().replace(/\s+/g, ' '),
+        relationship: g.relationship,
+        phone: formatPhone(g.phone),
+        ...(g.altPhone.trim() ? { altPhone: formatPhone(g.altPhone) } : {}),
+      }))
 
     const input = {
       fullName: form.fullName.trim().replace(/\s+/g, ' '),
       phone: formatPhone(form.phone),
       email: form.email.trim() || undefined,
-      groupId: form.groupId || null,
+      dateOfBirth: form.dateOfBirth || undefined,
+      gender: form.gender || undefined,
+      address: form.address.trim() || undefined,
+      guardians,
+      // Group and status change through Transfer and Change status, so they keep their history.
+      groupId: student ? student.groupId : form.groupId || null,
       enrolledOn: form.enrolledOn,
       monthlyTuition: Math.round(Number(form.monthlyTuition)),
-      status: form.status,
+      ...(priceDiffers ? { tuitionAdjustment: { kind: form.adjustmentKind, reason: form.adjustmentReason.trim() } } : {}),
+      status: student ? student.status : ('active' as const),
     }
     if (student) {
       actions.updateStudent(student.id, input)
       toast.show(`Saved changes to ${input.fullName}.`)
       onSaved?.({ ...student, ...input })
     } else {
-      const created = actions.addStudent(input)
+      const created = (create ?? actions.addStudent)(input)
       toast.show(`${created.fullName} was added.`)
       onSaved?.(created)
     }
     onClose()
   }
 
+  const gErr = (i: number) => errors.guardians?.[i] ?? {}
+
   return (
-    <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
-      <Field label="Full name" error={errors.fullName} className="sm:col-span-2">
-        {(p) => <Input {...p} value={form.fullName} onChange={(e) => set('fullName', e.target.value)} autoComplete="off" placeholder="e.g. Madina Karimova" autoFocus />}
-      </Field>
-      <Field label="Phone number" error={errors.phone}>
-        {(p) => <Input {...p} type="tel" inputMode="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} onBlur={() => set('phone', formatPhone(form.phone))} placeholder="+998 90 123 45 67" />}
-      </Field>
-      <Field label="Email" optional error={errors.email}>
-        {(p) => <Input {...p} type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="name@example.com" />}
-      </Field>
-      <Field label="Group" error={errors.groupId} hint="Tuition is filled in from the group’s monthly fee." className="sm:col-span-2">
-        {(p) => (
-          <Select
-            {...p}
-            value={form.groupId}
-            onChange={(e) => {
-              const groupId = e.target.value
-              set('groupId', groupId)
-              const fee = data.groups.find((g) => g.id === groupId)?.monthlyFee
-              if (fee && !tuitionEdited) set('monthlyTuition', String(fee))
-            }}
-          >
-            <option value="">No group yet</option>
-            {activeGroups.map((g) => {
-              const count = enrolment.get(g.id) ?? 0
-              return (
-                <option key={g.id} value={g.id}>
-                  {g.name} ({count}/{g.capacity}){count >= g.capacity ? ', full' : ''}
+    <form onSubmit={submit} noValidate className="space-y-6">
+      <Section step={1} title="Student">
+        <Field label="Full name" error={errors.fullName} className="sm:col-span-2">
+          {(p) => <Input {...p} value={form.fullName} onChange={(e) => set('fullName', e.target.value)} autoComplete="off" placeholder="e.g. Madina Karimova" autoFocus />}
+        </Field>
+        <Field label="Student’s phone" error={errors.phone}>
+          {(p) => <Input {...p} type="tel" inputMode="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} onBlur={() => set('phone', formatPhone(form.phone))} placeholder="+998 90 123 45 67" />}
+        </Field>
+        <Field label="Date of birth" optional error={errors.dateOfBirth}>
+          {(p) => <Input {...p} type="date" max={toISODate(now)} value={form.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} />}
+        </Field>
+        <Field label="Gender" optional>
+          {(p) => (
+            <Select {...p} value={form.gender} onChange={(e) => set('gender', e.target.value as Gender | '')}>
+              <option value="">Not given</option>
+              {(Object.keys(genderLabel) as Gender[]).map((g) => (
+                <option key={g} value={g}>
+                  {genderLabel[g]}
                 </option>
-              )
-            })}
-          </Select>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Field label="Email" optional error={errors.email}>
+          {(p) => <Input {...p} type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="name@example.com" />}
+        </Field>
+        <Field label="Address" optional className="sm:col-span-2">
+          {(p) => <Input {...p} value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="District, street" />}
+        </Field>
+      </Section>
+
+      <Section step={2} title="Parent / guardian" hint="Who to call about this student. Leave empty for adult students.">
+        {form.guardians.map((g, i) => (
+          <div key={g.id} className="grid gap-4 rounded-panel border border-line bg-canvas p-4 sm:col-span-2 sm:grid-cols-2">
+            <div className="flex items-center justify-between sm:col-span-2">
+              <p className="text-sm font-medium text-ink">{i === 0 ? 'Main contact' : 'Second contact'}</p>
+              {i > 0 && (
+                <button type="button" onClick={() => set('guardians', form.guardians.filter((_, j) => j !== i))} className="text-sm text-ink-muted hover:text-danger">
+                  Remove
+                </button>
+              )}
+            </div>
+            <Field label="Full name" error={gErr(i).fullName}>
+              {(p) => <Input {...p} value={g.fullName} onChange={(e) => setGuardian(i, { fullName: e.target.value })} placeholder="e.g. Dilnoza Karimova" />}
+            </Field>
+            <Field label="Relationship">
+              {(p) => (
+                <Select {...p} value={g.relationship} onChange={(e) => setGuardian(i, { relationship: e.target.value as GuardianRelationship })}>
+                  {GUARDIAN_RELATIONSHIPS.map((r) => (
+                    <option key={r} value={r}>
+                      {guardianRelationshipLabel[r]}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+            <Field label="Phone" error={gErr(i).phone}>
+              {(p) => <Input {...p} type="tel" inputMode="tel" value={g.phone} onChange={(e) => setGuardian(i, { phone: e.target.value })} onBlur={() => setGuardian(i, { phone: formatPhone(g.phone) })} placeholder="+998 90 123 45 67" />}
+            </Field>
+            <Field label="Second phone" optional error={gErr(i).altPhone}>
+              {(p) => <Input {...p} type="tel" inputMode="tel" value={g.altPhone} onChange={(e) => setGuardian(i, { altPhone: e.target.value })} onBlur={() => setGuardian(i, { altPhone: g.altPhone ? formatPhone(g.altPhone) : '' })} placeholder="Work or another number" />}
+            </Field>
+          </div>
+        ))}
+        {form.guardians.length < 3 && (
+          <div className="sm:col-span-2">
+            <Button size="sm" onClick={() => set('guardians', [...form.guardians, emptyGuardian(form.guardians.some((g) => g.relationship === 'father') ? 'mother' : 'father')])}>
+              + Add {form.guardians.length === 0 ? 'a parent' : 'another parent'}
+            </Button>
+          </div>
         )}
-      </Field>
-      <Field label="Enrolment date" error={errors.enrolledOn}>
-        {(p) => <Input {...p} type="date" max={toISODate(now)} value={form.enrolledOn} onChange={(e) => set('enrolledOn', e.target.value)} />}
-      </Field>
-      <Field
-        label="Monthly tuition (UZS)"
-        error={errors.monthlyTuition}
-        hint={form.monthlyTuition && Number(form.monthlyTuition) > 0 ? formatUZS(Number(form.monthlyTuition)) : undefined}
-      >
-        {(p) => (
-          <Input
-            {...p}
-            type="number"
-            inputMode="numeric"
-            min={0}
-            step={10000}
-            value={form.monthlyTuition}
-            onChange={(e) => {
-              setTuitionEdited(true)
-              set('monthlyTuition', e.target.value)
-            }}
-            placeholder="450000"
-          />
+      </Section>
+
+      <Section step={3} title="Group">
+        {student ? (
+          <p className="rounded-control bg-subtle px-3 py-2.5 text-sm text-ink-muted sm:col-span-2">
+            {student.groupId ? <>In <span className="font-medium text-ink">{data.groups.find((g) => g.id === student.groupId)?.name}</span>. </> : 'Not in a group. '}
+            To move them to another group or change their status, use <span className="font-medium text-ink">Transfer</span> or{' '}
+            <span className="font-medium text-ink">Change status</span> on their profile, so the history is kept.
+          </p>
+        ) : (
+        <Field label="Group" error={errors.groupId} hint="Tuition below is filled in from the group’s monthly fee." className="sm:col-span-2">
+          {(p) => (
+            <Select
+              {...p}
+              value={form.groupId}
+              onChange={(e) => {
+                const groupId = e.target.value
+                set('groupId', groupId)
+                const fee = data.groups.find((g) => g.id === groupId)?.monthlyFee
+                if (fee && !tuitionEdited) set('monthlyTuition', String(fee))
+              }}
+            >
+              <option value="">No group yet</option>
+              {activeGroups.map((g) => {
+                const count = enrolment.get(g.id) ?? 0
+                return (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({count}/{g.capacity}){count >= g.capacity ? ', full' : ''}
+                  </option>
+                )
+              })}
+            </Select>
+          )}
+        </Field>
         )}
-      </Field>
-      <Field label="Status" className="sm:col-span-2">
-        {(p) => (
-          <Select {...p} value={form.status} onChange={(e) => set('status', e.target.value as StudentStatus)}>
-            {(Object.keys(studentStatusLabel) as StudentStatus[]).map((s) => (
-              <option key={s} value={s}>
-                {studentStatusLabel[s]}
-              </option>
-            ))}
-          </Select>
+        <Field label="Enrolment date" error={errors.enrolledOn}>
+          {(p) => <Input {...p} type="date" max={toISODate(now)} value={form.enrolledOn} onChange={(e) => set('enrolledOn', e.target.value)} />}
+        </Field>
+      </Section>
+
+      <Section step={4} title="Tuition">
+        <Field
+          label="Monthly tuition (UZS)"
+          error={errors.monthlyTuition}
+          hint={
+            standardFee !== undefined
+              ? `The group’s standard fee is ${formatUZS(standardFee)}.${priceDiffers ? '' : ' Change it for a discount or special price.'}`
+              : form.monthlyTuition && Number(form.monthlyTuition) > 0
+                ? `${formatUZS(Number(form.monthlyTuition))} a month.`
+                : undefined
+          }
+        >
+          {(p) => (
+            <Input
+              {...p}
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={10000}
+              value={form.monthlyTuition}
+              onChange={(e) => {
+                setTuitionEdited(true)
+                set('monthlyTuition', e.target.value)
+              }}
+              placeholder="450000"
+            />
+          )}
+        </Field>
+        {priceDiffers && (
+          <>
+            <Field label="Why a different price">
+              {(p) => (
+                <Select {...p} value={form.adjustmentKind} onChange={(e) => set('adjustmentKind', e.target.value as TuitionAdjustmentKind)}>
+                  {(Object.keys(tuitionAdjustmentLabel) as TuitionAdjustmentKind[]).map((k) => (
+                    <option key={k} value={k}>
+                      {tuitionAdjustmentLabel[k]}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+            <Field label="Reason" error={errors.adjustmentReason} hint="Shown on the profile so everyone knows why the price differs.">
+              {(p) => <Input {...p} value={form.adjustmentReason} maxLength={160} onChange={(e) => set('adjustmentReason', e.target.value)} placeholder="e.g. Sibling discount" />}
+            </Field>
+          </>
         )}
-      </Field>
-      <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4 sm:col-span-2">
+      </Section>
+
+      <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
         <Button onClick={onClose}>Cancel</Button>
         <Button type="submit" variant="primary">
           {student ? 'Save changes' : 'Add student'}
         </Button>
       </div>
     </form>
+  )
+}
+
+function Section({ step, title, hint, children }: { step: number; title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="grid gap-4 sm:grid-cols-2">
+      <legend className="mb-3 flex items-center gap-2.5 sm:col-span-2">
+        <span className="num flex size-6 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-ink">{step}</span>
+        <span className="font-semibold text-ink">{title}</span>
+        {hint && <span className="text-sm text-ink-muted">· {hint}</span>}
+      </legend>
+      {children}
+    </fieldset>
   )
 }

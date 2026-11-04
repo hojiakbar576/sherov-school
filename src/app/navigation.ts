@@ -2,18 +2,21 @@ import {
   CalendarDays,
   ChartColumn,
   ClipboardCheck,
+  ClipboardList,
   GraduationCap,
   House,
   LayoutDashboard,
   NotebookPen,
   Settings,
   UserRound,
+  UserRoundPlus,
   Users,
   UsersRound,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import type { Role } from '../types'
+import { t } from '../i18n'
 
 export interface NavItem {
   to: string
@@ -36,34 +39,40 @@ export interface PortalNav {
   hidden?: Pick<NavItem, 'to' | 'label'>[]
 }
 
-/** Administrator sidebar. Every entry here has a matching route in App.tsx. */
+/**
+ * Administrator sidebar, in the order of a working day: what's on today,
+ * new people coming in, the people you look after, teaching, then money.
+ * Every entry has a matching route in App.tsx. Labels come from i18n.
+ */
 export const NAV_SECTIONS: NavSection[] = [
-  { label: 'Overview', items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard }] },
+  { label: t('nav.overview'), items: [{ to: '/', label: t('nav.dashboard'), icon: LayoutDashboard }] },
+  { label: t('nav.admissions'), items: [{ to: '/leads', label: t('nav.leads'), icon: UserRoundPlus }] },
   {
-    label: 'People',
+    label: t('nav.people'),
     items: [
-      { to: '/students', label: 'Students', icon: Users },
-      { to: '/teachers', label: 'Teachers', icon: GraduationCap },
+      { to: '/students', label: t('nav.students'), icon: Users },
+      { to: '/teachers', label: t('nav.teachers'), icon: GraduationCap },
     ],
   },
   {
-    label: 'Teaching',
+    label: t('nav.teaching'),
     items: [
-      { to: '/groups', label: 'Groups', icon: UsersRound },
-      { to: '/attendance', label: 'Attendance', icon: ClipboardCheck },
-      { to: '/schedule', label: 'Schedule', icon: CalendarDays },
+      { to: '/groups', label: t('nav.groups'), icon: UsersRound },
+      { to: '/schedule', label: t('nav.schedule'), icon: CalendarDays },
+      { to: '/attendance', label: t('nav.attendance'), icon: ClipboardCheck },
+      { to: '/assessments', label: t('nav.assessments'), icon: ClipboardList },
     ],
   },
   {
-    label: 'Finance',
+    label: t('nav.finance'),
     items: [
-      { to: '/payments', label: 'Payments', icon: Wallet },
-      { to: '/reports', label: 'Reports', icon: ChartColumn },
+      { to: '/payments', label: t('nav.payments'), icon: Wallet },
+      { to: '/reports', label: t('nav.reports'), icon: ChartColumn },
     ],
   },
 ]
 
-export const SETTINGS_ITEM: NavItem = { to: '/settings', label: 'Settings', icon: Settings }
+export const SETTINGS_ITEM: NavItem = { to: '/settings', label: t('nav.settings'), icon: Settings }
 
 const ADMIN_NAV: PortalNav = { base: '', sections: NAV_SECTIONS, footer: SETTINGS_ITEM }
 

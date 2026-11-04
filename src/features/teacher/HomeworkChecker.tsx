@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, CheckCheck, Clock, Eraser, Users, X } from 'lucide-react'
+import { Check, CheckCheck, Clock, Eraser, MessageSquare, Users, X } from 'lucide-react'
 import type { Grade, Homework, Student, SubmissionState } from '../../types'
 import { GRADES } from '../../types'
 import { useSchool, type ResultInput } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Button } from '../../components/ui/Button'
+import { Dialog } from '../../components/ui/Dialog'
+import { Textarea } from '../../components/ui/Field'
 import { Avatar, EmptyState } from '../../components/ui/misc'
 import { toISODate } from '../../lib/dates'
 import { cn } from '../../lib/cn'
@@ -13,19 +15,21 @@ import { ToolButton } from './group/ToolButton'
 import { gradeToScore, gradeTone, scoreToGrade } from './group/grade-style'
 
 /** What a tap on a student does. Pick it once, then tap every student it applies to. */
-type Tool = 'missing' | 'late' | 'handed' | Grade | 'clear'
+type Tool = 'missing' | 'late' | 'handed' | Grade | 'comment' | 'clear'
 
 interface State {
   submission: SubmissionState
   grade?: Grade
+  /** Short comment for the student (and later their parents). Kept with the grade. */
+  comment?: string
 }
 
-const same = (a: State, b: State) => a.submission === b.submission && a.grade === b.grade
+const same = (a: State, b: State) => a.submission === b.submission && a.grade === b.grade && (a.comment ?? '') === (b.comment ?? '')
 
 /**
  * Homework checking, the same way as a lesson: pick a mark (Not done, Late,
  * Handed in, or a grade 5–1), then tap the students it applies to.
- * Keys: 1–5 grades, N not done, L late, H handed in, C clear.
+ * Keys: 1–5 grades, N not done, L late, H handed in, M comment, C clear.
  */
 export function HomeworkChecker({ homework }: { homework: Homework }) {
   const { data, now, actions } = useSchool()
@@ -47,13 +51,22 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
   )
   const savedState = (id: string): State => {
     const r = saved.get(id)
-    return { submission: r?.submission ?? 'not_submitted', grade: r?.evaluation ? scoreToGrade(r.evaluation.score) : undefined }
+    return {
+      submission: r?.submission ?? 'not_submitted',
+      grade: r?.evaluation ? scoreToGrade(r.evaluation.score) : undefined,
+      comment: r?.evaluation?.feedback || undefined,
+    }
   }
 
   const [states, setStates] = useState<Record<string, State>>(() => Object.fromEntries(students.map((s) => [s.id, savedState(s.id)])))
   const [tool, setTool] = useState<Tool>(5)
+  const [commenting, setCommenting] = useState<Student | null>(null)
 
-  const apply = (id: string) =>
+  const apply = (id: string) => {
+    if (tool === 'comment') {
+      setCommenting(students.find((s) => s.id === id) ?? null)
+      return
+    }
     setStates((prev) => {
       const cur = prev[id] ?? { submission: 'not_submitted' }
       let next: State
@@ -63,10 +76,14 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
       else if (tool === 'clear') next = { submission: 'not_submitted' }
       else {
         // Giving a grade means it was handed in. Tapping the same grade again removes it.
-        next = { submission: cur.submission === 'not_submitted' ? 'submitted' : cur.submission, grade: cur.grade === tool ? undefined : tool }
+        // A comment written for the old grade goes with it, unless it was just typed.
+        const grade = cur.grade === tool ? undefined : tool
+        const staleComment = cur.comment && cur.comment === savedState(id).comment
+        next = { submission: cur.submission === 'not_submitted' ? 'submitted' : cur.submission, grade, comment: grade && !staleComment ? cur.comment : undefined }
       }
       return { ...prev, [id]: next }
     })
+  }
 
   const handedNoGrade = students.filter((s) => states[s.id].submission !== 'not_submitted' && !states[s.id].grade)
   const notHanded = students.filter((s) => states[s.id].submission === 'not_submitted')
@@ -81,6 +98,7 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
       else if (key === 'l') setTool('late')
       else if (key === 'h') setTool('handed')
       else if (key === 'c') setTool('clear')
+      else if (key === 'm') setTool('comment')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -96,8 +114,7 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
       // Keep an older exact score (e.g. 87) if its grade wasn't changed.
       const keep = Boolean(st.grade && before && scoreToGrade(before.score) === st.grade)
       const score = !st.grade ? null : keep ? before!.score : gradeToScore(st.grade)
-      // An old comment belongs to the old grade, so it's dropped when the grade changes.
-      return { studentId: s.id, submission: st.submission, score, feedback: keep ? before!.feedback : '' }
+      return { studentId: s.id, submission: st.submission, score, feedback: st.grade ? (st.comment ?? '') : '' }
     })
     const count = actions.saveHomeworkResults(homework.id, rows)
     if (count === null) {
@@ -153,6 +170,9 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
               {g}
             </ToolButton>
           ))}
+          <ToolButton active={tool === 'comment'} onClick={() => setTool('comment')} shortcut="M" className="data-[active=true]:bg-info data-[active=true]:text-white">
+            <MessageSquare aria-hidden className="size-4" /> Comment
+          </ToolButton>
           <ToolButton active={tool === 'clear'} onClick={() => setTool('clear')} shortcut="C" className="data-[active=true]:bg-ink data-[active=true]:text-white">
             <Eraser aria-hidden className="size-4" /> Clear
           </ToolButton>
@@ -209,6 +229,7 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
                   <span className={cn('min-w-0 flex-1 truncate text-sm font-medium', missing && overdue ? 'text-danger' : 'text-ink')}>{s.fullName}</span>
                   {missing && <span className={cn('text-xs font-semibold', overdue ? 'text-danger' : 'text-ink-faint')}>{overdue ? 'Not done' : 'Not yet'}</span>}
                   {st.submission === 'late' && <span className="text-xs font-semibold text-warning">Late</span>}
+                  {st.comment && <MessageSquare aria-label="Has a comment" className="size-4 shrink-0 text-info" />}
                   {st.grade ? (
                     <GradeChip grade={st.grade} />
                   ) : (
@@ -249,6 +270,64 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
         </div>
       </div>
 
+      <CommentDialog
+        student={commenting}
+        state={commenting ? states[commenting.id] : undefined}
+        onClose={() => setCommenting(null)}
+        onSave={(comment) => {
+          if (commenting) setStates((prev) => ({ ...prev, [commenting.id]: { ...prev[commenting.id], comment: comment || undefined } }))
+          setCommenting(null)
+        }}
+      />
     </section>
+  )
+}
+
+/** A short comment for one student. Saved with the grade, so a grade is needed first. */
+function CommentDialog({ student, state, onClose, onSave }: { student: Student | null; state?: State; onClose: () => void; onSave: (comment: string) => void }) {
+  return (
+    <Dialog open={student !== null} onClose={onClose} title={student ? `Comment for ${student.fullName}` : 'Comment'} size="sm">
+      {student && state && <CommentForm key={student.id} state={state} onClose={onClose} onSave={onSave} />}
+    </Dialog>
+  )
+}
+
+function CommentForm({ state, onClose, onSave }: { state: State; onClose: () => void; onSave: (comment: string) => void }) {
+  const [text, setText] = useState(state.comment ?? '')
+  if (!state.grade) {
+    return (
+      <div className="space-y-4 text-sm">
+        <p className="text-ink-muted">Give this student a grade first. The comment is saved together with the grade.</p>
+        <div className="flex justify-end">
+          <Button onClick={onClose}>OK</Button>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSave(text.trim().slice(0, 300))
+      }}
+    >
+      <Textarea aria-label="Comment" autoFocus value={text} maxLength={300} onChange={(e) => setText(e.target.value)} placeholder="What went well, what to improve" />
+      <div className="flex justify-between gap-2">
+        {state.comment ? (
+          <Button variant="ghost" onClick={() => onSave('')} className="text-danger hover:bg-danger-soft hover:text-danger">
+            Remove
+          </Button>
+        ) : (
+          <span />
+        )}
+        <div className="flex gap-2">
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary">
+            Done
+          </Button>
+        </div>
+      </div>
+    </form>
   )
 }

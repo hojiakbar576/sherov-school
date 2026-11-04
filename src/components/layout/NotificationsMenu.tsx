@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
-import { Bell, CalendarX2, Clock, UsersRound, Wallet, type LucideIcon } from 'lucide-react'
+import { Bell, CalendarX2, Clock, NotebookPen, PhoneCall, UserRoundPlus, UserRoundX, UsersRound, Wallet, type LucideIcon } from 'lucide-react'
 import { useSchool } from '../../data/school-context'
 import { attentionLabel, attentionLink, useAttention } from '../../hooks/useAttention'
 import type { AttentionItem, AttentionKind } from '../../lib/metrics'
@@ -13,6 +13,10 @@ const attentionIcon: Record<AttentionKind, LucideIcon> = {
   overdue: Wallet,
   absences: Clock,
   capacity: UsersRound,
+  teacher_away: UserRoundX,
+  trial_today: UserRoundPlus,
+  trial_result: NotebookPen,
+  lead_new: PhoneCall,
 }
 
 /** One row in the menu, whatever produced it. */
@@ -28,7 +32,7 @@ interface MenuItem {
 /** Administrators: generated from the same "needs attention" rules as the dashboard. */
 function pickAttention(items: AttentionItem[]): MenuItem[] {
   const take = (kind: AttentionKind, n: number) => items.filter((i) => i.kind === kind).slice(0, n)
-  return [...take('attendance_missing', 3), ...take('absences', 2), ...take('capacity', 2), ...take('overdue', 3)].map((item) => ({
+  return [...take('trial_today', 3), ...take('attendance_missing', 3), ...take('trial_result', 2), ...take('lead_new', 2), ...take('teacher_away', 2), ...take('absences', 2), ...take('capacity', 2), ...take('overdue', 3)].map((item) => ({
     id: item.id,
     icon: attentionIcon[item.kind],
     label: attentionLabel[item.kind],

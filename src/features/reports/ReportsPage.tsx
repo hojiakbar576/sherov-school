@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Download } from 'lucide-react'
-import { SUBJECTS } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -98,7 +97,8 @@ export function ReportsPage() {
   const joined = enrolmentByMonth(data, now, months)
   const enrolment = enrolmentByGroup(data)
   const active = data.students.filter((s) => s.status === 'active')
-  const bySubject = SUBJECTS.map((subject) => {
+  const courseNames = Array.from(new Set(data.groups.map((g) => g.subject))).sort()
+  const bySubject = courseNames.map((subject) => {
     const groups = data.groups.filter((g) => g.subject === subject && g.status === 'active')
     const students = groups.reduce((sum, g) => sum + (enrolment.get(g.id) ?? 0), 0)
     const capacity = groups.reduce((sum, g) => sum + g.capacity, 0)

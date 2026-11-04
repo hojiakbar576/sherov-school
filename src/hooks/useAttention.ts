@@ -7,6 +7,10 @@ export const attentionLabel: Record<AttentionKind, string> = {
   absences: 'Repeated absences',
   capacity: 'Group almost full',
   attendance_missing: 'Attendance missing',
+  teacher_away: 'Group without a teacher',
+  trial_today: 'Trial lesson today',
+  trial_result: 'Trial result missing',
+  lead_new: 'New enquiry',
 }
 
 /** Where to go to resolve an item. */
@@ -16,7 +20,12 @@ export function attentionLink(item: AttentionItem): string {
     case 'absences':
       return `/students/${item.studentId}`
     case 'capacity':
+    case 'teacher_away':
       return `/groups?q=${encodeURIComponent(item.title)}`
+    case 'trial_today':
+    case 'trial_result':
+    case 'lead_new':
+      return `/leads/${item.leadId}`
     case 'attendance_missing':
       return `/attendance?group=${item.groupId}&date=${item.date}`
   }

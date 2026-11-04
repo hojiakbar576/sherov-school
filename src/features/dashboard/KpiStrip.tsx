@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import type { ReactNode } from 'react'
-import { ClipboardCheck, Users, Wallet, WalletCards, type LucideIcon } from 'lucide-react'
+import { CalendarDays, ClipboardCheck, Users, Wallet, WalletCards, type LucideIcon } from 'lucide-react'
 import { formatNumber, formatPercent, formatUZSCompact } from '../../lib/format'
 import type { MarkSummary } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
@@ -30,37 +30,46 @@ function Kpi({ to, icon: Icon, label, value, detail, tone = 'default' }: KpiProp
 interface KpiStripProps {
   activeStudents: number
   activeGroups: number
-  today: MarkSummary & { sessionsPlanned: number; sessionsRecorded: number }
+  classes: { total: number; recorded: number; missing: number }
+  today: MarkSummary
   revenue: { total: number; count: number }
-  outstanding: { total: number; students: number; overdueStudents: number }
+  outstanding: { total: number; students: number; overdueStudents: number; overdueTotal: number }
 }
 
-/** The four headline numbers in one ruled strip (hairlines come from the 1px gap). */
-export function KpiStrip({ activeStudents, activeGroups, today, revenue, outstanding }: KpiStripProps) {
+/** The five numbers an administrator checks first. Each opens the page behind it. */
+export function KpiStrip({ activeStudents, activeGroups, classes, today, revenue, outstanding }: KpiStripProps) {
   return (
-    <section aria-label="Key figures" className="grid grid-cols-1 gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-2 xl:grid-cols-4">
-      <Kpi to="/students" icon={Users} label="Active students" value={formatNumber(activeStudents)} detail={`In ${activeGroups} running groups`} />
+    <section aria-label="Key figures" className="grid grid-cols-1 gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-2 xl:grid-cols-5 [&>*:last-child]:sm:col-span-2 [&>*:last-child]:xl:col-span-1">
+      <Kpi to="/students?status=active" icon={Users} label="Active students" value={formatNumber(activeStudents)} detail={`In ${activeGroups} running groups`} />
+      <Kpi
+        to="/#today-classes"
+        icon={CalendarDays}
+        label="Classes today"
+        value={formatNumber(classes.total)}
+        tone={classes.missing > 0 ? 'danger' : 'default'}
+        detail={
+          classes.total === 0
+            ? 'No classes today'
+            : classes.missing > 0
+              ? `${classes.missing} ended without attendance`
+              : `${classes.recorded} of ${classes.total} with attendance taken`
+        }
+      />
       <Kpi
         to="/attendance"
         icon={ClipboardCheck}
         label="Attendance today"
         value={today.rate === null ? '—' : formatPercent(today.rate)}
-        detail={
-          today.rate === null
-            ? today.sessionsPlanned
-              ? `No attendance taken yet, ${today.sessionsPlanned} classes today`
-              : 'No classes today'
-            : `${today.present + today.late} of ${today.total} attended, ${today.sessionsRecorded} of ${today.sessionsPlanned} classes taken`
-        }
+        detail={today.rate === null ? 'No attendance taken yet today' : `${today.present + today.late} of ${today.total} students came`}
       />
-      <Kpi to="/payments" icon={Wallet} label="Revenue this month" value={formatUZSCompact(revenue.total)} detail={`${formatNumber(revenue.count)} paid payments`} />
+      <Kpi to="/payments" icon={Wallet} label="Collected this month" value={formatUZSCompact(revenue.total)} detail={`${formatNumber(revenue.count)} payments received`} />
       <Kpi
-        to="/students?tuition=owing"
+        to="/payments?view=owing"
         icon={WalletCards}
-        label="Outstanding tuition"
-        value={formatUZSCompact(outstanding.total)}
+        label="Overdue tuition"
+        value={formatUZSCompact(outstanding.overdueTotal)}
         tone={outstanding.overdueStudents > 0 ? 'danger' : 'default'}
-        detail={`${outstanding.students} students owe, ${outstanding.overdueStudents} overdue`}
+        detail={`${outstanding.overdueStudents} students overdue, ${outstanding.students - outstanding.overdueStudents} more not paid yet`}
       />
     </section>
   )

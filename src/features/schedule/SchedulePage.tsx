@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react'
-import type { Subject } from '../../types'
-import { SUBJECTS } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { usePortalPath } from '../../app/portal'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -17,13 +15,13 @@ import { sessionsOn, type Session, type SessionStatus } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
 
 /** Each subject gets a quiet colour on the left edge of its classes. */
-const subjectColor: Record<Subject, string> = {
+const subjectColor: Record<string, string> = {
   English: 'border-l-cat-green',
   'IELTS Preparation': 'border-l-cat-blue',
   Mathematics: 'border-l-cat-orange',
   'Computer Science': 'border-l-cat-plum',
 }
-const subjectSwatch: Record<Subject, string> = {
+const subjectSwatch: Record<string, string> = {
   English: 'bg-cat-green',
   'IELTS Preparation': 'bg-cat-blue',
   Mathematics: 'bg-cat-orange',
@@ -53,7 +51,7 @@ function SessionCard({ s, compact, showTeacher }: { s: Session; compact?: boolea
       <p className={cn('mt-1 text-xs font-medium', note[1])}>{note[0]}</p>
     </>
   )
-  const className = cn('block rounded-[6px] border border-line border-l-[3px] bg-surface px-2.5 py-2', subjectColor[s.group.subject])
+  const className = cn('block rounded-[6px] border border-line border-l-[3px] bg-surface px-2.5 py-2', (subjectColor[s.group.subject] ?? 'border-l-line-strong'))
   // Past and current classes link to their attendance sheet.
   return s.status === 'upcoming' ? (
     <div className={className}>{body}</div>
@@ -79,6 +77,7 @@ export function SchedulePage() {
   const [dayIndex, setDayIndex] = useState(home.index)
   const [teacherId, setTeacherId] = useState('')
   const [subject, setSubject] = useState('')
+  const courseNames = Array.from(new Set(data.groups.filter((g) => g.status === 'active').map((g) => g.subject))).sort()
 
   const monday = addDays(startOfWeek(now), weekOffset * 7)
   const days = Array.from({ length: 6 }, (_, i) => addDays(monday, i))
@@ -163,7 +162,7 @@ export function SchedulePage() {
           )}
           <Select aria-label="Filter by subject" value={subject} onChange={(e) => setSubject(e.target.value)} className="sm:w-48">
             <option value="">All subjects</option>
-            {SUBJECTS.map((s) => (
+            {courseNames.map((s) => (
               <option key={s}>{s}</option>
             ))}
           </Select>
@@ -171,9 +170,9 @@ export function SchedulePage() {
       </div>
 
       <ul className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted" aria-label="Subject colours">
-        {SUBJECTS.map((s) => (
+        {courseNames.map((s) => (
           <li key={s} className="flex items-center gap-1.5">
-            <span aria-hidden className={cn('h-3 w-1 rounded-full', subjectSwatch[s])} />
+            <span aria-hidden className={cn('h-3 w-1 rounded-full', (subjectSwatch[s] ?? 'bg-ink-faint'))} />
             {s}
           </li>
         ))}
@@ -276,7 +275,7 @@ function DayView({ sessions, showTeacher }: { sessions: Session[]; showTeacher: 
   return (
     <ul className="divide-y divide-line rounded-panel border border-line bg-surface" aria-label="Classes this day">
       {sessions.map((s) => (
-        <li key={s.group.id} className={cn('flex flex-col gap-3 border-l-[3px] px-5 py-4 sm:flex-row sm:items-center sm:gap-6', subjectColor[s.group.subject])}>
+        <li key={s.group.id} className={cn('flex flex-col gap-3 border-l-[3px] px-5 py-4 sm:flex-row sm:items-center sm:gap-6', (subjectColor[s.group.subject] ?? 'border-l-line-strong'))}>
           <div className="num w-28 shrink-0 text-sm">
             <p className="font-semibold text-ink">{s.start}</p>
             <p className="text-ink-muted">to {s.end}</p>

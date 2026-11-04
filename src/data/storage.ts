@@ -3,7 +3,7 @@
 // Nothing sensitive (passwords, tokens) is ever stored here.
 
 import type { SchoolData } from '../types'
-import { PAYMENT_METHODS, ROLES, SUBJECTS } from '../types'
+import { ASSESSMENT_KINDS, LEAD_STAGES, PAYMENT_METHODS, ROLES } from '../types'
 import { isValidISODate } from '../lib/dates'
 import { createDemoData, DATA_VERSION } from './seed'
 import { migrate } from './migrate'
@@ -45,14 +45,14 @@ const validators: Record<string, (v: Obj) => boolean> = {
     isStr(u.id) && isStr(u.fullName) && isStr(u.username) && oneOf(u.role, ROLES) &&
     (u.branchId === null || isStr(u.branchId)) && !('password' in u),
   teachers: (t) =>
-    isStr(t.id) && isStr(t.fullName) && isStr(t.branchId) && oneOf(t.subject, SUBJECTS) && oneOf(t.status, ['active', 'on_leave']) &&
+    isStr(t.id) && isStr(t.fullName) && isStr(t.branchId) && isStr(t.subject) && oneOf(t.status, ['active', 'on_leave']) &&
     isNum(t.salaryPercent) && t.salaryPercent >= 0 && t.salaryPercent <= 100,
   groups: (g) =>
     isStr(g.id) && isStr(g.name) && isStr(g.teacherId) && isStr(g.branchId) && oneOf(g.days, ['odd', 'even']) &&
     isStr(g.startTime) && isNum(g.capacity) && isNum(g.monthlyFee) && isNum(g.durationMinutes),
   students: (s) =>
     isStr(s.id) && isStr(s.fullName) && isStr(s.branchId) && Array.isArray(s.guardians) && (s.groupId === null || isStr(s.groupId)) &&
-    isValidISODate(s.enrolledOn) && isNum(s.monthlyTuition) && oneOf(s.status, ['active', 'paused', 'left']),
+    isValidISODate(s.enrolledOn) && isNum(s.monthlyTuition) && oneOf(s.status, ['active', 'paused', 'left', 'graduated']),
   attendance: (r) =>
     isStr(r.id) && isStr(r.groupId) && isValidISODate(r.date) && isStr(r.startTime) && isStr(r.teacherId) &&
     isObj(r.marks) && (r.comments === undefined || isObj(r.comments)) &&
@@ -68,6 +68,16 @@ const validators: Record<string, (v: Obj) => boolean> = {
     (r.evaluation === undefined || (isObj(r.evaluation) && isNum(r.evaluation.score) && r.evaluation.score >= 0 && r.evaluation.score <= 100)),
   studentNotes: (n) => isStr(n.id) && isStr(n.studentId) && isStr(n.text) && isStr(n.createdAt),
   notifications: (n) => isStr(n.id) && isStr(n.title) && isStr(n.body) && isStr(n.createdAt) && isObj(n.audience),
+  courses: (c) => isStr(c.id) && isStr(c.name) && typeof c.active === 'boolean',
+  rooms: (r) => isStr(r.id) && isStr(r.branchId) && isStr(r.name),
+  enrollments: (e) =>
+    isStr(e.id) && isStr(e.studentId) && isStr(e.groupId) && isValidISODate(e.startedOn) && (e.endedOn === undefined || isValidISODate(e.endedOn)),
+  studentEvents: (e) => isStr(e.id) && isStr(e.studentId) && isStr(e.type) && isValidISODate(e.on) && isStr(e.title),
+  leads: (l) => isStr(l.id) && isStr(l.branchId) && isStr(l.studentName) && isStr(l.phone) && isStr(l.course) && oneOf(l.stage, LEAD_STAGES),
+  assessments: (a) =>
+    isStr(a.id) && isStr(a.groupId) && isStr(a.title) && oneOf(a.kind, ASSESSMENT_KINDS) && isValidISODate(a.date) &&
+    isNum(a.maxScore) && a.maxScore > 0 && Array.isArray(a.results) &&
+    a.results.every((r) => isObj(r) && isStr(r.studentId) && (r.score === null || (isNum(r.score) && r.score >= 0 && r.score <= (a.maxScore as number)))),
   activity: (a) => isStr(a.id) && isStr(a.title) && isStr(a.at),
 }
 

@@ -14,6 +14,8 @@ const icons: Record<ActivityType, LucideIcon> = {
   teacher_changed: GraduationCap,
   settings_changed: Settings,
   homework_changed: NotebookPen,
+  lead_changed: UserPlus,
+  assessment_changed: ClipboardCheck,
 }
 
 export function RecentActivity({ activity, now }: { activity: Activity[]; now: Date }) {

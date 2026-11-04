@@ -11,6 +11,7 @@ import { Field, Input, Textarea } from '../../components/ui/Field'
 import { ConfirmDialog } from '../../components/ui/Dialog'
 import { toISODate } from '../../lib/dates'
 import { formatNumber, formatPhone, formatRelative, isValidEmail, isValidPhone } from '../../lib/format'
+import { CoursesPanel, RoomsPanel } from './CoursesAndRooms'
 
 type Errors = Partial<Record<keyof Settings, string>>
 
@@ -66,7 +67,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Centre details used across the app, and controls for the demo data." />
+      <PageHeader title="Settings" description="Centre details, the courses you offer, your branch’s rooms, and the demo data." />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Panel title="Centre details">
@@ -151,6 +152,11 @@ export function SettingsPage() {
             </p>
           </div>
         </Panel>
+      </div>
+
+      <div className="mt-6 grid items-start gap-6 xl:grid-cols-2">
+        <CoursesPanel />
+        <RoomsPanel />
       </div>
 
       <ConfirmDialog

@@ -5,6 +5,7 @@
 import type { Activity, AttendanceRecord, Group, Homework, SchoolData, Student, Teacher } from '../types'
 import { toISODate } from '../lib/dates'
 import { BRANCHES, DEFAULT_BRANCH_ID, TEACHER_BRANCH, buildUsers, seedNotifications, ADMIN_USERS } from './seed-portal'
+import { addAdministrationData } from './seed-admin'
 import { DEFAULT_SALARY_PERCENT, SALARY_PERCENT, homeworkStudents, seedHomework, seedHomeworkResults, seedStudentNotes, studentProfile, withSampleGrades } from './seed-learning'
 
 type Obj = Record<string, unknown>
@@ -86,7 +87,17 @@ function v3ToV4(old: Obj): SchoolData {
   }
 }
 
-const STEPS: Record<number, (old: Obj, now: Date) => unknown> = { 1: v1ToV2, 2: v2ToV3, 3: v3ToV4 }
+/**
+ * Version 4 had no courses list, rooms, group history, admissions or
+ * assessments. Build group history from each student's current group and add
+ * sample leads and assessments. Saved students and payments stay as they are.
+ */
+function v4ToV5(old: Obj, now: Date): SchoolData {
+  const data = old as unknown as Parameters<typeof addAdministrationData>[0]
+  return { ...addAdministrationData(data, now, { demo: false }), version: 5 }
+}
+
+const STEPS: Record<number, (old: Obj, now: Date) => unknown> = { 1: v1ToV2, 2: v2ToV3, 3: v3ToV4, 4: v4ToV5 }
 
 /**
  * Brings saved data up to `target`. Returns null when there's no upgrade path

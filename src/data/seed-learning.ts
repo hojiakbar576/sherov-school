@@ -22,13 +22,13 @@ import { createRandom, type Random } from '../lib/random'
 import { FEMALE_FIRST_NAMES, MALE_FIRST_NAMES, PHONE_PREFIXES } from './names'
 
 /** A stable random sequence for one record, e.g. randomFor('stu_014', 'parents'). */
-function randomFor(...keys: string[]): Random {
+export function randomFor(...keys: string[]): Random {
   let hash = 2166136261
   for (const ch of keys.join('|')) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619)
   return createRandom(hash >>> 0)
 }
 
-const phone = (rand: Random) => {
+export const phone = (rand: Random) => {
   const n = () => String(rand.int(0, 99)).padStart(2, '0')
   return `+998 ${rand.pick(PHONE_PREFIXES)} ${rand.int(100, 999)} ${n()} ${n()}`
 }

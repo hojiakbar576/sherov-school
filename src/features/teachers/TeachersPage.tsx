@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
-import { GraduationCap, Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router'
+import { Download, GraduationCap, Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
+import { downloadCSV } from '../../lib/csv'
+import { toISODate } from '../../lib/dates'
 import type { Teacher } from '../../types'
-import { SUBJECTS } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useListParams } from '../../hooks/useListParams'
 import { useToast } from '../../components/ui/toast-context'
@@ -49,10 +51,26 @@ export function TeachersPage() {
         title="Teachers"
         description={`${data.teachers.length} teachers, ${data.teachers.filter((t) => t.status === 'active').length} currently teaching.`}
         actions={
-          <Button variant="primary" onClick={() => setEditing('new')}>
-            <Plus aria-hidden />
-            Add teacher
-          </Button>
+          <>
+            <Button
+              onClick={() =>
+                downloadCSV(`sherov-school-teachers-${toISODate(new Date())}.csv`, [
+                  ['Teacher', 'Course', 'Phone', 'Email', 'Status', 'Running groups', 'Active students', 'Pay share %', 'Joined'],
+                  ...filtered.map((t) => {
+                    const groups = (groupsByTeacher.get(t.id) ?? []).filter((g) => g.status === 'active')
+                    return [t.fullName, t.subject, t.phone, t.email, teacherStatusLabel[t.status], groups.map((g) => g.name).join('; '), groups.reduce((sum, g) => sum + (enrolment.get(g.id) ?? 0), 0), t.salaryPercent, t.joinedOn]
+                  }),
+                ])
+              }
+            >
+              <Download aria-hidden />
+              Export CSV
+            </Button>
+            <Button variant="primary" onClick={() => setEditing('new')}>
+              <Plus aria-hidden />
+              Add teacher
+            </Button>
+          </>
         }
       />
 
@@ -61,7 +79,7 @@ export function TeachersPage() {
         <div className="grid grid-cols-2 gap-3 sm:flex">
           <Select aria-label="Filter by subject" value={values.subject} onChange={(e) => set('subject', e.target.value)} className="sm:w-48">
             <option value="">All subjects</option>
-            {SUBJECTS.map((s) => (
+            {data.courses.map((c) => c.name).map((s) => (
               <option key={s}>{s}</option>
             ))}
           </Select>
@@ -97,7 +115,11 @@ export function TeachersPage() {
                 <div className="flex items-start gap-3 p-5 pb-4">
                   <Avatar name={t.fullName} />
                   <div className="min-w-0 flex-1">
-                    <h2 className="font-semibold text-ink">{t.fullName}</h2>
+                    <h2 className="font-semibold text-ink">
+                      <Link to={`/teachers/${t.id}`} className="hover:text-brand hover:underline">
+                        {t.fullName}
+                      </Link>
+                    </h2>
                     <p className="text-sm text-ink-muted">{t.subject}</p>
                   </div>
                   <TeacherStatusBadge status={t.status} />

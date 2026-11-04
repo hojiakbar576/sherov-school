@@ -11,6 +11,7 @@ import type {
   PaymentStatus,
   StudentStatus,
   TeacherStatus,
+  TuitionAdjustmentKind,
 } from '../types'
 import { parseISODate, startOfDay } from './dates'
 
@@ -144,6 +145,13 @@ export const studentStatusLabel: Record<StudentStatus, string> = {
   active: 'Active',
   paused: 'Paused',
   left: 'Left',
+  graduated: 'Graduated',
+}
+
+export const tuitionAdjustmentLabel: Record<TuitionAdjustmentKind, string> = {
+  discount: 'Discount',
+  scholarship: 'Scholarship',
+  special_price: 'Special price',
 }
 
 export const teacherStatusLabel: Record<TeacherStatus, string> = {

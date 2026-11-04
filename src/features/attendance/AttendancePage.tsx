@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { CalendarOff, Check, ChevronLeft, ChevronRight, ClipboardCheck, History, Lock, MessageSquarePlus, Users } from 'lucide-react'
+import { CalendarOff, Check, ChevronLeft, ChevronRight, ClipboardCheck, Download, History, Lock, MessageSquarePlus, Users } from 'lucide-react'
 import type { AttendanceMark, Group, Student } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
@@ -11,9 +11,10 @@ import { Input } from '../../components/ui/Field'
 import { Avatar, EmptyState } from '../../components/ui/misc'
 import { SessionStatusBadge } from '../../components/StatusBadges'
 import { addDays, isValidISODate, parseISODate, toISODate } from '../../lib/dates'
-import { attendanceMarkLabel, formatDate, formatLongDate, formatPercent, formatRelative } from '../../lib/format'
+import { attendanceMarkLabel, formatDate, formatLongDate, formatMonth, formatPercent, formatRelative } from '../../lib/format'
 import { findRecord, groupRoster, sessionsOn, summarizeMarks, type Session } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
+import { downloadCSV } from '../../lib/csv'
 
 const MARKS: AttendanceMark[] = ['present', 'late', 'absent']
 const markStyle: Record<AttendanceMark, string> = {
@@ -59,6 +60,28 @@ export function AttendancePage() {
           isTeacher
             ? 'Choose one of your classes, mark each student, add a note if needed, then save.'
             : 'Choose a class, mark each student, then save. Saved attendance updates the dashboard straight away.'
+        }
+        actions={
+          isTeacher ? undefined : (
+            <Button
+              onClick={() => {
+                const month = date.slice(0, 7)
+                const student = new Map(data.students.map((s) => [s.id, s.fullName]))
+                const group = new Map(data.groups.map((g) => [g.id, g.name]))
+                const teacher = new Map(data.teachers.map((t) => [t.id, t.fullName]))
+                const records = data.attendance.filter((r) => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
+                downloadCSV(`sherov-school-attendance-${month}.csv`, [
+                  ['Date', 'Time', 'Group', 'Teacher', 'Student', 'Mark', 'Grade', 'Note'],
+                  ...records.flatMap((r) =>
+                    Object.entries(r.marks).map(([id, mark]) => [r.date, r.startTime, group.get(r.groupId) ?? '', teacher.get(r.teacherId) ?? '', student.get(id) ?? '', attendanceMarkLabel[mark], r.grades?.[id] ?? '', r.comments?.[id] ?? '']),
+                  ),
+                ])
+              }}
+            >
+              <Download aria-hidden />
+              Export {formatMonth(date.slice(0, 7))}
+            </Button>
+          )
         }
       />
 

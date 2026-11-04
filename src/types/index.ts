@@ -7,8 +7,18 @@ export type ISODate = string // "2026-10-29"
 export type ISODateTime = string // "2026-10-29T09:15:00.000Z"
 export type MonthKey = string // "2026-10"
 
+/** The courses the demo starts with. The live list is `SchoolData.courses`. */
 export const SUBJECTS = ['English', 'IELTS Preparation', 'Mathematics', 'Computer Science'] as const
-export type Subject = (typeof SUBJECTS)[number]
+/** A course name, e.g. "English". Groups and teachers keep the name; the list of courses is data. */
+export type Subject = string
+
+/** A course the centre offers. New courses can be added without code changes. */
+export interface Course {
+  id: string
+  name: Subject
+  /** Inactive courses stay on old groups but can't be chosen for new ones. */
+  active: boolean
+}
 
 /** Groups in Tashkent centres usually meet on "odd" or "even" days. */
 export type DayPattern = 'odd' | 'even'
@@ -43,6 +53,14 @@ export interface User {
   teacherId?: string
 }
 
+/** A classroom at one branch. Groups are scheduled into rooms. */
+export interface Room {
+  id: string
+  branchId: string
+  name: string
+  capacity?: number
+}
+
 // ---------------------------------------------------------------- people and classes
 
 export type TeacherStatus = 'active' | 'on_leave'
@@ -61,6 +79,8 @@ export interface Teacher {
    * Set by the administrator; salary = paid tuition × this share (lib/salary.ts).
    */
   salaryPercent: number
+  /** Branches worked at, oldest first, so a move between branches keeps its history. */
+  branchHistory?: { branchId: string; from: ISODate }[]
 }
 
 export type GroupStatus = 'active' | 'paused' | 'completed'
@@ -71,6 +91,7 @@ export interface Group {
   teacherId: string
   /** Always the assigned teacher's branch. */
   branchId: string
+  /** Room name at the group's branch (see `SchoolData.rooms`). */
   room: string
   days: DayPattern
   startTime: string // "HH:mm"
@@ -80,7 +101,20 @@ export interface Group {
   status: GroupStatus
 }
 
-export type StudentStatus = 'active' | 'paused' | 'left'
+/**
+ * Where a student is in their life at the centre. Only active students are
+ * billed. Left and graduated students move to the archive with all history.
+ */
+export type StudentStatus = 'active' | 'paused' | 'left' | 'graduated'
+export const CURRENT_STUDENT_STATUSES: readonly StudentStatus[] = ['active', 'paused']
+export const ARCHIVED_STUDENT_STATUSES: readonly StudentStatus[] = ['left', 'graduated']
+
+/** Why a student pays something other than their group's standard fee. */
+export type TuitionAdjustmentKind = 'discount' | 'scholarship' | 'special_price'
+export interface TuitionAdjustment {
+  kind: TuitionAdjustmentKind
+  reason: string
+}
 export type Gender = 'female' | 'male'
 
 export const GUARDIAN_RELATIONSHIPS = ['mother', 'father', 'grandmother', 'grandfather', 'guardian'] as const
@@ -112,7 +146,39 @@ export interface Student {
   branchId: string
   enrolledOn: ISODate
   monthlyTuition: number // UZS
+  /** Set when monthlyTuition differs from the group's fee, so everyone can see why. */
+  tuitionAdjustment?: TuitionAdjustment
   status: StudentStatus
+}
+
+/**
+ * One stretch of a student in a group. A transfer ends one enrollment and
+ * starts another, so history and reports stay correct. The open one (no
+ * endedOn) matches `Student.groupId`.
+ */
+export interface Enrollment {
+  id: string
+  studentId: string
+  groupId: string
+  branchId: string
+  startedOn: ISODate
+  endedOn?: ISODate
+  /** Why it ended, e.g. "Transferred to IELTS Foundation 5.5: level went up". */
+  endReason?: string
+}
+
+export type StudentEventType = 'enrolled' | 'transferred' | 'status_changed' | 'tuition_changed' | 'created_from_lead'
+/** Something that happened to a student, for their history timeline. */
+export interface StudentEvent {
+  id: string
+  studentId: string
+  type: StudentEventType
+  on: ISODate
+  title: string
+  detail?: string
+  /** Who did it, when known. */
+  byUserId?: string
+  at: ISODateTime
 }
 
 export type AttendanceMark = 'present' | 'absent' | 'late'
@@ -152,6 +218,8 @@ export interface Payment {
   method: PaymentMethod
   status: PaymentStatus
   note?: string
+  /** The user who recorded it, when known. */
+  recordedBy?: string
 }
 
 export interface Homework {
@@ -207,6 +275,80 @@ export interface StudentNote {
   createdAt: ISODateTime
 }
 
+// ---------------------------------------------------------------- admissions
+
+/** The admissions pipeline, in order. "lost" can happen at any stage. */
+export const LEAD_STAGES = ['new', 'contacted', 'trial_scheduled', 'trial_done', 'enrolled', 'lost'] as const
+export type LeadStage = (typeof LEAD_STAGES)[number]
+
+export interface TrialLesson {
+  date: ISODate
+  time: string // "HH:mm"
+  /** The group they sit in on, if any. */
+  groupId?: string
+  teacherId?: string
+  /** null until the trial has happened. */
+  attended: boolean | null
+  outcome?: string
+}
+
+/** A simple level placement: the result and where the student should go. */
+export interface Placement {
+  level: string
+  /** Free text, e.g. "34/50" or "B1". */
+  score?: string
+  recommendedGroupId?: string
+  notes?: string
+  on: ISODate
+}
+
+/** Someone interested in studying who isn't a student yet. */
+export interface Lead {
+  id: string
+  branchId: string
+  studentName: string
+  parentName?: string
+  phone: string
+  course: Subject
+  stage: LeadStage
+  /** How they heard about the centre, e.g. "Instagram". */
+  source?: string
+  notes?: string
+  trial?: TrialLesson
+  placement?: Placement
+  lostReason?: string
+  /** The student record created when they enrolled. */
+  studentId?: string
+  createdAt: ISODateTime
+  updatedAt: ISODateTime
+}
+
+// ---------------------------------------------------------------- assessments
+
+export const ASSESSMENT_KINDS = ['level', 'monthly', 'midterm', 'final', 'other'] as const
+export type AssessmentKind = (typeof ASSESSMENT_KINDS)[number]
+
+export interface AssessmentResult {
+  studentId: string
+  /** null = absent / not taken. */
+  score: number | null
+  comment?: string
+}
+
+/** A test given to a group, scored out of maxScore. */
+export interface Assessment {
+  id: string
+  groupId: string
+  title: string
+  kind: AssessmentKind
+  date: ISODate
+  maxScore: number
+  results: AssessmentResult[]
+  createdBy?: string
+  createdAt: ISODateTime
+  updatedAt?: ISODateTime
+}
+
 // ---------------------------------------------------------------- messages
 
 export type NotificationKind = 'schedule' | 'announcement' | 'homework' | 'admin'
@@ -239,6 +381,8 @@ export type ActivityType =
   | 'teacher_changed'
   | 'settings_changed'
   | 'homework_changed'
+  | 'lead_changed'
+  | 'assessment_changed'
 export interface Activity {
   id: string
   type: ActivityType
@@ -263,10 +407,16 @@ export interface SchoolData {
   version: number
   seededAt: ISODateTime
   branches: Branch[]
+  courses: Course[]
+  rooms: Room[]
   users: User[]
   teachers: Teacher[]
   groups: Group[]
   students: Student[]
+  enrollments: Enrollment[]
+  studentEvents: StudentEvent[]
+  leads: Lead[]
+  assessments: Assessment[]
   attendance: AttendanceRecord[]
   payments: Payment[]
   homework: Homework[]

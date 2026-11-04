@@ -12,6 +12,11 @@ import { SchedulePage } from '../features/schedule/SchedulePage'
 import { PaymentsPage } from '../features/payments/PaymentsPage'
 import { ReportsPage } from '../features/reports/ReportsPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
+import { TeacherDetailPage } from '../features/teachers/TeacherDetailPage'
+import { LeadsPage } from '../features/leads/LeadsPage'
+import { LeadDetailPage } from '../features/leads/LeadDetailPage'
+import { AssessmentsPage } from '../features/assessments/AssessmentsPage'
+import { AssessmentDetailPage } from '../features/assessments/AssessmentDetailPage'
 import { HomePage } from '../features/teacher/HomePage'
 import { GroupPage } from '../features/teacher/group/GroupPage'
 import { StatisticsPage } from '../features/teacher/StatisticsPage'
@@ -43,7 +48,12 @@ export function App() {
         <Route path="students" element={<StudentsPage />} />
         <Route path="students/:studentId" element={<StudentDetailPage />} />
         <Route path="teachers" element={<TeachersPage />} />
+        <Route path="teachers/:teacherId" element={<TeacherDetailPage />} />
+        <Route path="leads" element={<LeadsPage />} />
+        <Route path="leads/:leadId" element={<LeadDetailPage />} />
         <Route path="groups" element={<GroupsPage />} />
+        <Route path="assessments" element={<AssessmentsPage />} />
+        <Route path="assessments/:assessmentId" element={<AssessmentDetailPage />} />
         <Route path="attendance" element={<AttendancePage />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="payments" element={<PaymentsPage />} />

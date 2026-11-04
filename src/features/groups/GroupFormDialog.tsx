@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import type { DayPattern, Group, GroupStatus, Subject } from '../../types'
-import { SUBJECTS } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Dialog } from '../../components/ui/Dialog'
@@ -44,11 +43,13 @@ function GroupForm({ onClose, group }: Props) {
   const { data, actions } = useSchool()
   const toast = useToast()
   const enrolled = group ? (enrolmentByGroup(data).get(group.id) ?? 0) : 0
-  const rooms = Array.from(new Set(data.groups.map((g) => g.room))).sort()
+  // Rooms are managed in Settings; an older group's room stays selectable.
+  const rooms = [...data.rooms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  const courses = data.courses.filter((c) => c.active || c.name === group?.subject)
 
   const [form, setForm] = useState<FormState>(() => ({
     name: group?.name ?? '',
-    subject: group?.subject ?? 'English',
+    subject: group?.subject ?? courses[0]?.name ?? '',
     teacherId: group?.teacherId ?? '',
     room: group?.room ?? '',
     days: group?.days ?? 'odd',
@@ -123,11 +124,11 @@ function GroupForm({ onClose, group }: Props) {
       <Field label="Group name" error={errors.name} className="sm:col-span-2">
         {(p) => <Input {...p} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. IELTS Foundation 5.5" autoFocus />}
       </Field>
-      <Field label="Subject">
+      <Field label="Course">
         {(p) => (
           <Select {...p} value={form.subject} onChange={(e) => set('subject', e.target.value as Subject)}>
-            {SUBJECTS.map((s) => (
-              <option key={s}>{s}</option>
+            {courses.map((c) => (
+              <option key={c.id}>{c.name}</option>
             ))}
           </Select>
         )}
@@ -178,16 +179,27 @@ function GroupForm({ onClose, group }: Props) {
           </Select>
         )}
       </Field>
-      <Field label="Room" error={errors.room}>
+      <Field
+        label="Room"
+        error={errors.room}
+        hint={(() => {
+          const room = rooms.find((r) => r.name === form.room)
+          return room?.capacity && Number(form.capacity) > room.capacity
+            ? `${room.name} seats ${room.capacity}, fewer than this group’s capacity.`
+            : 'Add or rename rooms in Settings.'
+        })()}
+      >
         {(p) => (
-          <>
-            <Input {...p} list="room-options" value={form.room} onChange={(e) => set('room', e.target.value)} placeholder="e.g. Room 101" />
-            <datalist id="room-options">
-              {rooms.map((r) => (
-                <option key={r} value={r} />
-              ))}
-            </datalist>
-          </>
+          <Select {...p} value={form.room} onChange={(e) => set('room', e.target.value)}>
+            <option value="">Choose a room</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.name}>
+                {r.name}
+                {r.capacity ? ` (${r.capacity} seats)` : ''}
+              </option>
+            ))}
+            {form.room && !rooms.some((r) => r.name === form.room) && <option value={form.room}>{form.room}</option>}
+          </Select>
         )}
       </Field>
       <Field label="Capacity" error={errors.capacity} hint={group ? `${enrolled} enrolled now` : undefined}>

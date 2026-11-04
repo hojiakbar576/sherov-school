@@ -1,12 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { GraduationCap, Search, Users, UsersRound, type LucideIcon } from 'lucide-react'
+import { GraduationCap, Search, UserRoundPlus, Users, UsersRound, type LucideIcon } from 'lucide-react'
 import { useSchool } from '../../data/school-context'
 import { cn } from '../../lib/cn'
 
 interface Result {
   id: string
-  kind: 'Student' | 'Teacher' | 'Group'
+  kind: 'Student' | 'Teacher' | 'Group' | 'Enquiry'
   icon: LucideIcon
   title: string
   detail: string
@@ -48,13 +48,24 @@ export function HeaderSearch({ className, autoFocus }: { className?: string; aut
     const teacherName = new Map(data.teachers.map((t) => [t.id, t.fullName]))
     const found: Result[] = []
     for (const s of data.students) {
-      if (s.fullName.toLowerCase().includes(q) || (digits.length >= 3 && s.phone.replace(/\D/g, '').includes(digits))) {
-        found.push({ id: s.id, kind: 'Student', icon: Users, title: s.fullName, detail: `${groupName.get(s.groupId ?? '') ?? 'No group'}, ${s.phone}`, to: isTeacher ? `/teacher/students?q=${encodeURIComponent(s.fullName)}` : `/students/${s.id}` })
+      // Students by their own name or phone, or a parent's name or phone.
+      const phoneMatch = (p: string | undefined) => Boolean(p) && digits.length >= 3 && p!.replace(/\D/g, '').includes(digits)
+      const parent = s.guardians.find((g) => g.fullName.toLowerCase().includes(q) || phoneMatch(g.phone) || phoneMatch(g.altPhone))
+      if (s.fullName.toLowerCase().includes(q) || phoneMatch(s.phone) || parent) {
+        const detail = parent && !s.fullName.toLowerCase().includes(q) ? `Parent: ${parent.fullName}, ${parent.phone}` : `${groupName.get(s.groupId ?? '') ?? 'No group'}, ${s.phone}`
+        found.push({ id: s.id, kind: 'Student', icon: Users, title: s.fullName, detail, to: isTeacher ? `/teacher/students/${s.id}` : `/students/${s.id}` })
       }
     }
     for (const t of isTeacher ? [] : data.teachers) {
       if (t.fullName.toLowerCase().includes(q) || t.subject.toLowerCase().includes(q)) {
-        found.push({ id: t.id, kind: 'Teacher', icon: GraduationCap, title: t.fullName, detail: t.subject, to: `/teachers?q=${encodeURIComponent(t.fullName)}` })
+        found.push({ id: t.id, kind: 'Teacher', icon: GraduationCap, title: t.fullName, detail: t.subject, to: `/teachers/${t.id}` })
+      }
+    }
+    // Enquiries (admissions), by name or phone. Teachers never see these.
+    for (const l of data.leads) {
+      const phoneHit = digits.length >= 3 && l.phone.replace(/\D/g, '').includes(digits)
+      if (l.studentName.toLowerCase().includes(q) || (l.parentName ?? '').toLowerCase().includes(q) || phoneHit) {
+        found.push({ id: l.id, kind: 'Enquiry', icon: UserRoundPlus, title: l.studentName, detail: `${l.course}, ${l.phone}`, to: `/leads/${l.id}` })
       }
     }
     for (const g of data.groups) {
@@ -88,7 +99,7 @@ export function HeaderSearch({ className, autoFocus }: { className?: string; aut
         aria-autocomplete="list"
         autoFocus={autoFocus}
         value={query}
-        placeholder={isTeacher ? 'Search your students and groups' : 'Search students, teachers, groups'}
+        placeholder={isTeacher ? 'Search your students and groups' : 'Search students, parents, teachers, groups'}
         onChange={(event) => {
           setQuery(event.target.value)
           setActive(0)

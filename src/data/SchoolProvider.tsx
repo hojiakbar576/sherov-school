@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { Activity, ActivityType, HomeworkResult, Notification, SchoolData, StudentNote, User } from '../types'
+import type { Activity, ActivityType, Assessment, Course, HomeworkResult, Lead, Notification, Room, SchoolData, Student, StudentNote, User } from '../types'
+import { applyStudentChange, isArchived } from '../lib/student-lifecycle'
 import { createId } from '../lib/id'
 import { dayPatternLabel, formatUZS } from '../lib/format'
 import { computeBalances } from '../lib/metrics'
@@ -119,11 +120,11 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     return {
       addStudent(input) {
         requireManager()
-        const student = { guardians: [], ...input, id: createId('stu'), branchId: branchForGroup(input.groupId) }
+        const student: Student = { guardians: [], ...input, id: createId('stu'), branchId: branchForGroup(input.groupId) }
         requireInBranch(student.branchId)
         update((d) =>
           withActivity(
-            { ...d, students: [...d.students, student] },
+            applyStudentChange(d, { before: undefined, after: student, on: student.enrolledOn, byUserId: user?.id }),
             activity('student_added', 'Student registered', `${student.fullName} joined ${groupName(d, student.groupId) ?? 'the centre (no group yet)'}`, student.branchId),
           ),
         )
@@ -139,7 +140,10 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
           const entry = moved
             ? activity('group_changed', 'Student added to a group', `${input.fullName} moved to ${groupName(d, input.groupId) ?? 'a group'}`, branchId)
             : activity('student_updated', 'Student details updated', input.fullName, branchId)
-          return withActivity({ ...d, students: d.students.map((s) => (s.id === id ? { ...s, ...input, id, branchId } : s)) }, entry)
+          const current = d.students.find((s) => s.id === id)!
+          const after: Student = { ...current, ...input, id, branchId }
+          if (!input.tuitionAdjustment) delete after.tuitionAdjustment
+          return withActivity(applyStudentChange(d, { before: current, after, on: toISODate(new Date()), byUserId: user?.id }), entry)
         })
       },
       deleteStudent(id) {
@@ -161,6 +165,9 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
               payments: d.payments.filter((p) => p.studentId !== id),
               homeworkResults: d.homeworkResults.filter((r) => r.studentId !== id),
               studentNotes: d.studentNotes.filter((n) => n.studentId !== id),
+              enrollments: d.enrollments.filter((e) => e.studentId !== id),
+              studentEvents: d.studentEvents.filter((e) => e.studentId !== id),
+              assessments: d.assessments.map((a) => ({ ...a, results: a.results.filter((r) => r.studentId !== id) })),
               attendance,
             },
             activity('student_removed', 'Student record deleted', student?.fullName ?? 'A student', student?.branchId),
@@ -281,6 +288,8 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
               ...d,
               groups: d.groups.filter((g) => g.id !== id),
               students: d.students.map((s) => (s.groupId === id ? { ...s, groupId: null } : s)),
+              enrollments: d.enrollments.map((e) => (e.groupId === id && !e.endedOn ? { ...e, endedOn: toISODate(new Date()), endReason: `${name} was deleted` } : e)),
+              assessments: d.assessments.filter((a) => a.groupId !== id),
               attendance: d.attendance.filter((r) => r.groupId !== id),
               homework: d.homework.filter((h) => h.groupId !== id),
               homeworkResults: d.homeworkResults.filter((r) => d.homework.find((h) => h.id === r.homeworkId)?.groupId !== id),
@@ -468,7 +477,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       addPayment(input) {
         const student = fullData.students.find((s) => s.id === input.studentId)
         requireInBranch(student?.branchId)
-        const payment = { ...input, id: createId('pay') }
+        const payment = { ...input, id: createId('pay'), ...(user ? { recordedBy: user.id } : {}) }
         update((d) =>
           withActivity(
             { ...d, payments: [...d.payments, payment] },
@@ -484,7 +493,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         requireInBranch(student?.branchId)
         update((d) =>
           withActivity(
-            { ...d, payments: d.payments.map((p) => (p.id === id ? { ...input, id } : p)) },
+            { ...d, payments: d.payments.map((p) => (p.id === id ? { ...p, ...input, id } : p)) },
             activity('payment_recorded', 'Payment updated', `${student?.fullName ?? 'A student'}: ${formatUZS(input.amount)}`, student?.branchId),
           ),
         )
@@ -499,6 +508,153 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
             activity('payment_recorded', 'Payment deleted', `${student?.fullName ?? 'A student'}: ${formatUZS(payment?.amount ?? 0)}`, student?.branchId),
           ),
         )
+      },
+
+      transferStudent(studentId, input) {
+        const student = fullData.students.find((s) => s.id === studentId)
+        const target = fullData.groups.find((g) => g.id === input.toGroupId)
+        requireInBranch(student?.branchId)
+        requireInBranch(target?.branchId)
+        if (!student || !target || student.groupId === target.id) return
+        const after: Student = {
+          ...student,
+          groupId: target.id,
+          branchId: target.branchId,
+          ...(input.monthlyTuition !== undefined ? { monthlyTuition: input.monthlyTuition } : {}),
+          // Leaving the archive by transfer makes them active again.
+          status: isArchived(student.status) ? 'active' : student.status,
+        }
+        update((d) =>
+          withActivity(
+            applyStudentChange(d, { before: student, after, on: input.on, reason: input.reason?.trim() || undefined, byUserId: user?.id }),
+            activity('group_changed', 'Student transferred', `${student.fullName}: ${groupName(d, student.groupId) ?? 'no group'} → ${target.name}`, target.branchId),
+          ),
+        )
+      },
+      changeStudentStatus(studentId, status, on, reason) {
+        const student = fullData.students.find((s) => s.id === studentId)
+        requireInBranch(student?.branchId)
+        if (!student || student.status === status) return
+        // Leaving or graduating frees the seat; pausing keeps it.
+        const after: Student = { ...student, status, groupId: isArchived(status) ? null : student.groupId }
+        update((d) =>
+          withActivity(
+            applyStudentChange(d, { before: student, after, on, reason: reason?.trim() || undefined, byUserId: user?.id }),
+            activity('student_updated', 'Student status changed', `${student.fullName}: ${status}`, student.branchId),
+          ),
+        )
+      },
+
+      addLead(input) {
+        requireManager()
+        const now = new Date().toISOString()
+        const lead: Lead = { ...input, id: createId('lead'), branchId: actorBranch ?? DEFAULT_BRANCH_ID, stage: 'new', createdAt: now, updatedAt: now }
+        update((d) => withActivity({ ...d, leads: [lead, ...d.leads] }, activity('lead_changed', 'New enquiry', `${lead.studentName}, ${lead.course}`, lead.branchId)))
+        return lead
+      },
+      updateLead(id, changes) {
+        const lead = fullData.leads.find((l) => l.id === id)
+        requireInBranch(lead?.branchId)
+        if (!lead) return
+        update((d) => ({ ...d, leads: d.leads.map((l) => (l.id === id ? { ...l, ...changes, updatedAt: new Date().toISOString() } : l)) }))
+      },
+      deleteLead(id) {
+        const lead = fullData.leads.find((l) => l.id === id)
+        requireInBranch(lead?.branchId)
+        update((d) => ({ ...d, leads: d.leads.filter((l) => l.id !== id) }))
+      },
+      enrollLead(leadId, input) {
+        const lead = fullData.leads.find((l) => l.id === leadId)
+        requireInBranch(lead?.branchId)
+        const student: Student = { guardians: [], ...input, id: createId('stu'), branchId: branchForGroup(input.groupId) }
+        requireInBranch(student.branchId)
+        update((d) => {
+          let next = applyStudentChange(d, { before: undefined, after: student, on: student.enrolledOn, byUserId: user?.id })
+          next = {
+            ...next,
+            leads: next.leads.map((l) => (l.id === leadId ? { ...l, stage: 'enrolled' as const, studentId: student.id, updatedAt: new Date().toISOString() } : l)),
+            studentEvents: [
+              ...next.studentEvents,
+              { id: createId('evt'), studentId: student.id, type: 'created_from_lead' as const, on: student.enrolledOn, title: 'Came through admissions', detail: lead ? `Enquiry from ${lead.source ?? 'unknown source'}${lead.placement ? `, placed at ${lead.placement.level}` : ''}` : undefined, at: new Date().toISOString(), ...(user ? { byUserId: user.id } : {}) },
+            ],
+          }
+          return withActivity(next, activity('student_added', 'Enquiry enrolled', `${student.fullName} joined ${groupName(d, student.groupId) ?? 'the centre'}`, student.branchId))
+        })
+        return student
+      },
+
+      addAssessment(input) {
+        const group = teachableGroup(input.groupId)
+        if (!group) return null
+        const assessment: Assessment = { ...input, id: createId('asm'), results: [], createdBy: user?.id, createdAt: new Date().toISOString() }
+        update((d) => withActivity({ ...d, assessments: [...d.assessments, assessment] }, activity('assessment_changed', 'Assessment planned', `${group.name}: ${assessment.title}`, group.branchId)))
+        return assessment
+      },
+      updateAssessment(id, input) {
+        const before = fullData.assessments.find((a) => a.id === id)
+        const group = before && teachableGroup(before.groupId)
+        if (!before || !group) return false
+        // Scores above a lowered maximum would be invalid, so they're capped.
+        const results = before.results.map((r) => (r.score !== null && r.score > input.maxScore ? { ...r, score: input.maxScore } : r))
+        update((d) => ({ ...d, assessments: d.assessments.map((a) => (a.id === id ? { ...a, ...input, groupId: before.groupId, results, updatedAt: new Date().toISOString() } : a)) }))
+        return true
+      },
+      saveAssessmentResults(id, results) {
+        const before = fullData.assessments.find((a) => a.id === id)
+        const group = before && teachableGroup(before.groupId)
+        if (!before || !group) return false
+        const clean = results
+          .filter((r) => r.score === null || (Number.isFinite(r.score) && r.score >= 0 && r.score <= before.maxScore))
+          .map((r) => ({ studentId: r.studentId, score: r.score, ...(r.comment?.trim() ? { comment: r.comment.trim().slice(0, 300) } : {}) }))
+        update((d) =>
+          withActivity(
+            { ...d, assessments: d.assessments.map((a) => (a.id === id ? { ...a, results: clean, updatedAt: new Date().toISOString() } : a)) },
+            activity('assessment_changed', 'Assessment results saved', `${group.name}: ${before.title}`, group.branchId),
+          ),
+        )
+        return true
+      },
+      deleteAssessment(id) {
+        const before = fullData.assessments.find((a) => a.id === id)
+        if (!before || !teachableGroup(before.groupId)) return false
+        update((d) => ({ ...d, assessments: d.assessments.filter((a) => a.id !== id) }))
+        return true
+      },
+
+      addCourse(name) {
+        requireManager()
+        const course: Course = { id: createId('crs'), name: name.trim(), active: true }
+        update((d) => withActivity({ ...d, courses: [...d.courses, course] }, activity('settings_changed', 'Course added', course.name)))
+        return course
+      },
+      setCourseActive(id, active) {
+        requireManager()
+        update((d) => ({ ...d, courses: d.courses.map((c) => (c.id === id ? { ...c, active } : c)) }))
+      },
+      addRoom(input) {
+        requireManager()
+        const room: Room = { id: createId('room'), branchId: actorBranch ?? DEFAULT_BRANCH_ID, name: input.name.trim(), ...(input.capacity ? { capacity: input.capacity } : {}) }
+        update((d) => ({ ...d, rooms: [...d.rooms, room] }))
+        return room
+      },
+      updateRoom(id, input) {
+        const room = fullData.rooms.find((r) => r.id === id)
+        requireInBranch(room?.branchId)
+        if (!room) return
+        const name = input.name.trim()
+        update((d) => ({
+          ...d,
+          rooms: d.rooms.map((r) => (r.id === id ? { ...r, name, capacity: input.capacity || undefined } : r)),
+          // Renaming a room renames it on the groups that use it.
+          groups: d.groups.map((g) => (g.branchId === room.branchId && g.room === room.name ? { ...g, room: name } : g)),
+        }))
+      },
+      deleteRoom(id) {
+        const room = fullData.rooms.find((r) => r.id === id)
+        requireInBranch(room?.branchId)
+        if (!room || fullData.groups.some((g) => g.branchId === room.branchId && g.room === room.name && g.status !== 'completed')) return false
+        update((d) => ({ ...d, rooms: d.rooms.filter((r) => r.id !== id) }))
+        return true
       },
 
       updateSettings(settings) {

@@ -53,7 +53,7 @@ export function GroupPage() {
   const monthRecords = useMemo(() => records.filter((r) => r.date.startsWith(month)), [records, month])
 
   const students = useMemo<Student[]>(() => {
-    const current = data.students.filter((s) => s.groupId === groupId && s.status !== 'left')
+    const current = data.students.filter((s) => s.groupId === groupId && (s.status === 'active' || s.status === 'paused'))
     const ids = new Set(current.map((s) => s.id))
     const earlier = monthRecords
       .flatMap((r) => Object.keys(r.marks))

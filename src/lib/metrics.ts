@@ -17,6 +17,7 @@ import {
 } from './dates'
 import { formatDayMonth, formatDayShort, formatMonth, formatMonthShort, formatUZS } from './format'
 import { endTime, meetsOn } from './schedule'
+import { trialsAwaitingResult, trialsOn } from './admissions'
 
 // ---------------------------------------------------------------- tuition
 
@@ -85,14 +86,18 @@ export function outstandingTotal(balances: Map<string, TuitionBalance>) {
   let total = 0
   let students = 0
   let overdueStudents = 0
+  let overdueTotal = 0
   for (const b of balances.values()) {
     if (b.owed > 0) {
       total += b.owed
       students += 1
-      if (b.status === 'overdue') overdueStudents += 1
+      if (b.status === 'overdue') {
+        overdueStudents += 1
+        overdueTotal += b.owed
+      }
     }
   }
-  return { total, students, overdueStudents }
+  return { total, students, overdueStudents, overdueTotal }
 }
 
 // ---------------------------------------------------------------- revenue
@@ -299,7 +304,7 @@ export function sessionsOn(data: SchoolData, date: ISODate, now: Date): Session[
 
 // ---------------------------------------------------------------- needs attention
 
-export type AttentionKind = 'overdue' | 'absences' | 'capacity' | 'attendance_missing'
+export type AttentionKind = 'overdue' | 'absences' | 'capacity' | 'attendance_missing' | 'teacher_away' | 'trial_today' | 'trial_result' | 'lead_new'
 
 export interface AttentionItem {
   id: string
@@ -310,6 +315,7 @@ export interface AttentionItem {
   weight: number
   studentId?: string
   groupId?: string
+  leadId?: string
   date?: ISODate
 }
 
@@ -346,6 +352,58 @@ export function attentionItems(data: SchoolData, now: Date, balances: Map<string
       reason: `${count} absences in the last ${ABSENCE_WINDOW_DAYS} days (${group.get(s.groupId ?? '')?.name ?? 'no group'})`,
       weight: count,
       studentId,
+    })
+  }
+
+  // Trial lessons today, and trials that happened without a result recorded.
+  const today = toISODate(now)
+  for (const lead of trialsOn(data.leads, today)) {
+    const g = group.get(lead.trial?.groupId ?? '')
+    items.push({
+      id: `trial:${lead.id}:${today}`,
+      kind: 'trial_today',
+      title: lead.studentName,
+      reason: `Trial at ${lead.trial?.time}${g ? ` in ${g.name}` : ''} · ${lead.course}`,
+      weight: -timeToMinutes(lead.trial?.time ?? '00:00'),
+      leadId: lead.id,
+    })
+  }
+  for (const lead of trialsAwaitingResult(data.leads, today)) {
+    items.push({
+      id: `trial-result:${lead.id}`,
+      kind: 'trial_result',
+      title: lead.studentName,
+      reason: `Trial on ${formatDayShort(atTime(lead.trial!.date, lead.trial!.time))}: record how it went and place them`,
+      weight: 0,
+      leadId: lead.id,
+    })
+  }
+
+  // New enquiries nobody has called back yet, oldest first.
+  for (const lead of data.leads) {
+    if (lead.stage !== 'new') continue
+    items.push({
+      id: `lead-new:${lead.id}`,
+      kind: 'lead_new',
+      title: lead.studentName,
+      reason: `Asked about ${lead.course}${lead.source ? ` via ${lead.source}` : ''}. Call back.`,
+      weight: -new Date(lead.createdAt).getTime(),
+      leadId: lead.id,
+    })
+  }
+
+  // Running groups whose teacher is on leave or no longer exists: classes need cover.
+  for (const g of data.groups) {
+    if (g.status !== 'active') continue
+    const t = data.teachers.find((x) => x.id === g.teacherId)
+    if (t && t.status === 'active') continue
+    items.push({
+      id: `teacher:${g.id}:${t?.status ?? 'none'}`,
+      kind: 'teacher_away',
+      title: g.name,
+      reason: t ? `${t.fullName} is on leave. Assign a teacher or pause the group.` : 'No teacher assigned. Choose a teacher for this group.',
+      weight: 1,
+      groupId: g.id,
     })
   }
 

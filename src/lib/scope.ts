@@ -4,6 +4,7 @@
 // the server's queries.
 
 import type { Group, Notification, SchoolData, User } from '../types'
+import { CURRENT_STUDENT_STATUSES } from '../types'
 
 /** The branch someone works at; null for the owner (every branch). */
 export function userBranchId(data: SchoolData, user: User): string | null {
@@ -39,6 +40,11 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
       homework: data.homework.filter((h) => groupIds.has(h.groupId)),
       homeworkResults: data.homeworkResults.filter((r) => studentIds.has(r.studentId)),
       studentNotes: data.studentNotes.filter((n) => studentIds.has(n.studentId)),
+      rooms: data.rooms.filter((r) => r.branchId === branchId),
+      enrollments: data.enrollments.filter((e) => studentIds.has(e.studentId)),
+      studentEvents: data.studentEvents.filter((e) => studentIds.has(e.studentId)),
+      leads: data.leads.filter((l) => l.branchId === branchId),
+      assessments: data.assessments.filter((a) => groupIds.has(a.groupId)),
       notifications,
       activity: data.activity.filter((a) => !a.branchId || a.branchId === branchId),
     }
@@ -47,7 +53,8 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
   // Teacher: their own groups and the students in them. No payments or tuition.
   const groups = data.groups.filter((g) => g.teacherId === user.teacherId)
   const groupIds = new Set(groups.map((g) => g.id))
-  const students = data.students.filter((s) => s.groupId !== null && groupIds.has(s.groupId) && s.status !== 'left')
+  // Only students still studying: left and graduated students are the administrator's archive.
+  const students = data.students.filter((s) => s.groupId !== null && groupIds.has(s.groupId) && CURRENT_STUDENT_STATUSES.includes(s.status))
   const studentIds = new Set(students.map((s) => s.id))
   const homework = data.homework.filter((h) => groupIds.has(h.groupId))
   const homeworkIds = new Set(homework.map((h) => h.id))
@@ -63,6 +70,12 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
     // Results for their own homework, for students still in their groups.
     homeworkResults: data.homeworkResults.filter((r) => homeworkIds.has(r.homeworkId) && studentIds.has(r.studentId)),
     studentNotes: data.studentNotes.filter((n) => studentIds.has(n.studentId)),
+    rooms: data.rooms.filter((r) => groups.some((g) => g.branchId === r.branchId)),
+    enrollments: data.enrollments.filter((e) => studentIds.has(e.studentId)),
+    studentEvents: [],
+    // Admissions belong to the administrator.
+    leads: [],
+    assessments: data.assessments.filter((a) => groupIds.has(a.groupId)),
     notifications,
     activity: [],
   }

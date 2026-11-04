@@ -1,5 +1,26 @@
 import { createContext, useContext } from 'react'
-import type { AttendanceMark, Branch, Grade, MonthKey, Group, Homework, Payment, SchoolData, Settings, Student, StudentNote, SubmissionState, Teacher, User } from '../types'
+import type {
+  Assessment,
+  AssessmentResult,
+  AttendanceMark,
+  Branch,
+  Course,
+  Grade,
+  MonthKey,
+  Group,
+  Homework,
+  Lead,
+  Payment,
+  Room,
+  SchoolData,
+  Settings,
+  Student,
+  StudentNote,
+  StudentStatus,
+  SubmissionState,
+  Teacher,
+  User,
+} from '../types'
 import type { TuitionBalance } from '../lib/metrics'
 import type { SalaryMonth } from '../lib/salary'
 import type { TeacherRating } from '../lib/rating'
@@ -10,7 +31,21 @@ type StudentProfile = 'guardians' | 'dateOfBirth' | 'gender' | 'address'
 export type StudentInput = Omit<Student, 'id' | 'branchId' | StudentProfile> & Partial<Pick<Student, StudentProfile>>
 export type TeacherInput = Omit<Teacher, 'id' | 'branchId'>
 export type GroupInput = Omit<Group, 'id' | 'branchId'>
-export type PaymentInput = Omit<Payment, 'id'>
+export type PaymentInput = Omit<Payment, 'id' | 'recordedBy'>
+/** A new enquiry. Stage, trial and placement are changed with updateLead. */
+export type LeadInput = Pick<Lead, 'studentName' | 'parentName' | 'phone' | 'course' | 'source' | 'notes'>
+export type LeadUpdate = Partial<Pick<Lead, 'studentName' | 'parentName' | 'phone' | 'course' | 'source' | 'notes' | 'stage' | 'trial' | 'placement' | 'lostReason'>>
+export type AssessmentInput = Pick<Assessment, 'groupId' | 'title' | 'kind' | 'date' | 'maxScore'>
+export type RoomInput = Pick<Room, 'name' | 'capacity'>
+
+export interface TransferInput {
+  toGroupId: string
+  /** The first day in the new group. */
+  on: string
+  reason?: string
+  /** New monthly tuition, e.g. the new group's fee. Left out, it stays as it is. */
+  monthlyTuition?: number
+}
 /** The group can't change after homework is set: its students already have results. */
 export type HomeworkInput = Pick<Homework, 'groupId' | 'title' | 'description' | 'dueDate' | 'resource'>
 
@@ -58,6 +93,31 @@ export interface SchoolActions {
   /** Notes are for staff only. Teachers can delete their own notes. */
   addStudentNote(studentId: string, text: string, important: boolean): StudentNote | null
   deleteStudentNote(id: string): boolean
+
+  /** Moves a student to another group at their branch and keeps the old membership in their history. */
+  transferStudent(studentId: string, input: TransferInput): void
+  /** Pause, leave, graduate or reactivate. Leaving or graduating ends the group membership. */
+  changeStudentStatus(studentId: string, status: StudentStatus, on: string, reason?: string): void
+
+  addLead(input: LeadInput): Lead
+  updateLead(id: string, update: LeadUpdate): void
+  deleteLead(id: string): void
+  /** Creates the student from the enquiry and marks it enrolled. */
+  enrollLead(leadId: string, input: StudentInput): Student
+
+  /** Assessments are for groups the person teaches or manages; null/false otherwise. */
+  addAssessment(input: AssessmentInput): Assessment | null
+  updateAssessment(id: string, input: AssessmentInput): boolean
+  saveAssessmentResults(id: string, results: AssessmentResult[]): boolean
+  deleteAssessment(id: string): boolean
+
+  addCourse(name: string): Course
+  setCourseActive(id: string, active: boolean): void
+  /** Rooms belong to the administrator's branch. */
+  addRoom(input: RoomInput): Room
+  updateRoom(id: string, input: RoomInput): void
+  /** Refused while a group uses the room. */
+  deleteRoom(id: string): boolean
 
   addPayment(input: PaymentInput): Payment
   updatePayment(id: string, input: PaymentInput): void

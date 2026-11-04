@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { Download, Info, Pencil, Plus, Receipt, Trash2 } from 'lucide-react'
 import type { Payment } from '../../types'
 import { PAYMENT_METHODS } from '../../types'
@@ -18,6 +18,7 @@ import { outstandingTotal, revenueInMonth } from '../../lib/metrics'
 import { downloadCSV } from '../../lib/csv'
 import { cn } from '../../lib/cn'
 import { PaymentFormDialog } from './PaymentFormDialog'
+import { OwingList } from './OwingList'
 
 const PAGE_SIZE = 25
 const FILTERS = ['q', 'month', 'method', 'status'] as const
@@ -28,6 +29,18 @@ export function PaymentsPage() {
   const { values, page, set, setPage, clear, active } = useListParams(FILTERS)
   const [editing, setEditing] = useState<Payment | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Payment | null>(null)
+  const [payingFor, setPayingFor] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view = searchParams.get('view') === 'history' || (searchParams.get('view') !== 'owing' && active) ? 'history' : 'owing'
+  const setView = (v: 'owing' | 'history') =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('view', v)
+        return next
+      },
+      { replace: true },
+    )
 
   const student = useMemo(() => new Map(data.students.map((s) => [s.id, s])), [data.students])
   const months = useMemo(() => Array.from(new Set(data.payments.map((p) => monthKeyOf(p.date)))).sort().reverse(), [data.payments])
@@ -52,12 +65,22 @@ export function PaymentsPage() {
   const thisMonth = revenueInMonth(data, monthKey(now))
   const pending = data.payments.filter((p) => p.status === 'pending')
   const outstanding = outstandingTotal(balances)
+  // Where each active student stands for this month's tuition.
+  const tuition = { billed: 0, paid: 0, due: 0 }
+  for (const s of data.students) {
+    const b = balances.get(s.id)
+    if (!b || b.status === 'inactive') continue
+    tuition.billed += 1
+    if (b.status === 'paid') tuition.paid += 1
+    if (b.status === 'due') tuition.due += 1
+  }
   const filteredPaid = filtered.filter((p) => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0)
 
+  const userName = new Map(data.users.map((u) => [u.id, u.fullName]))
   const exportCSV = () => {
     downloadCSV(`sherov-school-payments-${toISODate(now)}.csv`, [
-      ['Date', 'Student', 'For month', 'Amount (UZS)', 'Method', 'Status', 'Note'],
-      ...filtered.map((p) => [p.date, student.get(p.studentId)?.fullName ?? '', p.period, p.amount, paymentMethodLabel[p.method], paymentStatusLabel[p.status], p.note ?? '']),
+      ['Date', 'Student', 'For month', 'Amount (UZS)', 'Method', 'Status', 'Recorded by', 'Note'],
+      ...filtered.map((p) => [p.date, student.get(p.studentId)?.fullName ?? '', p.period, p.amount, paymentMethodLabel[p.method], paymentStatusLabel[p.status], (p.recordedBy && userName.get(p.recordedBy)) || '', p.note ?? '']),
     ])
     toast.show(`Exported ${formatNumber(filtered.length)} payments.`, 'info')
   }
@@ -77,13 +100,16 @@ export function PaymentsPage() {
     <>
       <PageHeader
         title="Payments"
-        description="Tuition payments received by the centre. Recording a payment updates balances and the dashboard."
+        description="Who has paid, who hasn’t, and every payment received. Recording a payment updates balances everywhere."
         actions={
           <>
-            <Button onClick={exportCSV} disabled={filtered.length === 0}>
-              <Download aria-hidden />
-              Export CSV
-            </Button>
+            {/* The debtors list has its own export. */}
+            {view === 'history' && (
+              <Button onClick={exportCSV} disabled={filtered.length === 0}>
+                <Download aria-hidden />
+                Export CSV
+              </Button>
+            )}
             <Button variant="primary" onClick={() => setEditing('new')}>
               <Plus aria-hidden />
               Record payment
@@ -97,20 +123,46 @@ export function PaymentsPage() {
         <p>This is a record-keeping demo, not a payment system. Nothing here charges a card or moves money.</p>
       </div>
 
-      <dl className="mb-6 grid gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-3">
-        {[
-          ['Collected this month', formatUZSCompact(thisMonth.total), `${thisMonth.count} paid payments in ${formatMonth(monthKey(now))}`],
-          ['Pending confirmation', formatUZSCompact(pending.reduce((s, p) => s + p.amount, 0)), `${pending.length} transfers not yet confirmed`],
-          ['Outstanding tuition', formatUZSCompact(outstanding.total), `${outstanding.students} students owe`],
-        ].map(([label, value, detail]) => (
+      <dl className="mb-6 grid gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-2 xl:grid-cols-4">
+        {(
+          [
+            ['Collected this month', formatUZSCompact(thisMonth.total), `${thisMonth.count} payments${pending.length ? `, ${pending.length} transfers awaiting confirmation` : ''}`, ''],
+            ['Paid this month', `${tuition.paid} students`, `of ${tuition.billed} active students billed`, ''],
+            ['Not paid yet', `${tuition.due} students`, `Due by the ${data.settings.tuitionDueDay}th, not late yet`, ''],
+            ['Overdue', formatUZSCompact(outstanding.overdueTotal), `${outstanding.overdueStudents} students past the due day`, outstanding.overdueStudents ? 'text-danger' : ''],
+          ] as const
+        ).map(([label, value, detail, tone]) => (
           <div key={label} className="bg-surface px-5 py-4">
             <dt className="text-sm text-ink-muted">{label}</dt>
-            <dd className="num text-xl font-semibold text-ink">{value}</dd>
+            <dd className={cn('num text-xl font-semibold text-ink', tone)}>{value}</dd>
             <dd className="text-xs text-ink-muted">{detail}</dd>
           </div>
         ))}
       </dl>
 
+      <div role="tablist" aria-label="Payments view" className="mb-4 inline-flex rounded-panel border border-line bg-surface p-1">
+        {(
+          [
+            ['owing', `Who hasn’t paid (${outstanding.students})`],
+            ['history', 'Payment history'],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={view === id}
+            onClick={() => setView(id)}
+            className={cn('h-9 rounded-control px-4 text-sm font-medium', view === id ? 'bg-brand text-white' : 'text-ink-muted hover:bg-subtle hover:text-ink')}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'owing' && <OwingList onRecordPayment={(id) => setPayingFor(id)} />}
+
+      {view === 'history' && (
       <section aria-label="Payment history" className="rounded-panel border border-line bg-surface">
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:flex-wrap sm:items-center">
           <SearchInput label="Search payments" value={values.q} onChange={(v) => set('q', v)} placeholder="Student name or note" />
@@ -165,6 +217,7 @@ export function PaymentsPage() {
                     <th scope="col" className={th}>Student</th>
                     <th scope="col" className={cn(th, 'hidden lg:table-cell')}>For month</th>
                     <th scope="col" className={th}>Method</th>
+                    <th scope="col" className={cn(th, 'hidden xl:table-cell')}>Recorded by</th>
                     <th scope="col" className={cn(th, 'text-right')}>Amount</th>
                     <th scope="col" className={th}>Status</th>
                     <th scope="col" className={th}><span className="sr-only">Actions</span></th>
@@ -188,6 +241,7 @@ export function PaymentsPage() {
                         </td>
                         <td className={cn(td, 'hidden text-ink-muted lg:table-cell')}>{formatMonth(p.period)}</td>
                         <td className={cn(td, 'whitespace-nowrap text-ink-muted')}>{paymentMethodLabel[p.method]}</td>
+                        <td className={cn(td, 'hidden whitespace-nowrap text-ink-muted xl:table-cell')}>{(p.recordedBy && userName.get(p.recordedBy)) || '—'}</td>
                         <td className={cn(td, 'num text-right font-medium whitespace-nowrap', p.status !== 'paid' && 'text-ink-muted')}>{formatUZS(p.amount)}</td>
                         <td className={td}>
                           <PaymentStatusBadge status={p.status} />
@@ -220,7 +274,9 @@ export function PaymentsPage() {
           </>
         )}
       </section>
+      )}
 
+      <PaymentFormDialog open={payingFor !== null} studentId={payingFor ?? undefined} onClose={() => setPayingFor(null)} />
       <PaymentFormDialog open={editing !== null} payment={editing === 'new' || editing === null ? undefined : editing} onClose={() => setEditing(null)} />
       <ConfirmDialog
         open={deleting !== null}

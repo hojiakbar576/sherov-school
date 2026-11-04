@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import type { Subject, Teacher, TeacherStatus } from '../../types'
-import { SUBJECTS } from '../../types'
 import { useSchool, type TeacherInput } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Dialog } from '../../components/ui/Dialog'
@@ -28,7 +27,7 @@ type FormState = TeacherInput
 type Errors = Partial<Record<keyof FormState, string>>
 
 function TeacherForm({ onClose, teacher }: Props) {
-  const { now, actions } = useSchool()
+  const { data, now, actions } = useSchool()
   const toast = useToast()
   const [form, setForm] = useState<FormState>(() => ({
     fullName: teacher?.fullName ?? '',
@@ -76,7 +75,7 @@ function TeacherForm({ onClose, teacher }: Props) {
       <Field label="Subject">
         {(p) => (
           <Select {...p} value={form.subject} onChange={(e) => set('subject', e.target.value as Subject)}>
-            {SUBJECTS.map((s) => (
+            {data.courses.filter((c) => c.active || c.name === form.subject).map((c) => c.name).map((s) => (
               <option key={s}>{s}</option>
             ))}
           </Select>

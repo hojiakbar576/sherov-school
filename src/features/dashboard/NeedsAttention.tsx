@@ -18,6 +18,10 @@ const actionLabel: Record<AttentionKind, string> = {
   absences: 'View student',
   capacity: 'View group',
   attendance_missing: 'Take attendance',
+  teacher_away: 'View group',
+  trial_today: 'Open enquiry',
+  trial_result: 'Record result',
+  lead_new: 'Open enquiry',
 }
 
 interface NeedsAttentionProps {

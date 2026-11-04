@@ -43,7 +43,7 @@ Other commands:
 
 ## Demo data
 
-- Generated for today's date on first visit: 3 branches, 248 active students in 20 running groups, 10 teachers, six months of tuition payments, six weeks of attendance (with a few teacher notes), six weeks of homework per running group with each student's result, student profiles with parents or guardians, a few teacher notes, and notifications for teachers.
+- Generated for today's date on first visit: 3 branches, 248 active students in 20 running groups, 10 teachers, six months of tuition payments, six weeks of attendance (with a few teacher notes), six weeks of homework per running group with each student's result, student profiles with parents or guardians, a few teacher notes, and notifications for teachers. For administrators: courses, rooms per branch, each student's group history and timeline (including some earlier transfers, discounts with reasons and a few graduates), about a dozen admissions enquiries per branch at every stage (with a trial lesson today), and monthly / level tests with results.
 - Each teacher works at one branch; their groups and those groups' students belong to that branch too.
 - Every change (add, edit, delete, attendance, payments, settings) is saved in `localStorage` under the key `sherov-school:data`.
 - **Reset:** Settings → Demo data → *Reset demo data*. A confirmation explains that local changes will be lost. You can download a JSON copy first.
@@ -98,15 +98,38 @@ Start with `src/types/index.ts` (the data model), then `src/data/seed.ts` (how s
 - **Teacher rating** (`lib/rating.ts`): a score out of 100 per month from lessons recorded (25), student attendance (20), homework checked (20), students graded (15) and groups filled (20). Change `RATING_WEIGHTS` to rebalance. How high the grades are doesn't count. The top 3 (`BONUS_PLACES`) are marked as bonus places.
 - The older teacher files `TeacherDashboardPage.tsx`, `MyGroupsPage.tsx`, `GroupDetailPage.tsx`, `StatStrip.tsx` and `ClassList.tsx` are no longer used and can be deleted.
 
+### Administrator portal
+
+The sidebar follows a working day: Dashboard; **Admissions** (Leads & trials); People (Students, Teachers); Teaching (Groups, Schedule, Attendance, Assessments); Finance (Payments, Reports); Settings.
+
+- **Dashboard** answers "what do I need to do today?": five numbers (active students, classes today, attendance today, collected this month, overdue tuition), then **Today's tasks** (trial lessons today, missing attendance, trial results not recorded, overdue tuition, new enquiries to call back, groups whose teacher is on leave, repeated absences, full groups), each with an action and an expandable list, then today's classes. Charts are on Reports. The bell shows the same tasks.
+- **Students** list shows the main parent and their phone (with copy), attendance %, tuition and status; click a row to open the profile. Search (here and in the header) also finds students by a parent's name or phone. **Current** shows active and paused students; **Archive** holds students who left or graduated, with all their history. Export CSV exports the list as filtered.
+- **Student lifecycle**: Active, Paused (keeps the seat, not billed), Left, Graduated. **Change status** asks for a date and a reason. **Transfer** moves a student to another group from a chosen date, with an optional reason and a choice of keeping their price or taking the new group's fee. Leaving, graduating and transferring end the old group membership instead of deleting it, so group history and reports stay correct (`lib/student-lifecycle.ts`, `SchoolData.enrollments`, `SchoolData.studentEvents`). Delete is only for records added by mistake.
+- **Discounts**: when a student's monthly price differs from the group's fee, the form asks for the kind (discount, scholarship, special price) and a reason, shown on the profile and in exports.
+- **Student profile**: parents first (copyable phones), personal details, study details with **group history**, tuition (price and why it differs, owed, overdue, payments with who recorded them), attendance summary with full history, homework progress on the same 1–5 scale teachers use, **assessment results**, and a **History** timeline (enrolment, transfers, status and price changes, payments). There is no overall ranking yet: each number stands on its own until the formula is agreed.
+- **Add / edit student** form has four sections: student, parent / guardian (up to three), group, tuition. When editing, group and status are changed with Transfer and Change status so the history is kept.
+- **Admissions** (`/leads`): enquiry → contacted → trial scheduled → trial done (with level placement) → enrolled, or lost with a reason. Each enquiry page shows one obvious next step. **Enroll as student** opens the student form already filled in (name, parent, phone, recommended group) and links the new student to the enquiry. Trial lessons today and missing trial results appear on the dashboard.
+- **Assessments** (`/assessments`): level tests, monthly tests, midterms and finals for a group, scored out of any maximum (e.g. 50 or 100), with absent students and comments. Planned tests are listed first; results show on each student's profile. Teachers don't enter assessments in their portal yet.
+- **Teachers**: click a teacher for their profile: contact, branch (and earlier branches), groups with attendance, the next 7 days of classes, this month's pay so far, and this month's work measures (lessons recorded, homework checked and so on). Only the owner will be able to move a teacher between branches.
+- **Courses and rooms** are lists in Settings, not fixed in code: add a course (e.g. Arabic) or turn one off; add, rename or remove your branch's rooms. Group forms choose from them; two running groups can't share a room at the same time.
+- **Payments** opens on **Who hasn't paid** (overdue first, parent to call, one-click Record payment, Export CSV); **Payment history** is the second tab and shows who recorded each payment.
+- **Exports (CSV)**: students, debtors, payments, attendance (the month being viewed), teachers, enquiries and report tables. Files are CSV with a UTF-8 marker so Excel opens them; there is no XLSX or PDF export yet.
+- **Translations**: `src/i18n` holds the message catalogue and `t()`; the sidebar uses it. Uzbek and Russian can be added there and the rest of the screens moved over gradually.
+- Teachers can add a short comment per student when checking homework (Comment mark, key M). The comment is saved with the grade and shows on the student profile.
+
 ## Not built yet
 
 - Real backend, database and authentication (sign-in is a labelled demo; permissions are enforced only in the browser)
 - Owner portal (where the owner would review the teacher rating and award bonuses), and moving teachers between branches (owner only)
 - Recording actual salary payouts (salary is calculated, not paid out, in the app)
 - Students and parents can't hand in or view homework yet: teachers record who handed it in. Notifications are in-app only
-- Administrators can't edit parents or guardians yet (they come from the demo data)
 - Centre settings are shared by all branches
 - Real payment processing or receipts
 - Multi-device sync; data stays in one browser
 - SMS or Telegram reminders to parents
-- Translations (the interface is English only)
+- Translations (the interface is English only; the foundation is in `src/i18n`)
+- Staff attendance (administrators, reception): not needed day to day yet. A `staffAttendance` list with person, date and status can be added later without changing anything else.
+- An "Excused" attendance mark (only present, late and absent today)
+- Configurable payment methods (the five methods are still fixed in `PAYMENT_METHODS`)
+- Assessments in the teacher portal, and reusable exam templates
+- Editing a group's room by id: groups store the room's name; renaming a room in Settings updates its groups

@@ -76,7 +76,7 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
   const students = useMemo(() => {
     const q = filter.trim().toLowerCase()
     return data.students
-      .filter((s) => s.status !== 'left' || s.id === form.studentId)
+      .filter((s) => s.status === 'active' || s.status === 'paused' || s.id === form.studentId)
       .filter((s) => !q || s.fullName.toLowerCase().includes(q) || s.id === form.studentId)
       .sort((a, b) => a.fullName.localeCompare(b.fullName))
   }, [data.students, filter, form.studentId])

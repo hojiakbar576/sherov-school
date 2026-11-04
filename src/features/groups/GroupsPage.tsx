@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Pencil, Plus, Trash2, UsersRound } from 'lucide-react'
 import type { Group } from '../../types'
-import { SUBJECTS } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useListParams } from '../../hooks/useListParams'
 import { useToast } from '../../components/ui/toast-context'
@@ -83,7 +82,7 @@ export function GroupsPage() {
           <div className="grid grid-cols-2 gap-3 sm:flex">
             <Select aria-label="Filter by subject" value={values.subject} onChange={(e) => set('subject', e.target.value)} className="sm:w-48">
               <option value="">All subjects</option>
-              {SUBJECTS.map((s) => (
+              {data.courses.map((c) => c.name).map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </Select>

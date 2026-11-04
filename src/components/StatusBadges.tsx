@@ -10,7 +10,7 @@ export function TuitionBadge({ balance }: { balance: TuitionBalance | undefined 
   return <Badge tone="danger">Overdue {formatUZSCompact(balance.owed)}</Badge>
 }
 
-const studentTone: Record<StudentStatus, Tone> = { active: 'success', paused: 'warning', left: 'neutral' }
+const studentTone: Record<StudentStatus, Tone> = { active: 'success', paused: 'warning', left: 'neutral', graduated: 'info' }
 export function StudentStatusBadge({ status }: { status: StudentStatus }) {
   return <Badge tone={studentTone[status]}>{studentStatusLabel[status]}</Badge>
 }
