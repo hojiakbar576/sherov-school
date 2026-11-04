@@ -14,6 +14,7 @@ import { formatAxisAmount, formatMonth, formatMonthShort, formatNumber, formatPe
 import { enrolmentByGroup, enrolmentByMonth, outstandingTotal, revenueByMonth, summarizeMarks } from '../../lib/metrics'
 import { downloadCSV } from '../../lib/csv'
 import { cn } from '../../lib/cn'
+import { MoreReports } from './MoreReports'
 
 type Range = '3' | '6'
 
@@ -109,7 +110,7 @@ export function ReportsPage() {
     <>
       <PageHeader
         title="Reports"
-        description="Summaries calculated from the same records as the rest of the app. Export any table as a CSV file."
+        description="Summaries calculated from the same records as the rest of the app. Export any table as Excel or CSV."
         actions={<RangeToggle label="Report period" value={range} onChange={setRange} options={[{ value: '3', label: 'Last 3 months' }, { value: '6', label: 'Last 6 months' }]} />}
       />
 
@@ -266,7 +267,7 @@ export function ReportsPage() {
                     <tr key={r.name}>
                       <th scope="row" className={cn(td, 'text-left font-normal')}>{r.name}</th>
                       <td className={cn(td, 'num text-right')}>{r.students}</td>
-                      <td className={cn(td, 'num text-right font-medium')}>{formatUZS(r.owed)}</td>
+                      <td className={cn(td, 'num whitespace-nowrap text-right font-medium')}>{formatUZS(r.owed)}</td>
                     </tr>
                   ))
                 )}
@@ -329,6 +330,8 @@ export function ReportsPage() {
           </table>
         </Panel>
       </div>
+
+      <MoreReports firstMonth={firstMonth} periodKeys={periodKeys} periodLabel={periodLabel} stamp={stamp} />
     </>
   )
 }

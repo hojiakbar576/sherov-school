@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/Button'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { isValidISODate, toISODate } from '../../lib/dates'
 import { formatPhone, isValidPhone } from '../../lib/format'
-import { LEAD_SOURCES, LOST_REASONS } from '../../lib/admissions'
+import { LOST_REASONS } from '../../lib/admissions'
 import { cn } from '../../lib/cn'
 
 function Footer({ onClose, label }: { onClose: () => void; label: string }) {
@@ -103,7 +103,8 @@ function LeadForm({ lead, onClose, onSaved }: { lead?: Lead; onClose: () => void
         {(p) => (
           <Select {...p} value={form.source} onChange={(e) => set('source', e.target.value)}>
             <option value="">Not asked</option>
-            {LEAD_SOURCES.map((s) => (
+            {/* The school's own list (Settings → Lists), plus an older source still on this enquiry. */}
+            {Array.from(new Set([...data.catalogs.leadSources.filter((s) => s.active).map((s) => s.name), ...(lead?.source ? [lead.source] : [])])).map((s) => (
               <option key={s}>{s}</option>
             ))}
           </Select>

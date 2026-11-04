@@ -1,14 +1,13 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Info } from 'lucide-react'
 import type { Payment, PaymentMethod, PaymentStatus } from '../../types'
-import { PAYMENT_METHODS } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Dialog } from '../../components/ui/Dialog'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/Field'
 import { monthKey, toISODate } from '../../lib/dates'
-import { formatMonth, formatUZS, paymentMethodLabel, paymentStatusLabel } from '../../lib/format'
+import { formatMonth, formatUZS, methodName, paymentStatusLabel } from '../../lib/format'
 
 interface PaymentFormDialogProps {
   open: boolean
@@ -175,9 +174,9 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
       <Field label="Method">
         {(p) => (
           <Select {...p} value={form.method} onChange={(e) => set('method', e.target.value as PaymentMethod)}>
-            {PAYMENT_METHODS.map((m) => (
+            {data.catalogs.paymentMethods.filter((pm) => pm.active || pm.id === form.method).map((pm) => pm.id).map((m) => (
               <option key={m} value={m}>
-                {paymentMethodLabel[m]}
+                {methodName(data.catalogs, m)}
               </option>
             ))}
           </Select>

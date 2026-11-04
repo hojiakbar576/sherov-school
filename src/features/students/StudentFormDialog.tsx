@@ -9,6 +9,7 @@ import { Field, Input, Select } from '../../components/ui/Field'
 import { toISODate } from '../../lib/dates'
 import { formatPhone, formatUZS, genderLabel, guardianRelationshipLabel, isValidEmail, isValidPhone, tuitionAdjustmentLabel } from '../../lib/format'
 import { createId } from '../../lib/id'
+import { TagPicker } from './StudentTags'
 import { enrolmentByGroup } from '../../lib/metrics'
 
 interface StudentFormDialogProps {
@@ -43,6 +44,7 @@ interface FormState {
   groupId: string
   enrolledOn: string
   monthlyTuition: string
+  tags: string[]
   adjustmentKind: TuitionAdjustmentKind
   adjustmentReason: string
 }
@@ -90,6 +92,7 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
     monthlyTuition: student ? String(student.monthlyTuition) : String(data.groups.find((g) => g.id === initial?.groupId)?.monthlyFee ?? ''),
     adjustmentKind: student?.tuitionAdjustment?.kind ?? 'discount',
     adjustmentReason: student?.tuitionAdjustment?.reason ?? '',
+    tags: student?.tags ?? [],
   }))
   // The standard price is the group's fee; anything else needs a reason.
   const standardFee = data.groups.find((g) => g.id === form.groupId)?.monthlyFee
@@ -167,6 +170,7 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
       monthlyTuition: Math.round(Number(form.monthlyTuition)),
       ...(priceDiffers ? { tuitionAdjustment: { kind: form.adjustmentKind, reason: form.adjustmentReason.trim() } } : {}),
       status: student ? student.status : ('active' as const),
+      ...(form.tags.length ? { tags: form.tags } : {}),
     }
     if (student) {
       actions.updateStudent(student.id, input)
@@ -294,7 +298,7 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
         </Field>
       </Section>
 
-      <Section step={4} title="Tuition">
+      <Section step={4} title="Tuition and tags">
         <Field
           label="Monthly tuition (UZS)"
           error={errors.monthlyTuition}
@@ -341,6 +345,11 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
           </>
         )}
       </Section>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium text-ink">Tags <span className="font-normal text-ink-muted">· optional labels you can filter the student list by</span></p>
+        <TagPicker value={form.tags} onChange={(tags) => set('tags', tags)} />
+      </div>
 
       <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
         <Button onClick={onClose}>Cancel</Button>

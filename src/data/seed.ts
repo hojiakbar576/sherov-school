@@ -30,13 +30,14 @@ import { meetsOn } from '../lib/schedule'
 import { FEMALE_FIRST_NAMES, MALE_FIRST_NAMES, PHONE_PREFIXES, SURNAMES } from './names'
 import { BRANCHES, TEACHER_BRANCH, buildUsers, seedNotifications } from './seed-portal'
 import { addAdministrationData } from './seed-admin'
+import { addOfficeData } from './seed-office'
 import { SALARY_PERCENT, seedHomework, seedHomeworkResults, seedStudentNotes, studentProfile, withSampleGrades } from './seed-learning'
 
 /**
  * Bump when the stored data shape changes. data/migrate.ts upgrades older
  * saved data; anything it can't upgrade is set aside as a backup.
  */
-export const DATA_VERSION = 5
+export const DATA_VERSION = 7
 /** How many months of tuition history the demo covers (including this month). */
 export const HISTORY_MONTHS = 6
 
@@ -296,8 +297,9 @@ export function createDemoData(now: Date = new Date()): SchoolData {
   const students = generated.map(({ student }) => ({ ...student, ...studentProfile(student, now) }))
   const homework = seedHomework(groups, students, now)
   attendance = withSampleGrades(attendance)
-  // Courses, rooms, group history, leads and assessments (see seed-admin.ts).
-  return addAdministrationData({
+  // Courses, rooms, group history, leads and assessments (seed-admin.ts), then
+  // receipts, expenses, salaries, staff attendance, calls and lists (seed-office.ts).
+  const administration = addAdministrationData({
     version: DATA_VERSION,
     seededAt: now.toISOString(),
     branches: BRANCHES.map((b) => ({ ...b })),
@@ -314,7 +316,9 @@ export function createDemoData(now: Date = new Date()): SchoolData {
     activity: buildSeedActivity(students, groups, payments, attendance, now),
     settings: { ...DEFAULT_SETTINGS },
     notificationReads: {},
+    bonuses: [],
   }, now, { demo: true })
+  return addOfficeData(administration, now, { demo: true })
 }
 
 /** Recent activity for each branch, so every administrator starts with some. */

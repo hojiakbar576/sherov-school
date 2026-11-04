@@ -16,11 +16,12 @@ import { findRecord, groupRoster, sessionsOn, summarizeMarks, type Session } fro
 import { cn } from '../../lib/cn'
 import { downloadCSV } from '../../lib/csv'
 
-const MARKS: AttendanceMark[] = ['present', 'late', 'absent']
+const MARKS: AttendanceMark[] = ['present', 'late', 'absent', 'excused']
 const markStyle: Record<AttendanceMark, string> = {
   present: 'peer-checked:bg-success peer-checked:text-white peer-checked:border-success',
   late: 'peer-checked:bg-warning-mark peer-checked:text-ink peer-checked:border-warning-mark',
   absent: 'peer-checked:bg-danger peer-checked:text-white peer-checked:border-danger',
+  excused: 'peer-checked:bg-info peer-checked:text-white peer-checked:border-info',
 }
 
 /** Picks the session most likely to need attention on this date. */
@@ -204,7 +205,7 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
       return
     }
     setDirty(false)
-    const attended = Object.values(toSave).filter((m) => m !== 'absent').length
+    const attended = Object.values(toSave).filter((m) => m === 'present' || m === 'late').length
     toast.show(`Attendance saved for ${session.group.name}: ${attended} of ${students.length} attended.`)
   }
 

@@ -183,17 +183,24 @@ export interface MarkSummary {
   present: number
   late: number
   absent: number
+  /** Excused absences: not part of total or rate. */
+  excused: number
   total: number
   /** Share of marks that were present or late (late still attended). */
   rate: number | null
 }
 
+/** Present and late count as came; excused absences are left out of the rate entirely. */
+export function cameToClass(mark: AttendanceMark): boolean {
+  return mark === 'present' || mark === 'late'
+}
+
 export function summarizeMarks(records: AttendanceRecord[]): MarkSummary {
-  const summary = { present: 0, late: 0, absent: 0, total: 0 }
+  const summary = { present: 0, late: 0, absent: 0, excused: 0, total: 0 }
   for (const r of records) {
     for (const mark of Object.values(r.marks) as AttendanceMark[]) {
       summary[mark] += 1
-      summary.total += 1
+      if (mark !== 'excused') summary.total += 1
     }
   }
   return { ...summary, rate: summary.total ? (summary.present + summary.late) / summary.total : null }
@@ -253,8 +260,9 @@ export function studentAttendance(data: SchoolData, studentId: string) {
     if (mark) history.push({ date: r.date, groupId: r.groupId, mark })
   }
   history.sort((a, b) => b.date.localeCompare(a.date))
-  const attended = history.filter((h) => h.mark !== 'absent').length
-  return { history, rate: history.length ? attended / history.length : null }
+  const counted = history.filter((h) => h.mark !== 'excused')
+  const attended = counted.filter((h) => cameToClass(h.mark)).length
+  return { history, rate: counted.length ? attended / counted.length : null }
 }
 
 // ---------------------------------------------------------------- today's classes

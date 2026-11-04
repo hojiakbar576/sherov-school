@@ -1,6 +1,14 @@
 import { createContext, useContext } from 'react'
 import type {
   Assessment,
+  Bonus,
+  Catalogs,
+  ContactLog,
+  Expense,
+  ExtraLesson,
+  ListItem,
+  SalaryPayment,
+  StaffAttendance,
   AssessmentResult,
   AttendanceMark,
   Branch,
@@ -37,6 +45,16 @@ export type LeadInput = Pick<Lead, 'studentName' | 'parentName' | 'phone' | 'cou
 export type LeadUpdate = Partial<Pick<Lead, 'studentName' | 'parentName' | 'phone' | 'course' | 'source' | 'notes' | 'stage' | 'trial' | 'placement' | 'lostReason'>>
 export type AssessmentInput = Pick<Assessment, 'groupId' | 'title' | 'kind' | 'date' | 'maxScore'>
 export type RoomInput = Pick<Room, 'name' | 'capacity'>
+
+export type BonusInput = Pick<Bonus, 'teacherId' | 'month' | 'place' | 'amount' | 'note'>
+export type CatalogName = keyof Catalogs
+export type ExpenseInput = Pick<Expense, 'branchId' | 'categoryId' | 'amount' | 'date' | 'description' | 'paidTo' | 'method'>
+export type SalaryPaymentInput = Pick<SalaryPayment, 'teacherId' | 'month' | 'amount' | 'date' | 'method' | 'note'>
+export type ContactLogInput = Pick<ContactLog, 'subject' | 'channel' | 'direction' | 'withWhom' | 'summary' | 'followUpOn'>
+export type ExtraLessonInput = Pick<ExtraLesson, 'studentId' | 'teacherId' | 'date' | 'time' | 'durationMinutes' | 'topic' | 'fee' | 'status' | 'paid'>
+export type UserInput = Pick<User, 'fullName' | 'username' | 'role' | 'branchId' | 'phone'>
+export type StaffMarkInput = Pick<StaffAttendance, 'personId' | 'personType' | 'mark' | 'arrivedAt' | 'note'>
+export type BranchInput = Pick<Branch, 'address' | 'phone'>
 
 export interface TransferInput {
   toGroupId: string
@@ -119,6 +137,44 @@ export interface SchoolActions {
   /** Refused while a group uses the room. */
   deleteRoom(id: string): boolean
 
+  /** Owner only. Refused (with a reason) while the teacher still has running or paused groups. */
+  transferTeacher(teacherId: string, toBranchId: string, on: string): { ok: true } | { ok: false; reason: string }
+  /** Owner only. */
+  awardBonus(input: BonusInput): Bonus
+  deleteBonus(id: string): void
+  updateBranch(id: string, input: BranchInput): void
+
+  /** Marks a payment refunded and records why. The payment stays in the history. */
+  refundPayment(id: string, reason: string): void
+
+  /** Lists the school manages (payment methods, expense categories, tags, reasons, sources). */
+  addListItem(list: CatalogName, name: string): ListItem
+  renameListItem(list: CatalogName, id: string, name: string): void
+  setListItemActive(list: CatalogName, id: string, active: boolean): void
+  updateCourse(id: string, input: { levels: string[]; defaultFee?: number }): void
+
+  addExpense(input: ExpenseInput): Expense
+  updateExpense(id: string, input: ExpenseInput): void
+  deleteExpense(id: string): void
+
+  addSalaryPayment(input: SalaryPaymentInput): SalaryPayment
+  deleteSalaryPayment(id: string): void
+
+  /** Saves who came to work on a day at the branch (replaces that day's marks for these people). */
+  saveStaffAttendance(branchId: string, date: string, marks: StaffMarkInput[]): void
+
+  addContactLog(input: ContactLogInput): ContactLog
+  deleteContactLog(id: string): void
+
+  addExtraLesson(input: ExtraLessonInput): ExtraLesson
+  updateExtraLesson(id: string, input: ExtraLessonInput): void
+  deleteExtraLesson(id: string): void
+
+  /** Owner only: front-office accounts and branch assignments. Teachers' accounts come with their teacher record. */
+  addUser(input: UserInput): User
+  updateUser(id: string, input: UserInput): void
+  setUserActive(id: string, active: boolean): void
+
   addPayment(input: PaymentInput): Payment
   updatePayment(id: string, input: PaymentInput): void
   deletePayment(id: string): void
@@ -139,6 +195,15 @@ export interface TeacherView {
   ratings: { month: MonthKey; rows: TeacherRating[] }[]
 }
 
+/** The owner sees everything; administrator pages can be narrowed to one branch. */
+export interface OwnerView {
+  /** Every branch, unscoped. Owner pages read this. */
+  data: SchoolData
+  /** The branch the administrator pages are narrowed to; null = all branches. */
+  branchId: string | null
+  setBranch(branchId: string | null): void
+}
+
 export interface SchoolContextValue {
   /** Only what the signed-in person may see (their branch, or their groups). */
   data: SchoolData
@@ -157,10 +222,14 @@ export interface SchoolContextValue {
   user: User | null
   /** The signed-in person's branch; null for the owner. */
   branch: Branch | null
-  /** Accounts that can sign in, for the demo sign-in page. */
+  /** Accounts that can sign in, for the demo sign-in page (administrators and teachers). */
   demoAccounts: User[]
   signIn(username: string, password: string): User | null
+  /** The owner's own demo sign-in (see OWNER_DEMO_CREDENTIALS). */
+  signInOwner(username: string, password: string): User | null
   signOut(): void
+  /** Only for the signed-in owner; null for everyone else. */
+  owner: OwnerView | null
 }
 
 export const SchoolContext = createContext<SchoolContextValue | null>(null)

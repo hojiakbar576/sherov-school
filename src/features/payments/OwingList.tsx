@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { CircleCheck, Download } from 'lucide-react'
+import { CircleCheck } from 'lucide-react'
 import { useSchool } from '../../data/school-context'
 import { Button } from '../../components/ui/Button'
 import { Select } from '../../components/ui/Field'
@@ -9,8 +9,8 @@ import { PhoneLine } from '../../components/ui/CopyButton'
 import { TuitionBadge } from '../../components/StatusBadges'
 import { formatMonthShort, formatNumber, formatUZS, guardianRelationshipLabel } from '../../lib/format'
 import { cn } from '../../lib/cn'
-import { downloadCSV } from '../../lib/csv'
 import { toISODate } from '../../lib/dates'
+import { ExportButtons } from '../../components/ui/ExportButtons'
 
 /**
  * Active students who still owe tuition, overdue first, with the parent's
@@ -42,22 +42,19 @@ export function OwingList({ onRecordPayment }: { onRecordPayment: (studentId: st
         <p className="num text-sm text-ink-muted sm:ml-auto" aria-live="polite">
           {formatNumber(rows.length)} {rows.length === 1 ? 'student' : 'students'} · {formatUZS(rows.reduce((sum, r) => sum + r.b!.owed, 0))}
         </p>
-        <Button
+        <ExportButtons
           size="sm"
+          name="debtors"
+          date={toISODate(now)}
           disabled={rows.length === 0}
-          onClick={() =>
-            downloadCSV(`sherov-school-debtors-${toISODate(now)}.csv`, [
+          rows={() => [
               ['Student', 'Group', 'Owed (UZS)', 'Unpaid months', 'Status', 'Parent / guardian', 'Relationship', 'Parent phone', 'Student phone'],
               ...rows.map(({ s, b }) => {
                 const g = s.guardians[0]
                 return [s.fullName, groupName.get(s.groupId ?? '') ?? '', b!.owed, b!.unpaidMonths.join(' '), b!.status, g?.fullName, g ? guardianRelationshipLabel[g.relationship] : '', g?.phone, s.phone]
               }),
-            ])
-          }
-        >
-          <Download aria-hidden />
-          Export CSV
-        </Button>
+            ]}
+        />
       </div>
       {rows.length === 0 ? (
         <EmptyState icon={CircleCheck} title="Everyone is paid up">

@@ -5,6 +5,7 @@ import { downloadCSV } from '../../lib/csv'
 import { toISODate } from '../../lib/dates'
 import type { Teacher } from '../../types'
 import { useSchool } from '../../data/school-context'
+import { useBranchChoice } from '../../hooks/useBranchChoice'
 import { useListParams } from '../../hooks/useListParams'
 import { useToast } from '../../components/ui/toast-context'
 import { PageHeader } from '../../components/ui/PageHeader'
@@ -21,6 +22,7 @@ const FILTERS = ['q', 'subject', 'status'] as const
 
 export function TeachersPage() {
   const { data, actions } = useSchool()
+  const needsBranch = useBranchChoice()
   const toast = useToast()
   const { values, set, clear, active } = useListParams(FILTERS)
   const [editing, setEditing] = useState<Teacher | 'new' | null>(null)
@@ -66,7 +68,7 @@ export function TeachersPage() {
               <Download aria-hidden />
               Export CSV
             </Button>
-            <Button variant="primary" onClick={() => setEditing('new')}>
+            <Button variant="primary" onClick={() => setEditing('new')} disabled={Boolean(needsBranch)} title={needsBranch ?? undefined}>
               <Plus aria-hidden />
               Add teacher
             </Button>

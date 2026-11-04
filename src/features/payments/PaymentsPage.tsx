@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { Download, Info, Pencil, Plus, Receipt, Trash2 } from 'lucide-react'
+import { Info, Pencil, Plus, Receipt, Trash2 } from 'lucide-react'
 import type { Payment } from '../../types'
-import { PAYMENT_METHODS } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useListParams } from '../../hooks/useListParams'
 import { useToast } from '../../components/ui/toast-context'
@@ -13,12 +12,12 @@ import { ConfirmDialog } from '../../components/ui/Dialog'
 import { EmptyState, Pagination, SearchInput, TableScroll, td, th } from '../../components/ui/misc'
 import { PaymentStatusBadge } from '../../components/StatusBadges'
 import { monthKey, monthKeyOf, toISODate } from '../../lib/dates'
-import { formatDate, formatMonth, formatNumber, formatUZS, formatUZSCompact, paymentMethodLabel, paymentStatusLabel } from '../../lib/format'
+import { formatDate, formatMonth, formatNumber, formatUZS, formatUZSCompact, methodName, paymentStatusLabel } from '../../lib/format'
 import { outstandingTotal, revenueInMonth } from '../../lib/metrics'
-import { downloadCSV } from '../../lib/csv'
 import { cn } from '../../lib/cn'
 import { PaymentFormDialog } from './PaymentFormDialog'
 import { OwingList } from './OwingList'
+import { ExportButtons } from '../../components/ui/ExportButtons'
 
 const PAGE_SIZE = 25
 const FILTERS = ['q', 'month', 'method', 'status'] as const
@@ -77,16 +76,21 @@ export function PaymentsPage() {
   const filteredPaid = filtered.filter((p) => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0)
 
   const userName = new Map(data.users.map((u) => [u.id, u.fullName]))
-  const exportCSV = () => {
-    downloadCSV(`sherov-school-payments-${toISODate(now)}.csv`, [
+  const exportRows = () => [
       ['Date', 'Student', 'For month', 'Amount (UZS)', 'Method', 'Status', 'Recorded by', 'Note'],
-      ...filtered.map((p) => [p.date, student.get(p.studentId)?.fullName ?? '', p.period, p.amount, paymentMethodLabel[p.method], paymentStatusLabel[p.status], (p.recordedBy && userName.get(p.recordedBy)) || '', p.note ?? '']),
-    ])
-    toast.show(`Exported ${formatNumber(filtered.length)} payments.`, 'info')
-  }
+      ...filtered.map((p) => [p.date, student.get(p.studentId)?.fullName ?? '', p.period, p.amount, methodName(data.catalogs, p.method), paymentStatusLabel[p.status], (p.recordedBy && userName.get(p.recordedBy)) || '', p.note ?? '']),
+  ]
 
   const rowActions = (p: Payment) => (
     <div className="flex justify-end gap-0.5">
+      <Link
+        to={`/payments/${p.id}/receipt`}
+        aria-label={`Receipt ${p.receiptNo ?? ''}`}
+        title="Receipt and history"
+        className="inline-flex size-9 items-center justify-center rounded-control text-ink-muted hover:bg-subtle hover:text-ink"
+      >
+        <Receipt className="size-[18px]" />
+      </Link>
       <IconButton label="Edit payment" onClick={() => setEditing(p)}>
         <Pencil />
       </IconButton>
@@ -105,10 +109,7 @@ export function PaymentsPage() {
           <>
             {/* The debtors list has its own export. */}
             {view === 'history' && (
-              <Button onClick={exportCSV} disabled={filtered.length === 0}>
-                <Download aria-hidden />
-                Export CSV
-              </Button>
+              <ExportButtons name="payments" date={toISODate(now)} rows={exportRows} disabled={filtered.length === 0} />
             )}
             <Button variant="primary" onClick={() => setEditing('new')}>
               <Plus aria-hidden />
@@ -177,9 +178,9 @@ export function PaymentsPage() {
             </Select>
             <Select aria-label="Filter by method" value={values.method} onChange={(e) => set('method', e.target.value)} className="sm:w-44">
               <option value="">All methods</option>
-              {PAYMENT_METHODS.map((m) => (
+              {data.catalogs.paymentMethods.map((pm) => pm.id).map((m) => (
                 <option key={m} value={m}>
-                  {paymentMethodLabel[m]}
+                  {methodName(data.catalogs, m)}
                 </option>
               ))}
             </Select>
@@ -240,7 +241,7 @@ export function PaymentsPage() {
                           {p.note && <p className="text-xs text-ink-muted">{p.note}</p>}
                         </td>
                         <td className={cn(td, 'hidden text-ink-muted lg:table-cell')}>{formatMonth(p.period)}</td>
-                        <td className={cn(td, 'whitespace-nowrap text-ink-muted')}>{paymentMethodLabel[p.method]}</td>
+                        <td className={cn(td, 'whitespace-nowrap text-ink-muted')}>{methodName(data.catalogs, p.method)}</td>
                         <td className={cn(td, 'hidden whitespace-nowrap text-ink-muted xl:table-cell')}>{(p.recordedBy && userName.get(p.recordedBy)) || '—'}</td>
                         <td className={cn(td, 'num text-right font-medium whitespace-nowrap', p.status !== 'paid' && 'text-ink-muted')}>{formatUZS(p.amount)}</td>
                         <td className={td}>
@@ -259,7 +260,7 @@ export function PaymentsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-ink">{student.get(p.studentId)?.fullName ?? 'Unknown student'}</p>
                     <p className="text-xs text-ink-muted">
-                      {formatDate(p.date)}, {paymentMethodLabel[p.method]}
+                      {formatDate(p.date)}, {methodName(data.catalogs, p.method)}
                     </p>
                     <div className="mt-1.5 flex items-center gap-2">
                       <span className="num font-semibold">{formatUZS(p.amount)}</span>

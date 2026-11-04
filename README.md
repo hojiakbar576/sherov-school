@@ -25,9 +25,13 @@ Every account uses the password `demo`. The sign-in page lists all accounts; cli
 | Administrator, Chilonzor | `admin.chilonzor` | Chilonzor branch only |
 | Administrator, Bashlik | `admin.bashlik` | Bashlik branch only |
 | Administrator, Quyliq | `admin.quyliq` | Quyliq branch only |
+| Receptionist | `reception.chilonzor`, `reception.bashlik`, `reception.quyliq` | Admissions, students, groups, schedule, attendance, payments, staff attendance (one branch) |
+| Accountant | `accountant.chilonzor`, `accountant.bashlik`, `accountant.quyliq` | Students, payments, expenses, salaries, reports, activity log (one branch) |
 | Teacher | first name, e.g. `kamola`, `dilshod`, `nigora` | Their own groups and students |
 
-This only shapes what the demo shows. Passwords aren't checked by a server, only the signed-in user's id is remembered in `localStorage` (`sherov-school:session`), and anyone with browser developer tools can switch accounts. It must be replaced by real authentication and server-side permission checks before real data is used. The owner account exists in the data but can't sign in yet: the owner portal isn't built.
+What each role can open is set in `ROLE_SECTIONS` in `src/app/permissions.ts`. The owner can add staff accounts, move them between branches and turn them off at **Owner → Users & access**; a turned-off account can't sign in.
+
+This only shapes what the demo shows. Passwords aren't checked by a server, only the signed-in user's id is remembered in `localStorage` (`sherov-school:session`), and anyone with browser developer tools can switch accounts. It must be replaced by real authentication and server-side permission checks before real data is used. **Owner (Mr. Sherzod):** sign in at `/owner/login` (linked from the main sign-in page) with username `owner` and password `owner-demo-2026`. These are a temporary development login set in `OWNER_DEMO_CREDENTIALS` in `src/lib/auth.ts`; change them there. The owner's session is kept in `sessionStorage`, so it lasts until sign-out or until the browser tab is closed. The owner can't sign in on the shared page, and the administrator and teacher accounts can't open owner pages.
 
 (`npm.cmd` avoids PowerShell's script execution policy blocking `npm.ps1`. If `npm` works for you, use it.)
 
@@ -83,7 +87,7 @@ Start with `src/types/index.ts` (the data model), then `src/data/seed.ts` (how s
 - `/login`: demo sign-in.
 - Administrator: `/`, `/students`, `/teachers`, `/groups`, `/attendance`, `/schedule`, `/payments`, `/reports`, `/settings`.
 - Teacher (laid out like LC UP's teacher side, without chat): `/teacher` (Home: rating, salary, groups with All/Today), `/teacher/groups/:id` (the group's month journal: Attendance, Grades, Homework, Ranking; `?lesson=YYYY-MM-DD` opens the lesson sheet), `/teacher/students` and `/teacher/students/:id`, `/teacher/statistics` (rating breakdown, all teachers, salary breakdown), `/teacher/homework` and `/teacher/homework/:id`, `/teacher/profile` (details and salary history), `/teacher/notifications` (from the bell). Old links to `/teacher/groups` and `/teacher/attendance` redirect.
-- Adding the owner portal: add routes under `/owner`, a navigation entry in `app/navigation.ts`, and `'owner'` to `SIGN_IN_ROLES` in `lib/auth.ts`. The owner already sees every branch in `scopeData`.
+- Owner: `/owner/login`, `/owner` (overview), `/owner/branches`, `/owner/finance`, `/owner/teachers` (rating, bonuses, moving teachers), `/owner/settings`, plus every administrator page for branch work.
 
 ### Homework evaluation and progress
 
@@ -98,9 +102,18 @@ Start with `src/types/index.ts` (the data model), then `src/data/seed.ts` (how s
 - **Teacher rating** (`lib/rating.ts`): a score out of 100 per month from lessons recorded (25), student attendance (20), homework checked (20), students graded (15) and groups filled (20). Change `RATING_WEIGHTS` to rebalance. How high the grades are doesn't count. The top 3 (`BONUS_PLACES`) are marked as bonus places.
 - The older teacher files `TeacherDashboardPage.tsx`, `MyGroupsPage.tsx`, `GroupDetailPage.tsx`, `StatStrip.tsx` and `ClassList.tsx` are no longer used and can be deleted.
 
+### Owner portal
+
+- **Overview**: organisation totals (active students, collected this month compared with the same point last month, overdue tuition, attendance over 30 days, open enquiries); the three **branches side by side** (students, seats filled, collected, overdue, attendance, joined / left, enquiries), with the weakest figure in each column marked; and **Where to look**, the biggest open issues per branch taken from each administrator's task list, each with a button into that branch.
+- **Branch switcher** (top of every page): the owner can use every administrator page (students, admissions, payments, groups and so on) for one branch or for all branches. Owner pages always cover everything. Adding a teacher, room or enquiry asks for a branch first. Each branch's numbers are exactly what its administrator sees (`lib/owner.ts` reuses the administrator's view).
+- **Branches**: each branch's address, phone (editable), administrator, size and this month's numbers, with a button to open it.
+- **Finance**: tuition collected by branch for six months (chart and table, CSV export), what is still owed per branch, how people paid this month, and teacher pay for the month (share of tuition paid plus bonuses).
+- **Teachers & rating**: the monthly rating (last month or this month so far) with each part shown; record a **bonus** for any teacher (top 3 suggested); every teacher across branches with **Move to another branch**. A move is refused while the teacher still has groups (groups stay at their branch), keeps a branch history, and notifies the teacher.
+- **Owner settings**: courses for the whole school, the branch administrators, a link to the centre settings and demo-data reset, and a note on the temporary login.
+
 ### Administrator portal
 
-The sidebar follows a working day: Dashboard; **Admissions** (Leads & trials); People (Students, Teachers); Teaching (Groups, Schedule, Attendance, Assessments); Finance (Payments, Reports); Settings.
+The sidebar follows a working day: Dashboard; **Admissions** (Leads & trials); People (Students, Teachers); Teaching (Groups, Schedule, Attendance, Assessments); Finance (Payments, Expenses, Teacher salaries, Reports); Office (Staff attendance, Activity log); Settings. Reception and accountants see only their part of it.
 
 - **Dashboard** answers "what do I need to do today?": five numbers (active students, classes today, attendance today, collected this month, overdue tuition), then **Today's tasks** (trial lessons today, missing attendance, trial results not recorded, overdue tuition, new enquiries to call back, groups whose teacher is on leave, repeated absences, full groups), each with an action and an expandable list, then today's classes. Charts are on Reports. The bell shows the same tasks.
 - **Students** list shows the main parent and their phone (with copy), attendance %, tuition and status; click a row to open the profile. Search (here and in the header) also finds students by a parent's name or phone. **Current** shows active and paused students; **Archive** holds students who left or graduated, with all their history. Export CSV exports the list as filtered.
@@ -110,26 +123,35 @@ The sidebar follows a working day: Dashboard; **Admissions** (Leads & trials); P
 - **Add / edit student** form has four sections: student, parent / guardian (up to three), group, tuition. When editing, group and status are changed with Transfer and Change status so the history is kept.
 - **Admissions** (`/leads`): enquiry → contacted → trial scheduled → trial done (with level placement) → enrolled, or lost with a reason. Each enquiry page shows one obvious next step. **Enroll as student** opens the student form already filled in (name, parent, phone, recommended group) and links the new student to the enquiry. Trial lessons today and missing trial results appear on the dashboard.
 - **Assessments** (`/assessments`): level tests, monthly tests, midterms and finals for a group, scored out of any maximum (e.g. 50 or 100), with absent students and comments. Planned tests are listed first; results show on each student's profile. Teachers don't enter assessments in their portal yet.
-- **Teachers**: click a teacher for their profile: contact, branch (and earlier branches), groups with attendance, the next 7 days of classes, this month's pay so far, and this month's work measures (lessons recorded, homework checked and so on). Only the owner will be able to move a teacher between branches.
+- **Teachers**: click a teacher for their profile: contact, branch (and earlier branches), groups with attendance, the next 7 days of classes, this month's pay so far, and this month's work measures (lessons recorded, homework checked and so on). Only the owner can move a teacher between branches (Owner portal → Teachers & rating).
 - **Courses and rooms** are lists in Settings, not fixed in code: add a course (e.g. Arabic) or turn one off; add, rename or remove your branch's rooms. Group forms choose from them; two running groups can't share a room at the same time.
 - **Payments** opens on **Who hasn't paid** (overdue first, parent to call, one-click Record payment, Export CSV); **Payment history** is the second tab and shows who recorded each payment.
-- **Exports (CSV)**: students, debtors, payments, attendance (the month being viewed), teachers, enquiries and report tables. Files are CSV with a UTF-8 marker so Excel opens them; there is no XLSX or PDF export yet.
+- **Exports**: students, debtors, payments, expenses, activity and the new report tables offer **Excel (.xlsx)** and CSV; attendance, teachers, enquiries and the first four report tables are CSV. The .xlsx writer (`lib/xlsx.ts`) has no dependencies. PDF = the browser's print dialog ("Save as PDF") on a receipt.
+- **Receipts** (`/payments/:id/receipt`, the receipt icon on each payment): numbered per branch (e.g. `CH-000123`), printable, with every correction listed. **Refund** keeps the payment on record as refunded with a reason.
+- **Expenses** (`/expenses`): rent, bills, salaries of office staff, purchases; by month and category, with edit, delete and export.
+- **Teacher salaries** (`/salaries`): what each teacher earned for a month under their pay rule (percentage of tuition, fixed, or fixed + percentage, set on the teacher form), what was paid out, and what is left. **Pay** records a payout.
+- **Staff attendance** (`/staff-attendance`): mark office staff and teachers present, late or absent for a day, with arrival time and a note; month summary below.
+- **Activity log** (`/activity`): every recorded change with who did it, filterable and exportable.
+- **Reports** also include profit and loss (revenue − expenses − teacher pay), retention and leave reasons, student and group rankings (score = average of homework score, test % and attendance %; parts without data are skipped) and teacher performance.
+- **Lists in Settings**: payment methods, expense categories, student tags, pause reasons, leave reasons and lead sources are edited in Settings → Lists, not in code. Turning an item off hides it from forms but keeps it on old records. Courses have levels and a usual fee; a new group picks a level and starts from that fee.
+- **Students** can have tags (filter on the Students page), **extra lessons** (planned / done / cancelled, with a fee and paid flag) and a **calls and messages** log; enquiries have the same log and a **Board** view by stage.
+- **Excused** is a fourth attendance mark. It doesn't count against the attendance rate.
 - **Translations**: `src/i18n` holds the message catalogue and `t()`; the sidebar uses it. Uzbek and Russian can be added there and the rest of the screens moved over gradually.
 - Teachers can add a short comment per student when checking homework (Comment mark, key M). The comment is saved with the grade and shows on the student profile.
 
 ## Not built yet
 
 - Real backend, database and authentication (sign-in is a labelled demo; permissions are enforced only in the browser)
-- Owner portal (where the owner would review the teacher rating and award bonuses), and moving teachers between branches (owner only)
-- Recording actual salary payouts (salary is calculated, not paid out, in the app)
+- Adding or removing branches (the three branches are fixed in the demo data; staff accounts can now be added)
+- Real passwords, password resets and per-account permissions beyond the role lists
+- Salary payouts are recorded, not paid: money moves outside the app
 - Students and parents can't hand in or view homework yet: teachers record who handed it in. Notifications are in-app only
 - Centre settings are shared by all branches
-- Real payment processing or receipts
+- Real payment processing (Click / Payme integration); receipts are printable records, not fiscal receipts
 - Multi-device sync; data stays in one browser
-- SMS or Telegram reminders to parents
+- Sending SMS or Telegram messages: calls and messages are logged by staff, nothing is sent from the app. No internal chat
+- Parent and student portal
+- A month view and a per-room view of the schedule
 - Translations (the interface is English only; the foundation is in `src/i18n`)
-- Staff attendance (administrators, reception): not needed day to day yet. A `staffAttendance` list with person, date and status can be added later without changing anything else.
-- An "Excused" attendance mark (only present, late and absent today)
-- Configurable payment methods (the five methods are still fixed in `PAYMENT_METHODS`)
 - Assessments in the teacher portal, and reusable exam templates
 - Editing a group's room by id: groups store the room's name; renaming a room in Settings updates its groups

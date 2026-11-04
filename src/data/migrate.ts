@@ -6,6 +6,7 @@ import type { Activity, AttendanceRecord, Group, Homework, SchoolData, Student, 
 import { toISODate } from '../lib/dates'
 import { BRANCHES, DEFAULT_BRANCH_ID, TEACHER_BRANCH, buildUsers, seedNotifications, ADMIN_USERS } from './seed-portal'
 import { addAdministrationData } from './seed-admin'
+import { addOfficeData } from './seed-office'
 import { DEFAULT_SALARY_PERCENT, SALARY_PERCENT, homeworkStudents, seedHomework, seedHomeworkResults, seedStudentNotes, studentProfile, withSampleGrades } from './seed-learning'
 
 type Obj = Record<string, unknown>
@@ -94,10 +95,24 @@ function v3ToV4(old: Obj): SchoolData {
  */
 function v4ToV5(old: Obj, now: Date): SchoolData {
   const data = old as unknown as Parameters<typeof addAdministrationData>[0]
-  return { ...addAdministrationData(data, now, { demo: false }), version: 5 }
+  return { ...addAdministrationData(data, now, { demo: false }), version: 5 } as unknown as SchoolData
 }
 
-const STEPS: Record<number, (old: Obj, now: Date) => unknown> = { 1: v1ToV2, 2: v2ToV3, 3: v3ToV4, 4: v4ToV5 }
+/** Version 5 had no owner portal: start with no bonuses awarded. */
+function v5ToV6(old: Obj): SchoolData {
+  return { ...(old as unknown as SchoolData), bonuses: [], version: 6 }
+}
+
+/**
+ * Version 6 had no lists the school manages, front-office accounts, receipts,
+ * expenses, salary payouts, staff attendance, call logs or extra lessons. Saved
+ * students, teachers and payments are kept; payments get receipt numbers.
+ */
+function v6ToV7(old: Obj, now: Date): SchoolData {
+  return { ...addOfficeData(old as unknown as Parameters<typeof addOfficeData>[0], now, { demo: false }), version: 7 }
+}
+
+const STEPS: Record<number, (old: Obj, now: Date) => unknown> = { 1: v1ToV2, 2: v2ToV3, 3: v3ToV4, 4: v4ToV5, 5: v5ToV6, 6: v6ToV7 }
 
 /**
  * Brings saved data up to `target`. Returns null when there's no upgrade path

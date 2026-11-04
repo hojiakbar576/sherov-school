@@ -10,6 +10,7 @@ import { cn } from '../../lib/cn'
 import { HeaderSearch } from './HeaderSearch'
 import { NotificationsMenu } from './NotificationsMenu'
 import { ProfileMenu } from './ProfileMenu'
+import { BranchSwitcher } from './BranchSwitcher'
 
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { pathname } = useLocation()
@@ -20,7 +21,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-30 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85',
+        'sticky top-0 z-30 print:hidden bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85',
         isTeacher ? 'mx-3 mt-3 rounded-2xl border border-line lg:mx-4' : 'border-b border-line',
       )}
     >
@@ -45,6 +46,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
               {branch.name} branch
             </span>
           )}
+          <BranchSwitcher />
           <IconButton label={mobileSearch ? 'Close search' : 'Search'} onClick={() => setMobileSearch((v) => !v)} className="md:hidden">
             {mobileSearch ? <X /> : <Search />}
           </IconButton>

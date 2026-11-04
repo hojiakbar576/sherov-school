@@ -27,7 +27,7 @@ export function Panel({ title, description, actions, children, className, flush,
             )}
             {description && <p className="mt-0.5 text-sm text-ink-muted">{description}</p>}
           </div>
-          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+          {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </header>
       )}
       <div className={cn('min-w-0 flex-1', !flush && 'px-5 pb-5')}>{children}</div>

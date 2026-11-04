@@ -1,5 +1,7 @@
 import type {
   AttendanceMark,
+  Catalogs,
+  ListItem,
   DayPattern,
   Gender,
   GroupStatus,
@@ -165,12 +167,24 @@ export const groupStatusLabel: Record<GroupStatus, string> = {
   completed: 'Completed',
 }
 
+/** Names of the starting payment methods. Use methodName() so renamed or added methods show correctly. */
 export const paymentMethodLabel: Record<PaymentMethod, string> = {
   cash: 'Cash',
   card: 'Card (Uzcard/Humo)',
   click: 'Click',
   payme: 'Payme',
   transfer: 'Bank transfer',
+}
+
+/** The current name of a payment method id, from the school's own list. */
+export function methodName(catalogs: Catalogs, id: PaymentMethod | undefined): string {
+  if (!id) return '—'
+  return catalogs.paymentMethods.find((m) => m.id === id)?.name ?? paymentMethodLabel[id] ?? id
+}
+
+/** The name of an entry in one of the school's lists (tags, categories, reasons). */
+export function listName(items: ListItem[], id: string | undefined): string {
+  return items.find((x) => x.id === id)?.name ?? '—'
 }
 
 export const paymentStatusLabel: Record<PaymentStatus, string> = {
@@ -183,6 +197,7 @@ export const attendanceMarkLabel: Record<AttendanceMark, string> = {
   present: 'Present',
   late: 'Late',
   absent: 'Absent',
+  excused: 'Excused',
 }
 
 export const dayPatternLabel: Record<DayPattern, string> = {

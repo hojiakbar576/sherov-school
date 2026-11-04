@@ -1,11 +1,21 @@
 // Teacher pay. A teacher earns a share (Teacher.salaryPercent) of the tuition
+// (or a fixed monthly amount, or both: Teacher.salaryKind / fixedSalary)
 // their students actually paid for a month. Shares are set per teacher by the
 // administrator, so one teacher can get 50% and another 30%.
 //
 // Needs the full (unscoped) data: teachers never see payments themselves,
 // only the result of this calculation for their own pay.
 
-import type { MonthKey, SchoolData } from '../types'
+import type { MonthKey, SchoolData, Teacher } from '../types'
+import { formatUZS } from './format'
+
+/** How a teacher's pay is worked out, in words. */
+export function salaryRuleText(t: Teacher): string {
+  const kind = t.salaryKind ?? 'percent'
+  if (kind === 'fixed') return `Fixed ${formatUZS(t.fixedSalary ?? 0)} a month`
+  if (kind === 'mixed') return `${formatUZS(t.fixedSalary ?? 0)} + ${t.salaryPercent}% of paid tuition`
+  return `${t.salaryPercent}% of paid tuition`
+}
 import { addMonths } from './dates'
 
 export interface SalaryLine {
@@ -32,7 +42,11 @@ export interface SalaryMonth {
   percent: number
   /** Tuition paid for this month by the teacher's students. */
   collected: number
-  /** What the teacher earns: collected × percent. */
+  /** The tuition share: collected × percent (0 on a fixed salary). */
+  share: number
+  /** Fixed monthly amount (0 on a percentage salary). */
+  fixed: number
+  /** What the teacher earns for the month: share + fixed. */
   amount: number
   lines: SalaryLine[]
   groups: SalaryGroup[]
@@ -45,7 +59,10 @@ export interface SalaryMonth {
  */
 export function teacherSalary(data: SchoolData, teacherId: string, month: MonthKey): SalaryMonth {
   const teacher = data.teachers.find((t) => t.id === teacherId)
-  const percent = teacher?.salaryPercent ?? 0
+  // "fixed" earns no share; "percent" (the default) and "mixed" do. "fixed" and "mixed" add the fixed amount.
+  const kind = teacher?.salaryKind ?? 'percent'
+  const percent = kind === 'fixed' ? 0 : (teacher?.salaryPercent ?? 0)
+  const fixed = kind === 'percent' ? 0 : (teacher?.fixedSalary ?? 0)
   const groups = new Map(data.groups.filter((g) => g.teacherId === teacherId).map((g) => [g.id, g]))
   const students = new Map(data.students.filter((s) => s.groupId && groups.has(s.groupId)).map((s) => [s.id, s]))
 
@@ -76,7 +93,9 @@ export function teacherSalary(data: SchoolData, teacherId: string, month: MonthK
     month,
     percent,
     collected,
-    amount: lines.reduce((sum, l) => sum + l.share, 0),
+    share: lines.reduce((sum, l) => sum + l.share, 0),
+    fixed,
+    amount: lines.reduce((sum, l) => sum + l.share, 0) + fixed,
     lines,
     groups: [...groupTotals.values()].sort((a, b) => b.share - a.share),
   }

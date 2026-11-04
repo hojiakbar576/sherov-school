@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Download, Pencil, Plus, Users } from 'lucide-react'
+import { Pencil, Plus, Users } from 'lucide-react'
 import type { Student, StudentStatus } from '../../types'
 import { ARCHIVED_STUDENT_STATUSES, CURRENT_STUDENT_STATUSES } from '../../types'
 import { useSchool } from '../../data/school-context'
@@ -13,10 +13,11 @@ import { StudentStatusBadge, TuitionBadge } from '../../components/StatusBadges'
 import { formatNumber, formatPercent, guardianRelationshipLabel, studentStatusLabel } from '../../lib/format'
 import { PhoneLine } from '../../components/ui/CopyButton'
 import { cn } from '../../lib/cn'
-import { downloadCSV } from '../../lib/csv'
 import { RangeToggle } from '../../components/ui/RangeToggle'
 import { toISODate } from '../../lib/dates'
 import { StudentFormDialog } from './StudentFormDialog'
+import { TagChips } from './StudentTags'
+import { ExportButtons } from '../../components/ui/ExportButtons'
 
 const PAGE_SIZE = 20
 
@@ -27,7 +28,7 @@ function matchesStudent(s: Student, q: string, digits: string): boolean {
   if (digits.length < 3) return false
   return [s.phone, ...s.guardians.flatMap((g) => [g.phone, g.altPhone ?? ''])].some((p) => p.replace(/\D/g, '').includes(digits))
 }
-const FILTERS = ['q', 'group', 'status', 'tuition', 'view'] as const
+const FILTERS = ['q', 'group', 'status', 'tuition', 'view', 'tag'] as const
 
 export function StudentsPage() {
   const { data, balances, now } = useSchool()
@@ -45,6 +46,7 @@ export function StudentsPage() {
     for (const r of data.attendance) {
       for (const [id, mark] of Object.entries(r.marks)) {
         const c = counts.get(id) ?? [0, 0]
+        if (mark === 'excused') continue
         c[1] += 1
         if (mark !== 'absent') c[0] += 1
         counts.set(id, c)
@@ -63,6 +65,7 @@ export function StudentsPage() {
     return data.students
       .filter((s) => {
         if (!statuses.includes(s.status)) return false
+        if (values.tag && !s.tags?.includes(values.tag)) return false
         if (q && !matchesStudent(s, q, digits)) return false
         if (values.group === 'none' ? s.groupId !== null : values.group && s.groupId !== values.group) return false
         // A status from the other view (e.g. "left" while on Current) is ignored.
@@ -83,8 +86,7 @@ export function StudentsPage() {
   const pausedCount = data.students.filter((s) => s.status === 'paused').length
   const archivedCount = data.students.filter((s) => ARCHIVED_STUDENT_STATUSES.includes(s.status)).length
 
-  const exportCSV = () =>
-    downloadCSV(`sherov-school-students-${archive ? 'archive-' : ''}${toISODate(now)}.csv`, [
+  const exportRows = () => [
       ['Student', 'Student phone', 'Group', 'Teacher', 'Parent / guardian', 'Relationship', 'Parent phone', 'Second parent', 'Second parent phone', 'Attendance %', 'Monthly tuition (UZS)', 'Price note', 'Owed (UZS)', 'Tuition status', 'Status', 'Enrolled'],
       ...filtered.map((s) => {
         const [g1, g2] = s.guardians
@@ -97,7 +99,7 @@ export function StudentsPage() {
           studentStatusLabel[s.status], s.enrolledOn,
         ]
       }),
-    ])
+    ]
 
   const actions = (s: Student) => (
     <div className="flex justify-end gap-0.5">
@@ -114,10 +116,7 @@ export function StudentsPage() {
         description={`${formatNumber(activeCount)} active and ${formatNumber(pausedCount)} paused. ${formatNumber(archivedCount)} who left or graduated are in the archive.`}
         actions={
           <>
-          <Button onClick={exportCSV} disabled={filtered.length === 0}>
-            <Download aria-hidden />
-            Export CSV
-          </Button>
+          <ExportButtons name={archive ? 'students-archive' : 'students'} date={toISODate(now)} rows={exportRows} disabled={filtered.length === 0} />
           <Button variant="primary" onClick={() => setEditing('new')}>
             <Plus aria-hidden />
             Add student
@@ -156,6 +155,14 @@ export function StudentsPage() {
               {statuses.map((value) => (
                 <option key={value} value={value}>
                   {studentStatusLabel[value]}
+                </option>
+              ))}
+            </Select>
+            <Select aria-label="Filter by tag" value={values.tag} onChange={(e) => set('tag', e.target.value)} className="sm:w-40">
+              <option value="">Any tag</option>
+              {data.catalogs.studentTags.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
                 </option>
               ))}
             </Select>
@@ -216,6 +223,7 @@ export function StudentsPage() {
                                 {s.fullName}
                               </Link>
                               <p className="num truncate text-xs text-ink-muted">{s.phone}</p>
+                              <TagChips tags={s.tags} className="mt-1" />
                             </div>
                           </div>
                         </td>

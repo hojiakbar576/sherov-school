@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { Download, Plus, UserRoundPlus } from 'lucide-react'
 import type { Lead, LeadStage } from '../../types'
 import { useSchool } from '../../data/school-context'
+import { useBranchChoice } from '../../hooks/useBranchChoice'
 import { useListParams } from '../../hooks/useListParams'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Button } from '../../components/ui/Button'
@@ -13,10 +14,11 @@ import { formatDate, formatRelative } from '../../lib/format'
 import { isOpenLead, leadStageLabel, nextStep, PIPELINE, trialsOn } from '../../lib/admissions'
 import { downloadCSV } from '../../lib/csv'
 import { cn } from '../../lib/cn'
+import { RangeToggle } from '../../components/ui/RangeToggle'
 import { LeadStageBadge } from './LeadStageBadge'
 import { LeadFormDialog } from './LeadDialogs'
 
-const FILTERS = ['q', 'stage'] as const
+const FILTERS = ['q', 'stage', 'view'] as const
 type View = LeadStage | 'open' | 'all'
 
 /**
@@ -25,6 +27,7 @@ type View = LeadStage | 'open' | 'all'
  */
 export function LeadsPage() {
   const { data, now } = useSchool()
+  const needsBranch = useBranchChoice()
   const navigate = useNavigate()
   const { values, set } = useListParams(FILTERS)
   const [creating, setCreating] = useState(false)
@@ -93,7 +96,7 @@ export function LeadsPage() {
               <Download aria-hidden />
               Export CSV
             </Button>
-            <Button variant="primary" onClick={() => setCreating(true)}>
+            <Button variant="primary" onClick={() => setCreating(true)} disabled={Boolean(needsBranch)} title={needsBranch ?? undefined}>
               <Plus aria-hidden />
               New enquiry
             </Button>
@@ -130,6 +133,21 @@ export function LeadsPage() {
         {step('all', 'Everyone', data.leads.length)}
       </nav>
 
+      <div className="mb-4">
+        <RangeToggle
+          label="Show as"
+          value={values.view === 'board' ? 'board' : 'list'}
+          onChange={(v) => set('view', v === 'board' ? 'board' : '')}
+          options={[
+            { value: 'list', label: 'List' },
+            { value: 'board', label: 'Board' },
+          ]}
+        />
+      </div>
+
+      {values.view === 'board' ? (
+        <LeadBoard today={today} />
+      ) : (
       <section aria-label="Enquiries" className="rounded-panel border border-line bg-surface">
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center">
           <SearchInput label="Search enquiries" value={values.q} onChange={(v) => set('q', v)} placeholder="Name or phone" />
@@ -141,7 +159,7 @@ export function LeadsPage() {
           <EmptyState
             icon={UserRoundPlus}
             title={data.leads.length ? 'Nothing here' : 'No enquiries yet'}
-            action={<Button onClick={() => setCreating(true)}>New enquiry</Button>}
+            action={needsBranch ? undefined : <Button onClick={() => setCreating(true)}>New enquiry</Button>}
           >
             {data.leads.length ? 'No enquiries at this stage. Try another step above.' : 'When someone calls or walks in asking about classes, add them here.'}
           </EmptyState>
@@ -189,6 +207,8 @@ export function LeadsPage() {
         )}
       </section>
 
+      )}
+
       <LeadFormDialog open={creating} onClose={() => setCreating(false)} onSaved={(id) => navigate(`/leads/${id}`)} />
     </>
   )
@@ -223,5 +243,44 @@ function LeadRow({ lead: l, today, now, onOpen }: { lead: Lead; today: string; n
         {l.source && <p className="text-xs">{l.source}</p>}
       </td>
     </tr>
+  )
+}
+
+/**
+ * The pipeline as columns, one per stage: who is where at a glance. Moving a
+ * card to the next stage is done on the enquiry page, where each step asks for
+ * what it needs (the trial date, the placement result).
+ */
+function LeadBoard({ today }: { today: string }) {
+  const { data } = useSchool()
+  const columns = [...PIPELINE, 'lost' as const]
+  return (
+    <div className="-mx-4 overflow-x-auto px-4 pb-2 lg:mx-0 lg:px-0">
+      <ol className="grid min-w-[1080px] grid-cols-6 gap-3" aria-label="Enquiries by stage">
+        {columns.map((stage) => {
+          const items = data.leads.filter((l) => l.stage === stage).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+          return (
+            <li key={stage} className="flex min-h-40 flex-col rounded-panel border border-line bg-canvas/60">
+              <h3 className="flex items-center justify-between px-3 pt-3 pb-2 text-sm font-semibold text-ink">
+                {leadStageLabel[stage]}
+                <span className="num rounded-full bg-surface px-2 text-xs font-medium text-ink-muted">{items.length}</span>
+              </h3>
+              <ul className="flex-1 space-y-2 px-2 pb-2">
+                {items.slice(0, 25).map((l) => (
+                  <li key={l.id}>
+                    <Link to={`/leads/${l.id}`} className="block rounded-control border border-line bg-surface px-3 py-2 text-sm hover:border-line-strong">
+                      <span className="block font-medium text-ink">{l.studentName}</span>
+                      <span className="block truncate text-xs text-ink-muted">{l.course}</span>
+                      <span className={cn('mt-1 block truncate text-xs', nextStepTone(l, today))}>{nextStep(l, today)}</span>
+                    </Link>
+                  </li>
+                ))}
+                {items.length > 25 && <li className="px-1 text-xs text-ink-muted">+{items.length - 25} more in the list view</li>}
+              </ul>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
   )
 }

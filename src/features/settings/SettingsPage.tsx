@@ -12,6 +12,7 @@ import { ConfirmDialog } from '../../components/ui/Dialog'
 import { toISODate } from '../../lib/dates'
 import { formatNumber, formatPhone, formatRelative, isValidEmail, isValidPhone } from '../../lib/format'
 import { CoursesPanel, RoomsPanel } from './CoursesAndRooms'
+import { ListsPanel } from './ListsPanel'
 
 type Errors = Partial<Record<keyof Settings, string>>
 
@@ -157,6 +158,10 @@ export function SettingsPage() {
       <div className="mt-6 grid items-start gap-6 xl:grid-cols-2">
         <CoursesPanel />
         <RoomsPanel />
+      </div>
+
+      <div className="mt-6">
+        <ListsPanel />
       </div>
 
       <ConfirmDialog

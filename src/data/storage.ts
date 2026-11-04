@@ -3,7 +3,7 @@
 // Nothing sensitive (passwords, tokens) is ever stored here.
 
 import type { SchoolData } from '../types'
-import { ASSESSMENT_KINDS, LEAD_STAGES, PAYMENT_METHODS, ROLES } from '../types'
+import { ASSESSMENT_KINDS, LEAD_STAGES, ROLES } from '../types'
 import { isValidISODate } from '../lib/dates'
 import { createDemoData, DATA_VERSION } from './seed'
 import { migrate } from './migrate'
@@ -55,11 +55,11 @@ const validators: Record<string, (v: Obj) => boolean> = {
     isValidISODate(s.enrolledOn) && isNum(s.monthlyTuition) && oneOf(s.status, ['active', 'paused', 'left', 'graduated']),
   attendance: (r) =>
     isStr(r.id) && isStr(r.groupId) && isValidISODate(r.date) && isStr(r.startTime) && isStr(r.teacherId) &&
-    isObj(r.marks) && (r.comments === undefined || isObj(r.comments)) &&
+    isObj(r.marks) && Object.values(r.marks).every((m) => oneOf(m, ['present', 'late', 'absent', 'excused'])) && (r.comments === undefined || isObj(r.comments)) &&
     (r.grades === undefined || (isObj(r.grades) && Object.values(r.grades).every((g) => isNum(g) && g >= 1 && g <= 5 && Number.isInteger(g)))),
   payments: (p) =>
     isStr(p.id) && isStr(p.studentId) && isNum(p.amount) && isValidISODate(p.date) &&
-    isStr(p.period) && oneOf(p.method, PAYMENT_METHODS) && oneOf(p.status, ['paid', 'pending', 'refunded']),
+    isStr(p.period) && isStr(p.method) && oneOf(p.status, ['paid', 'pending', 'refunded']),
   homework: (h) =>
     isStr(h.id) && isStr(h.groupId) && isStr(h.teacherId) && isStr(h.title) && isValidISODate(h.assignedOn) &&
     isValidISODate(h.dueDate) && Array.isArray(h.studentIds),
@@ -78,6 +78,12 @@ const validators: Record<string, (v: Obj) => boolean> = {
     isStr(a.id) && isStr(a.groupId) && isStr(a.title) && oneOf(a.kind, ASSESSMENT_KINDS) && isValidISODate(a.date) &&
     isNum(a.maxScore) && a.maxScore > 0 && Array.isArray(a.results) &&
     a.results.every((r) => isObj(r) && isStr(r.studentId) && (r.score === null || (isNum(r.score) && r.score >= 0 && r.score <= (a.maxScore as number)))),
+  extraLessons: (x) => isStr(x.id) && isStr(x.studentId) && isStr(x.teacherId) && isValidISODate(x.date) && isNum(x.fee),
+  expenses: (e) => isStr(e.id) && (e.branchId === null || isStr(e.branchId)) && isStr(e.categoryId) && isNum(e.amount) && e.amount >= 0 && isValidISODate(e.date),
+  salaryPayments: (p) => isStr(p.id) && isStr(p.teacherId) && isStr(p.month) && isNum(p.amount) && isValidISODate(p.date),
+  staffAttendance: (r) => isStr(r.id) && isStr(r.personId) && isValidISODate(r.date) && oneOf(r.mark, ['present', 'late', 'absent', 'excused']),
+  contactLogs: (l) => isStr(l.id) && isObj(l.subject) && isStr(l.summary) && isStr(l.at),
+  bonuses: (b) => isStr(b.id) && isStr(b.teacherId) && isStr(b.month) && isNum(b.amount) && b.amount >= 0,
   activity: (a) => isStr(a.id) && isStr(a.title) && isStr(a.at),
 }
 
@@ -92,6 +98,9 @@ export function validateSchoolData(value: unknown): string | null {
     if (bad !== -1) return `"${key}" item ${bad + 1} is malformed`
   }
   if (!isObj(value.settings) || !isStr(value.settings.centerName)) return 'settings are missing'
+  if (!isObj(value.catalogs) || !['paymentMethods', 'expenseCategories', 'studentTags', 'pauseReasons', 'leaveReasons', 'leadSources'].every((k) => Array.isArray((value.catalogs as Obj)[k]))) {
+    return 'lists (payment methods, categories, tags) are missing'
+  }
   if (!isObj(value.notificationReads) || !Object.values(value.notificationReads).every(Array.isArray)) {
     return 'notification state is missing'
   }

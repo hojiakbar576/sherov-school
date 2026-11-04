@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import type { Subject, Teacher, TeacherStatus } from '../../types'
+import type { Subject, Teacher, TeacherStatus, SalaryKind } from '../../types'
 import { useSchool, type TeacherInput } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Dialog } from '../../components/ui/Dialog'
@@ -37,6 +37,8 @@ function TeacherForm({ onClose, teacher }: Props) {
     status: teacher?.status ?? 'active',
     joinedOn: teacher?.joinedOn ?? toISODate(now),
     salaryPercent: teacher?.salaryPercent ?? DEFAULT_SALARY_PERCENT,
+    salaryKind: teacher?.salaryKind ?? 'percent',
+    fixedSalary: teacher?.fixedSalary ?? 0,
   }))
   const [errors, setErrors] = useState<Errors>({})
 
@@ -52,7 +54,8 @@ function TeacherForm({ onClose, teacher }: Props) {
     if (!isValidPhone(form.phone)) e.phone = 'Enter a phone number like +998 90 123 45 67.'
     if (!isValidEmail(form.email.trim())) e.email = 'Enter a valid email address.'
     if (!form.joinedOn) e.joinedOn = 'Choose the start date.'
-    if (!Number.isFinite(form.salaryPercent) || form.salaryPercent < 0 || form.salaryPercent > 100) e.salaryPercent = 'Enter a share from 0 to 100.'
+    if (form.salaryKind !== 'fixed' && (!Number.isFinite(form.salaryPercent) || form.salaryPercent < 0 || form.salaryPercent > 100)) e.salaryPercent = 'Enter a share from 0 to 100.'
+    if (form.salaryKind !== 'percent' && (!Number.isFinite(form.fixedSalary) || (form.fixedSalary ?? 0) <= 0)) e.fixedSalary = 'Enter the fixed monthly amount.'
     setErrors(e)
     if (Object.keys(e).length) return
 
@@ -101,6 +104,31 @@ function TeacherForm({ onClose, teacher }: Props) {
       <Field label="Teaching since" error={errors.joinedOn}>
         {(p) => <Input {...p} type="date" value={form.joinedOn} onChange={(e) => set('joinedOn', e.target.value)} />}
       </Field>
+      <Field label="Pay rule" hint="How the monthly salary is worked out." className="sm:col-span-2">
+        {(p) => (
+          <Select {...p} value={form.salaryKind} onChange={(e) => set('salaryKind', e.target.value as SalaryKind)}>
+            <option value="percent">Share of paid tuition</option>
+            <option value="fixed">Fixed monthly salary</option>
+            <option value="mixed">Fixed amount plus a share of tuition</option>
+          </Select>
+        )}
+      </Field>
+      {form.salaryKind !== 'percent' && (
+        <Field label="Fixed amount a month (UZS)" error={errors.fixedSalary}>
+          {(p) => (
+            <Input
+              {...p}
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={100000}
+              value={Number.isFinite(form.fixedSalary) && form.fixedSalary ? form.fixedSalary : ''}
+              onChange={(e) => set('fixedSalary', e.target.value === '' ? Number.NaN : Number(e.target.value))}
+            />
+          )}
+        </Field>
+      )}
+      {form.salaryKind !== 'fixed' && (
       <Field label="Salary share (%)" hint="Part of each student's paid tuition the teacher earns." error={errors.salaryPercent}>
         {(p) => (
           <Input
@@ -115,6 +143,7 @@ function TeacherForm({ onClose, teacher }: Props) {
           />
         )}
       </Field>
+      )}
       <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4 sm:col-span-2">
         <Button onClick={onClose}>Cancel</Button>
         <Button type="submit" variant="primary">

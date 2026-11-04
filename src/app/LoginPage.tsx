@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { ArrowRight, ShieldAlert } from 'lucide-react'
 import type { User } from '../types'
 import { useSchool } from '../data/school-context'
@@ -49,6 +49,9 @@ export function LoginPage() {
   const teacherBranch = new Map(data.teachers.map((t) => [t.id, t.branchId]))
   const accountBranch = (u: User) => branchName.get((u.role === 'teacher' ? teacherBranch.get(u.teacherId ?? '') : u.branchId) ?? '') ?? ''
   const admins = demoAccounts.filter((u) => u.role === 'admin')
+  const office = demoAccounts
+    .filter((u) => (u.role === 'reception' || u.role === 'accountant') && u.active !== false)
+    .sort((a, b) => accountBranch(a).localeCompare(accountBranch(b)) || a.role.localeCompare(b.role))
   const teachers = demoAccounts
     .filter((u) => u.role === 'teacher')
     .sort((a, b) => accountBranch(a).localeCompare(accountBranch(b)) || a.fullName.localeCompare(b.fullName))
@@ -61,7 +64,7 @@ export function LoginPage() {
           <h1 id="sign-in-title" className="mt-8 text-2xl font-semibold tracking-[-0.015em] text-ink">
             Sign in
           </h1>
-          <p className="mt-1 text-ink-muted">Administrators and teachers each get their own workspace.</p>
+          <p className="mt-1 text-ink-muted">Administrators, reception, accountants and teachers each see the pages for their job.</p>
 
           <div role="note" className="mt-6 flex gap-3 rounded-control border border-warning-mark/40 bg-warning-soft px-3.5 py-3 text-sm text-ink">
             <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
@@ -117,10 +120,17 @@ export function LoginPage() {
             <h2 id="accounts-title" className="font-semibold text-ink">
               Demo accounts
             </h2>
-            <p className="mt-0.5 text-sm text-ink-muted">Choose one to fill in the form. The owner’s workspace isn’t built yet.</p>
+            <p className="mt-0.5 text-sm text-ink-muted">Choose one to fill in the form.</p>
           </div>
           <AccountList title="Branch administrators" accounts={admins} branchOf={accountBranch} onPick={fill} selected={username} />
+          {office.length > 0 && <AccountList title="Reception and accountants" accounts={office} branchOf={accountBranch} onPick={fill} selected={username} />}
           <AccountList title="Teachers" accounts={teachers} branchOf={accountBranch} onPick={fill} selected={username} />
+          <p className="border-t border-line px-5 py-3 text-sm text-ink-muted">
+            Mr. Sherzod?{' '}
+            <Link to="/owner/login" className="font-medium text-brand hover:underline">
+              Owner sign-in
+            </Link>
+          </p>
         </section>
       </main>
     </div>

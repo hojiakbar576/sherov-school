@@ -18,6 +18,10 @@ export interface Course {
   name: Subject
   /** Inactive courses stay on old groups but can't be chosen for new ones. */
   active: boolean
+  /** Levels in order, e.g. Beginner → Elementary → … */
+  levels?: string[]
+  /** Usual monthly fee for a new group of this course (UZS). */
+  defaultFee?: number
 }
 
 /** Groups in Tashkent centres usually meet on "odd" or "even" days. */
@@ -35,11 +39,14 @@ export interface Branch {
 }
 
 /**
- * Who someone is in the app. The owner sees every branch, an administrator
- * manages one branch, a teacher works with their own groups only.
+ * Who someone is in the app. The owner sees every branch; an administrator,
+ * receptionist or accountant works at one branch (each with different
+ * sections, see app/permissions.ts); a teacher works with their own groups.
  */
-export const ROLES = ['owner', 'admin', 'teacher'] as const
+export const ROLES = ['owner', 'admin', 'reception', 'accountant', 'teacher'] as const
 export type Role = (typeof ROLES)[number]
+/** Roles that work at one branch's front office. */
+export const BRANCH_STAFF_ROLES: readonly Role[] = ['admin', 'reception', 'accountant']
 
 /** A person who can sign in. Never holds a password: demo sign-in lives in lib/auth.ts. */
 export interface User {
@@ -51,6 +58,32 @@ export interface User {
   branchId: string | null
   /** For teachers: their teacher record (which carries the branch). */
   teacherId?: string
+  /** Deactivated accounts can't sign in; their history stays. Missing means active. */
+  active?: boolean
+  phone?: string
+  createdAt?: ISODateTime
+}
+
+/**
+ * An entry in a list the school manages itself (payment methods, expense
+ * categories, tags, reasons...). Inactive entries stay on old records but
+ * can't be chosen for new ones.
+ */
+export interface ListItem {
+  id: string
+  name: string
+  active: boolean
+}
+
+export interface Catalogs {
+  paymentMethods: ListItem[]
+  expenseCategories: ListItem[]
+  studentTags: ListItem[]
+  /** Reasons offered when a student is paused (frozen). */
+  pauseReasons: ListItem[]
+  /** Reasons offered when a student leaves. */
+  leaveReasons: ListItem[]
+  leadSources: ListItem[]
 }
 
 /** A classroom at one branch. Groups are scheduled into rooms. */
@@ -81,7 +114,16 @@ export interface Teacher {
   salaryPercent: number
   /** Branches worked at, oldest first, so a move between branches keeps its history. */
   branchHistory?: { branchId: string; from: ISODate }[]
+  /**
+   * How pay is worked out: a share of paid tuition (salaryPercent), a fixed
+   * monthly amount, or both. Missing means "percent" (the original rule).
+   */
+  salaryKind?: SalaryKind
+  /** Fixed monthly amount for "fixed" and "mixed" (UZS). */
+  fixedSalary?: number
 }
+
+export type SalaryKind = 'percent' | 'fixed' | 'mixed'
 
 export type GroupStatus = 'active' | 'paused' | 'completed'
 export interface Group {
@@ -93,6 +135,8 @@ export interface Group {
   branchId: string
   /** Room name at the group's branch (see `SchoolData.rooms`). */
   room: string
+  /** Course level, e.g. "Pre-Intermediate" (from the course's levels). */
+  level?: string
   days: DayPattern
   startTime: string // "HH:mm"
   durationMinutes: number
@@ -149,6 +193,25 @@ export interface Student {
   /** Set when monthlyTuition differs from the group's fee, so everyone can see why. */
   tuitionAdjustment?: TuitionAdjustment
   status: StudentStatus
+  /** Tag ids from Catalogs.studentTags, e.g. "Sibling", "VIP", "Needs follow-up". */
+  tags?: string[]
+}
+
+/** A one-to-one or small extra lesson outside the group's timetable. */
+export interface ExtraLesson {
+  id: string
+  studentId: string
+  branchId: string
+  teacherId: string
+  date: ISODate
+  time: string
+  durationMinutes: number
+  topic: string
+  /** Extra fee (UZS); 0 when included. */
+  fee: number
+  status: 'planned' | 'done' | 'cancelled'
+  paid: boolean
+  createdAt: ISODateTime
 }
 
 /**
@@ -181,7 +244,9 @@ export interface StudentEvent {
   at: ISODateTime
 }
 
-export type AttendanceMark = 'present' | 'absent' | 'late'
+/** Excused absences (illness with notice, agreed leave) don't count against attendance. */
+export type AttendanceMark = 'present' | 'absent' | 'late' | 'excused'
+export const ATTENDANCE_MARKS: readonly AttendanceMark[] = ['present', 'late', 'absent', 'excused']
 
 /** Lesson grade on the usual Uzbek 5-point scale: 5 is excellent, 1 is very poor. */
 export const GRADES = [5, 4, 3, 2, 1] as const
@@ -206,8 +271,10 @@ export interface AttendanceRecord {
   recordedBy?: string
 }
 
+/** The payment methods the demo starts with. The live list is `Catalogs.paymentMethods`. */
 export const PAYMENT_METHODS = ['cash', 'card', 'click', 'payme', 'transfer'] as const
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
+/** An id from Catalogs.paymentMethods, e.g. "cash". */
+export type PaymentMethod = string
 export type PaymentStatus = 'paid' | 'pending' | 'refunded'
 export interface Payment {
   id: string
@@ -220,6 +287,81 @@ export interface Payment {
   note?: string
   /** The user who recorded it, when known. */
   recordedBy?: string
+  /** Receipt number, given when the payment is recorded, e.g. "CH-000123". */
+  receiptNo?: string
+  /** Every correction after it was recorded, oldest first. */
+  history?: { at: ISODateTime; byUserId?: string; change: string }[]
+}
+
+// ---------------------------------------------------------------- money going out
+
+export interface Expense {
+  id: string
+  /** null = for the whole organisation (e.g. head-office marketing). */
+  branchId: string | null
+  categoryId: string
+  amount: number // UZS
+  date: ISODate
+  description: string
+  /** Who was paid, e.g. "Landlord" or a supplier. */
+  paidTo?: string
+  method?: PaymentMethod
+  createdBy?: string
+  createdAt: ISODateTime
+  updatedAt?: ISODateTime
+}
+
+/** Money paid out to a teacher for a month's salary (or part of it). */
+export interface SalaryPayment {
+  id: string
+  teacherId: string
+  /** The month of work it pays for. */
+  month: MonthKey
+  amount: number // UZS
+  date: ISODate
+  method?: PaymentMethod
+  note?: string
+  paidBy?: string
+  createdAt: ISODateTime
+}
+
+// ---------------------------------------------------------------- staff and communication
+
+export type StaffMark = 'present' | 'late' | 'absent' | 'excused'
+/** Whether a teacher or front-office member came to work on a day. */
+export interface StaffAttendance {
+  id: string
+  branchId: string
+  date: ISODate
+  /** A teacher id or a user id. */
+  personId: string
+  personType: 'teacher' | 'user'
+  mark: StaffMark
+  /** Arrival time, e.g. "08:55". */
+  arrivedAt?: string
+  note?: string
+  recordedBy?: string
+  savedAt: ISODateTime
+}
+
+export type ContactChannel = 'call' | 'sms' | 'telegram' | 'visit' | 'note'
+/**
+ * A call, message or meeting with a student, parent or enquiry. Logged by
+ * staff; the app doesn't send SMS or Telegram messages itself yet.
+ */
+export interface ContactLog {
+  id: string
+  branchId: string
+  subject: { type: 'student' | 'lead'; id: string }
+  channel: ContactChannel
+  direction: 'outgoing' | 'incoming'
+  /** Who was spoken to, e.g. "Mother" or the student's name. */
+  withWhom?: string
+  summary: string
+  /** Planned follow-up date, if any. */
+  followUpOn?: ISODate
+  at: ISODateTime
+  byUserId?: string
 }
 
 export interface Homework {
@@ -349,6 +491,21 @@ export interface Assessment {
   updatedAt?: ISODateTime
 }
 
+// ---------------------------------------------------------------- owner
+
+/** A bonus the owner gave a teacher for a month, e.g. for a top-3 rating place. */
+export interface Bonus {
+  id: string
+  teacherId: string
+  month: MonthKey
+  /** Rating place at the time, if it was awarded for the rating. */
+  place?: number
+  amount: number // UZS
+  note?: string
+  awardedAt: ISODateTime
+  awardedBy: string
+}
+
 // ---------------------------------------------------------------- messages
 
 export type NotificationKind = 'schedule' | 'announcement' | 'homework' | 'admin'
@@ -383,6 +540,12 @@ export type ActivityType =
   | 'homework_changed'
   | 'lead_changed'
   | 'assessment_changed'
+  | 'owner_changed'
+  | 'expense_changed'
+  | 'salary_changed'
+  | 'user_changed'
+  | 'contact_logged'
+  | 'staff_attendance'
 export interface Activity {
   id: string
   type: ActivityType
@@ -391,6 +554,8 @@ export interface Activity {
   at: ISODateTime
   /** Branch the change belongs to; missing for centre-wide changes. */
   branchId?: string
+  /** Who did it, when known. */
+  byUserId?: string
 }
 
 export interface Settings {
@@ -417,6 +582,13 @@ export interface SchoolData {
   studentEvents: StudentEvent[]
   leads: Lead[]
   assessments: Assessment[]
+  bonuses: Bonus[]
+  catalogs: Catalogs
+  extraLessons: ExtraLesson[]
+  expenses: Expense[]
+  salaryPayments: SalaryPayment[]
+  staffAttendance: StaffAttendance[]
+  contactLogs: ContactLog[]
   attendance: AttendanceRecord[]
   payments: Payment[]
   homework: Homework[]

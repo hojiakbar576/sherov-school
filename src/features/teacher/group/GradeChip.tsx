@@ -25,6 +25,7 @@ export function MarkChip({ mark }: { mark: AttendanceMark }) {
     present: ['bg-success-soft text-success', '✓', 'Present'],
     late: ['bg-warning-soft text-warning', 'L', 'Late'],
     absent: ['bg-danger-soft text-danger', '✗', 'Absent'],
+    excused: ['bg-info-soft text-info', 'E', 'Excused'],
   }[mark]
   return (
     <span title={look[2]} className={cn('inline-flex size-7 items-center justify-center rounded-lg text-sm font-semibold', look[0])}>

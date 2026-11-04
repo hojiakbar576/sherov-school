@@ -1,14 +1,16 @@
 import { useState, type FormEvent } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
-import type { Room } from '../../types'
+import type { Course, Room } from '../../types'
 import { useSchool } from '../../data/school-context'
+import { useBranchChoice } from '../../hooks/useBranchChoice'
 import { useToast } from '../../components/ui/toast-context'
 import { Panel } from '../../components/ui/Panel'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Dialog } from '../../components/ui/Dialog'
-import { Field, Input } from '../../components/ui/Field'
+import { Field, Input, Textarea } from '../../components/ui/Field'
 import { Badge } from '../../components/ui/Badge'
 import { cn } from '../../lib/cn'
+import { formatUZS } from '../../lib/format'
 
 /**
  * The courses the centre offers. Shared by every branch; turning a course
@@ -19,6 +21,7 @@ export function CoursesPanel() {
   const toast = useToast()
   const [name, setName] = useState('')
   const [error, setError] = useState('')
+  const [editing, setEditing] = useState<Course | null>(null)
   const groupsPer = (course: string) => data.groups.filter((g) => g.subject === course && g.status === 'active').length
 
   const add = (event: FormEvent) => {
@@ -37,10 +40,19 @@ export function CoursesPanel() {
         {data.courses.map((c) => {
           const n = groupsPer(c.name)
           return (
-            <li key={c.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
-              <span className={cn('flex-1', c.active ? 'text-ink' : 'text-ink-faint line-through')}>{c.name}</span>
+            <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-2.5 text-sm">
+              <span className="min-w-0 flex-1">
+                <span className={cn('block', c.active ? 'text-ink' : 'text-ink-faint line-through')}>{c.name}</span>
+                <span className="block text-xs text-ink-muted">
+                  {c.levels?.length ? c.levels.join(' · ') : 'No levels set'}
+                  {c.defaultFee ? ` · usually ${formatUZS(c.defaultFee)}/month` : ''}
+                </span>
+              </span>
               <span className="num text-xs text-ink-muted">{n ? `${n} running ${n === 1 ? 'group' : 'groups'}` : 'No groups yet'}</span>
               {!c.active && <Badge>Off</Badge>}
+              <IconButton label={`Edit levels and price of ${c.name}`} onClick={() => setEditing(c)}>
+                <Pencil />
+              </IconButton>
               <Button size="sm" variant="ghost" onClick={() => actions.setCourseActive(c.id, !c.active)} aria-label={`${c.active ? 'Turn off' : 'Turn on'} ${c.name}`}>
                 {c.active ? 'Turn off' : 'Turn on'}
               </Button>
@@ -67,6 +79,7 @@ export function CoursesPanel() {
           Add
         </Button>
       </form>
+      <CourseDialog course={editing} onClose={() => setEditing(null)} />
     </Panel>
   )
 }
@@ -75,6 +88,7 @@ export function CoursesPanel() {
 export function RoomsPanel() {
   const { data, branch, actions } = useSchool()
   const toast = useToast()
+  const needsBranch = useBranchChoice()
   const [editing, setEditing] = useState<Room | 'new' | null>(null)
   const rooms = [...data.rooms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
   const usedBy = (room: Room) => data.groups.filter((g) => g.room === room.name && g.branchId === room.branchId && g.status !== 'completed')
@@ -84,7 +98,11 @@ export function RoomsPanel() {
       id="rooms"
       title={branch ? `Rooms at ${branch.name}` : 'Rooms'}
       description="Groups are scheduled into these rooms; two running groups can’t share a room at the same time."
-      actions={<Button size="sm" onClick={() => setEditing('new')}>Add room</Button>}
+      actions={
+        <Button size="sm" onClick={() => setEditing('new')} disabled={Boolean(needsBranch)} title={needsBranch ?? undefined}>
+          Add room
+        </Button>
+      }
       flush
     >
       <ul className="divide-y divide-line border-t border-line">
@@ -169,6 +187,48 @@ function RoomForm({ room, onClose }: { room?: Room; onClose: () => void }) {
         <Button onClick={onClose}>Cancel</Button>
         <Button type="submit" variant="primary">
           {room ? 'Save' : 'Add room'}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/** A course's levels (one per line, in order) and its usual monthly fee. */
+function CourseDialog({ course, onClose }: { course: Course | null; onClose: () => void }) {
+  return (
+    <Dialog open={course !== null} onClose={onClose} title={course ? `${course.name}: levels and price` : 'Course'} size="sm">
+      {course && <CourseForm course={course} onClose={onClose} />}
+    </Dialog>
+  )
+}
+
+function CourseForm({ course, onClose }: { course: Course; onClose: () => void }) {
+  const { actions } = useSchool()
+  const toast = useToast()
+  const [levels, setLevels] = useState((course.levels ?? []).join('\n'))
+  const [fee, setFee] = useState(course.defaultFee ? String(course.defaultFee) : '')
+  const [error, setError] = useState('')
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    const n = fee ? Number(fee) : undefined
+    if (n !== undefined && (!Number.isFinite(n) || n <= 0)) return setError('Enter the monthly fee in UZS, or leave it empty.')
+    const list = levels.split('\n').map((l) => l.trim()).filter(Boolean)
+    actions.updateCourse(course.id, { levels: Array.from(new Set(list)), defaultFee: n })
+    toast.show(`${course.name} saved.`)
+    onClose()
+  }
+  return (
+    <form onSubmit={submit} noValidate className="space-y-4">
+      <Field label="Levels" optional hint="One per line, from first to last. New groups choose one.">
+        {(p) => <Textarea {...p} rows={6} value={levels} onChange={(e) => setLevels(e.target.value)} placeholder={'Beginner\nElementary\nPre-Intermediate'} />}
+      </Field>
+      <Field label="Usual monthly fee (UZS)" optional error={error || undefined} hint="Filled in when a new group of this course is created.">
+        {(p) => <Input {...p} type="number" inputMode="numeric" min={0} step={10000} value={fee} onChange={(e) => setFee(e.target.value)} />}
+      </Field>
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
+        <Button onClick={onClose}>Cancel</Button>
+        <Button type="submit" variant="primary">
+          Save
         </Button>
       </div>
     </form>

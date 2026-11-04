@@ -4,7 +4,7 @@
 // the server's queries.
 
 import type { Group, Notification, SchoolData, User } from '../types'
-import { CURRENT_STUDENT_STATUSES } from '../types'
+import { BRANCH_STAFF_ROLES, CURRENT_STUDENT_STATUSES } from '../types'
 
 /** The branch someone works at; null for the owner (every branch). */
 export function userBranchId(data: SchoolData, user: User): string | null {
@@ -25,11 +25,13 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
   const branchId = userBranchId(data, user)
   const notifications = data.notifications.filter((n) => notificationIsFor(n, user, branchId))
 
-  if (user.role === 'admin') {
+  // Administrators, receptionists and accountants see their whole branch.
+  if (BRANCH_STAFF_ROLES.includes(user.role)) {
     const groups = data.groups.filter((g) => g.branchId === branchId)
     const groupIds = new Set(groups.map((g) => g.id))
     const students = data.students.filter((s) => s.branchId === branchId)
     const studentIds = new Set(students.map((s) => s.id))
+    const teacherIds = new Set(data.teachers.filter((t) => t.branchId === branchId).map((t) => t.id))
     return {
       ...data,
       teachers: data.teachers.filter((t) => t.branchId === branchId),
@@ -45,6 +47,13 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
       studentEvents: data.studentEvents.filter((e) => studentIds.has(e.studentId)),
       leads: data.leads.filter((l) => l.branchId === branchId),
       assessments: data.assessments.filter((a) => groupIds.has(a.groupId)),
+      extraLessons: data.extraLessons.filter((x) => x.branchId === branchId),
+      // Organisation-wide expenses (no branch) are the owner's.
+      expenses: data.expenses.filter((e) => e.branchId === branchId),
+      salaryPayments: data.salaryPayments.filter((p) => teacherIds.has(p.teacherId)),
+      staffAttendance: data.staffAttendance.filter((r) => r.branchId === branchId),
+      contactLogs: data.contactLogs.filter((l) => l.branchId === branchId),
+      bonuses: data.bonuses.filter((b) => teacherIds.has(b.teacherId)),
       notifications,
       activity: data.activity.filter((a) => !a.branchId || a.branchId === branchId),
     }
@@ -73,9 +82,15 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
     rooms: data.rooms.filter((r) => groups.some((g) => g.branchId === r.branchId)),
     enrollments: data.enrollments.filter((e) => studentIds.has(e.studentId)),
     studentEvents: [],
-    // Admissions belong to the administrator.
+    // Admissions, money going out and the front office belong to the branch staff.
     leads: [],
     assessments: data.assessments.filter((a) => groupIds.has(a.groupId)),
+    extraLessons: data.extraLessons.filter((x) => x.teacherId === user.teacherId),
+    expenses: [],
+    salaryPayments: data.salaryPayments.filter((p) => p.teacherId === user.teacherId),
+    staffAttendance: data.staffAttendance.filter((r) => r.personId === user.teacherId),
+    contactLogs: [],
+    bonuses: data.bonuses.filter((b) => b.teacherId === user.teacherId),
     notifications,
     activity: [],
   }
@@ -85,6 +100,6 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
 export function canTeachGroup(user: User, group: Group | undefined, data: SchoolData): boolean {
   if (!group) return false
   if (user.role === 'owner') return true
-  if (user.role === 'admin') return group.branchId === user.branchId
+  if (BRANCH_STAFF_ROLES.includes(user.role)) return group.branchId === user.branchId
   return group.teacherId === user.teacherId && userBranchId(data, user) !== null
 }

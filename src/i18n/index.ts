@@ -27,7 +27,19 @@ const en = {
   'nav.finance': 'Finance',
   'nav.payments': 'Payments',
   'nav.reports': 'Reports',
+  'nav.expenses': 'Expenses',
+  'nav.salaries': 'Teacher salaries',
+  'nav.staffAttendance': 'Staff attendance',
+  'nav.activity': 'Activity log',
+  'nav.office': 'Office',
+  'nav.users': 'Users & access',
   'nav.settings': 'Settings',
+  'nav.organisation': 'Organisation',
+  'nav.ownerOverview': 'Overview',
+  'nav.branches': 'Branches',
+  'nav.teacherRating': 'Teachers & rating',
+  'nav.branchWork': 'Branch work',
+  'nav.ownerSettings': 'Owner settings',
 } as const
 
 export type MessageKey = keyof typeof en

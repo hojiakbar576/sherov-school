@@ -27,15 +27,46 @@ import { HomeworkDetailPage } from '../features/teacher/HomeworkDetailPage'
 import { StudentProfilePage } from '../features/teacher/StudentProfilePage'
 import { NotificationsPage } from '../features/teacher/NotificationsPage'
 import { NotFoundPage } from './NotFoundPage'
+import { OwnerLoginPage } from './OwnerLoginPage'
+import { OwnerOverviewPage } from '../features/owner/OwnerOverviewPage'
+import { OwnerBranchesPage } from '../features/owner/OwnerBranchesPage'
+import { OwnerFinancePage } from '../features/owner/OwnerFinancePage'
+import { OwnerTeachersPage } from '../features/owner/OwnerTeachersPage'
+import { OwnerSettingsPage } from '../features/owner/OwnerSettingsPage'
+import { OwnerUsersPage } from '../features/owner/OwnerUsersPage'
+import { ExpensesPage } from '../features/expenses/ExpensesPage'
+import { SalariesPage } from '../features/salaries/SalariesPage'
+import { StaffAttendancePage } from '../features/staff/StaffAttendancePage'
+import { ActivityPage } from '../features/activity/ActivityPage'
+import { ReceiptPage } from '../features/payments/ReceiptPage'
 
-// The owner portal comes later; until then the owner role would use the administrator pages.
-const MANAGERS = ['admin', 'owner'] as const
+// The owner has their own pages under /owner and can also use every administrator page (for any branch).
+const MANAGERS = ['admin', 'reception', 'accountant', 'owner'] as const
+const OWNER = ['owner'] as const
 const TEACHERS = ['teacher'] as const
 
 export function App() {
   return (
     <Routes>
       <Route path="login" element={<LoginPage />} />
+      <Route path="owner/login" element={<OwnerLoginPage />} />
+
+      <Route
+        path="owner"
+        element={
+          <RequireRole roles={OWNER}>
+            <AppLayout />
+          </RequireRole>
+        }
+      >
+        <Route index element={<OwnerOverviewPage />} />
+        <Route path="branches" element={<OwnerBranchesPage />} />
+        <Route path="finance" element={<OwnerFinancePage />} />
+        <Route path="teachers" element={<OwnerTeachersPage />} />
+        <Route path="users" element={<OwnerUsersPage />} />
+        <Route path="settings" element={<OwnerSettingsPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
 
       <Route
         element={
@@ -57,6 +88,11 @@ export function App() {
         <Route path="attendance" element={<AttendancePage />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="payments" element={<PaymentsPage />} />
+        <Route path="payments/:paymentId/receipt" element={<ReceiptPage />} />
+        <Route path="expenses" element={<ExpensesPage />} />
+        <Route path="salaries" element={<SalariesPage />} />
+        <Route path="staff-attendance" element={<StaffAttendancePage />} />
+        <Route path="activity" element={<ActivityPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />

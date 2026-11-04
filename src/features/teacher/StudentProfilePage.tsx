@@ -297,11 +297,11 @@ function AttendanceTab({ student }: { student: Student }) {
   const { history, rate } = useMemo(() => studentAttendance(data, student.id), [data, student.id])
   const groupName = new Map(data.groups.map((g) => [g.id, g.name]))
   const noteFor = (groupId: string, date: string) => data.attendance.find((r) => r.groupId === groupId && r.date === date)?.comments?.[student.id]
-  const attended = history.filter((h) => h.mark !== 'absent').length
+  const attended = history.filter((h) => h.mark === 'present' || h.mark === 'late').length
   const late = history.filter((h) => h.mark === 'late').length
   const absences = history.filter((h) => h.mark === 'absent')
   const shown = showAll ? history : history.slice(0, 15)
-  const markTone = { present: 'text-success', late: 'text-warning', absent: 'text-danger' } as const
+  const markTone = { present: 'text-success', late: 'text-warning', absent: 'text-danger', excused: 'text-info' } as const
   const gradeFor = (groupId: string, date: string) => data.attendance.find((r) => r.groupId === groupId && r.date === date)?.grades?.[student.id]
   const lessonGrades = history.map((h) => gradeFor(h.groupId, h.date)).filter((g): g is Grade => g !== undefined)
   const avgGrade = lessonGrades.length ? lessonGrades.reduce((a, b) => a + b, 0) / lessonGrades.length : null

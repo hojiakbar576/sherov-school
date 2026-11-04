@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { Activity, ActivityType, Assessment, Course, HomeworkResult, Lead, Notification, Room, SchoolData, Student, StudentNote, User } from '../types'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { BRANCH_STAFF_ROLES } from '../types'
+import type { Activity, ActivityType, Assessment, Bonus, ContactLog, Course, Expense, ExtraLesson, HomeworkResult, Lead, ListItem, Notification, Payment, Room, SalaryPayment, SchoolData, StaffAttendance, Student, StudentNote, User } from '../types'
+import { withReceipts } from './seed-office'
+
+import { branchData } from '../lib/owner'
 import { applyStudentChange, isArchived } from '../lib/student-lifecycle'
 import { createId } from '../lib/id'
 import { dayPatternLabel, formatUZS } from '../lib/format'
 import { computeBalances } from '../lib/metrics'
-import { demoSignIn, readSession, SESSION_KEY, SIGN_IN_ROLES, writeSession } from '../lib/auth'
+import { demoSignIn, ownerSignIn, readSession, SESSION_KEY, SIGN_IN_ROLES, writeSession } from '../lib/auth'
 import { canTeachGroup, scopeData, userBranchId } from '../lib/scope'
 import { addMonths, monthKey, parseISODate, toISODate } from '../lib/dates'
 import { salaryHistory } from '../lib/salary'
@@ -14,7 +18,16 @@ import { createDemoData } from './seed'
 import { DEFAULT_BRANCH_ID, teacherUser } from './seed-portal'
 import { homeworkStudents } from './seed-learning'
 import { loadData, saveData, STORAGE_KEY, validateSchoolData } from './storage'
-import { SchoolContext, type SchoolActions, type SchoolContextValue, type TeacherView } from './school-context'
+import { SchoolContext, type OwnerView, type SchoolActions, type SchoolContextValue, type TeacherView } from './school-context'
+
+const OWNER_BRANCH_KEY = 'sherov-school:owner-branch'
+function readOwnerBranch(): string | null {
+  try {
+    return window.sessionStorage.getItem(OWNER_BRANCH_KEY)
+  } catch {
+    return null
+  }
+}
 
 const MAX_ACTIVITY = 100
 
@@ -32,7 +45,7 @@ function notice(n: Omit<Notification, 'id' | 'createdAt'>): Notification {
 
 /** Only accounts whose role can sign in today count as a session. */
 function sessionUser(data: SchoolData, userId: string | null): User | null {
-  return data.users.find((u) => u.id === userId && SIGN_IN_ROLES.includes(u.role)) ?? null
+  return data.users.find((u) => u.id === userId && SIGN_IN_ROLES.includes(u.role) && u.active !== false) ?? null
 }
 
 class NotPermittedError extends Error {}
@@ -43,10 +56,17 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   const [persistent, setPersistent] = useState(initial.persistent)
   const [loadProblem, setLoadProblem] = useState<string | null>(initial.problem ?? null)
   const [userId, setUserId] = useState<string | null>(() => readSession())
+  // The owner can narrow the administrator pages to one branch (kept for this browser session).
+  const [ownerBranchId, setOwnerBranchId] = useState<string | null>(() => readOwnerBranch())
   const now = useNow()
 
   const user = sessionUser(fullData, userId)
-  const data = useMemo(() => (user ? scopeData(fullData, user) : fullData), [fullData, user])
+  const ownerBranch = user?.role === 'owner' && fullData.branches.some((b) => b.id === ownerBranchId) ? ownerBranchId : null
+  const data = useMemo(() => {
+    if (!user) return fullData
+    if (user.role === 'owner') return ownerBranch ? branchData(fullData, ownerBranch) : fullData
+    return scopeData(fullData, user)
+  }, [fullData, user, ownerBranch])
 
   // Save every change to localStorage (the "external system" this effect syncs with).
   // State is only touched when a write fails, e.g. storage is full.
@@ -75,7 +95,21 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  const update = useCallback((change: (prev: SchoolData) => SchoolData) => setData(change), [])
+  // Every change is stamped with who made it, for the audit history.
+  const actorRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    actorRef.current = userId ?? undefined
+  }, [userId])
+  const update = useCallback(
+    (change: (prev: SchoolData) => SchoolData) =>
+      setData((prev) => {
+        const next = change(prev)
+        if (next.activity === prev.activity || !actorRef.current) return next
+        const known = new Set(prev.activity.map((a) => a.id))
+        return { ...next, activity: next.activity.map((a) => (known.has(a.id) || a.byUserId ? a : { ...a, byUserId: actorRef.current })) }
+      }),
+    [],
+  )
 
   const signIn = useCallback(
     (username: string, password: string) => {
@@ -89,24 +123,57 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     [fullData.users],
   )
 
+  const signInOwner = useCallback(
+    (username: string, password: string) => {
+      const found = ownerSignIn(fullData.users, username, password)
+      if (found) {
+        // Only for this browser session: closing the browser signs the owner out.
+        writeSession(found.id, { sessionOnly: true })
+        setUserId(found.id)
+      }
+      return found
+    },
+    [fullData.users],
+  )
+
   const signOut = useCallback(() => {
     writeSession(null)
     setUserId(null)
+    setOwnerBranchId(null)
+    try {
+      window.sessionStorage.removeItem(OWNER_BRANCH_KEY)
+    } catch {
+      // Ignore.
+    }
+  }, [])
+
+  const setOwnerBranch = useCallback((branchId: string | null) => {
+    setOwnerBranchId(branchId)
+    try {
+      if (branchId) window.sessionStorage.setItem(OWNER_BRANCH_KEY, branchId)
+      else window.sessionStorage.removeItem(OWNER_BRANCH_KEY)
+    } catch {
+      // Ignore: the choice lasts until refresh.
+    }
   }, [])
 
   const actions = useMemo<SchoolActions>(() => {
     const groupName = (d: SchoolData, id: string | null) => d.groups.find((g) => g.id === id)?.name
-    const actorBranch = user ? userBranchId(fullData, user) : null
+    // For the owner, the branch they've narrowed the pages to (new teachers, rooms and enquiries go there).
+    const actorBranch = user?.role === 'owner' ? ownerBranch : user ? userBranchId(fullData, user) : null
 
     // Administrators (and later the owner) manage records; teachers can't.
     // The UI never offers these to teachers, so a call is a programming error.
+    const requireOwner = () => {
+      if (user?.role !== 'owner') throw new NotPermittedError('Only the owner can do this.')
+    }
     const requireManager = () => {
       if (!user || user.role === 'teacher') throw new NotPermittedError('Only administrators can change this.')
     }
     // An administrator may only change records in their own branch.
     const requireInBranch = (branchId: string | undefined) => {
       requireManager()
-      if (user?.role === 'admin' && branchId !== user.branchId) {
+      if (user && BRANCH_STAFF_ROLES.includes(user.role) && branchId !== user.branchId) {
         throw new NotPermittedError('This record belongs to another branch.')
       }
     }
@@ -143,6 +210,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
           const current = d.students.find((s) => s.id === id)!
           const after: Student = { ...current, ...input, id, branchId }
           if (!input.tuitionAdjustment) delete after.tuitionAdjustment
+          if (!input.tags?.length) delete after.tags
           return withActivity(applyStudentChange(d, { before: current, after, on: toISODate(new Date()), byUserId: user?.id }), entry)
         })
       },
@@ -317,7 +385,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         // Grades only for students marked as attending, and only 1–5.
         const cleanGrades = grades
           ? Object.fromEntries(
-              Object.entries(grades).filter(([id, g]) => allowed.has(id) && cleanMarks[id] && cleanMarks[id] !== 'absent' && [1, 2, 3, 4, 5].includes(g)),
+              Object.entries(grades).filter(([id, g]) => allowed.has(id) && cleanMarks[id] && cleanMarks[id] !== 'absent' && cleanMarks[id] !== 'excused' && [1, 2, 3, 4, 5].includes(g)),
             )
           : existing?.grades
         const record = {
@@ -334,7 +402,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
           recordedBy: user.id,
         }
         const values = Object.values(cleanMarks)
-        const attended = values.filter((m) => m !== 'absent').length
+        const attended = values.filter((m) => m === 'present' || m === 'late').length
         update((d) =>
           withActivity(
             {
@@ -477,7 +545,9 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       addPayment(input) {
         const student = fullData.students.find((s) => s.id === input.studentId)
         requireInBranch(student?.branchId)
-        const payment = { ...input, id: createId('pay'), ...(user ? { recordedBy: user.id } : {}) }
+        const draft: Payment = { ...input, id: createId('pay'), ...(user ? { recordedBy: user.id } : {}) }
+        // Next receipt number for the student's branch, e.g. CH-000124.
+        const payment = withReceipts([...fullData.payments, draft], fullData.students).find((p) => p.id === draft.id)!
         update((d) =>
           withActivity(
             { ...d, payments: [...d.payments, payment] },
@@ -493,7 +563,17 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         requireInBranch(student?.branchId)
         update((d) =>
           withActivity(
-            { ...d, payments: d.payments.map((p) => (p.id === id ? { ...p, ...input, id } : p)) },
+            {
+              ...d,
+              payments: d.payments.map((p) => {
+                if (p.id !== id) return p
+                const changes = (['amount', 'date', 'period', 'method', 'status', 'note'] as const)
+                  .filter((k) => (p[k] ?? '') !== (input[k] ?? ''))
+                  .map((k) => `${k}: ${p[k] ?? '—'} → ${input[k] ?? '—'}`)
+                const history = changes.length ? [...(p.history ?? []), { at: new Date().toISOString(), byUserId: user?.id, change: changes.join('; ') }] : p.history
+                return { ...p, ...input, id, ...(history ? { history } : {}) }
+              }),
+            },
             activity('payment_recorded', 'Payment updated', `${student?.fullName ?? 'A student'}: ${formatUZS(input.amount)}`, student?.branchId),
           ),
         )
@@ -508,6 +588,161 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
             activity('payment_recorded', 'Payment deleted', `${student?.fullName ?? 'A student'}: ${formatUZS(payment?.amount ?? 0)}`, student?.branchId),
           ),
         )
+      },
+
+      refundPayment(id, reason) {
+        const payment = fullData.payments.find((p) => p.id === id)
+        const student = fullData.students.find((s) => s.id === payment?.studentId)
+        requireInBranch(student?.branchId)
+        if (!payment || payment.status === 'refunded') return
+        update((d) =>
+          withActivity(
+            {
+              ...d,
+              payments: d.payments.map((p) =>
+                p.id === id ? { ...p, status: 'refunded' as const, history: [...(p.history ?? []), { at: new Date().toISOString(), byUserId: user?.id, change: `Refunded: ${reason.trim() || 'no reason given'}` }] } : p,
+              ),
+            },
+            activity('payment_recorded', 'Payment refunded', `${student?.fullName ?? 'A student'}: ${formatUZS(payment.amount)}. ${reason}`, student?.branchId),
+          ),
+        )
+      },
+
+      addListItem(list, name) {
+        requireManager()
+        const entry: ListItem = { id: createId(list.slice(0, 4)), name: name.trim(), active: true }
+        update((d) => withActivity({ ...d, catalogs: { ...d.catalogs, [list]: [...d.catalogs[list], entry] } }, activity('settings_changed', 'List updated', `Added “${entry.name}”`)))
+        return entry
+      },
+      renameListItem(list, id, name) {
+        requireManager()
+        update((d) => ({ ...d, catalogs: { ...d.catalogs, [list]: d.catalogs[list].map((x) => (x.id === id ? { ...x, name: name.trim() } : x)) } }))
+      },
+      setListItemActive(list, id, active) {
+        requireManager()
+        update((d) => ({ ...d, catalogs: { ...d.catalogs, [list]: d.catalogs[list].map((x) => (x.id === id ? { ...x, active } : x)) } }))
+      },
+      updateCourse(id, input) {
+        requireManager()
+        update((d) => ({ ...d, courses: d.courses.map((c) => (c.id === id ? { ...c, levels: input.levels, defaultFee: input.defaultFee } : c)) }))
+      },
+
+      addExpense(input) {
+        // Branch expenses by branch staff; organisation-wide ones (no branch) by the owner.
+        if (input.branchId === null) requireOwner()
+        else requireInBranch(input.branchId)
+        const expense: Expense = { ...input, id: createId('exp'), createdBy: user?.id, createdAt: new Date().toISOString() }
+        update((d) => withActivity({ ...d, expenses: [...d.expenses, expense] }, activity('expense_changed', 'Expense recorded', `${expense.description}: ${formatUZS(expense.amount)}`, expense.branchId ?? undefined)))
+        return expense
+      },
+      updateExpense(id, input) {
+        const before = fullData.expenses.find((e) => e.id === id)
+        if (!before) return
+        if (before.branchId === null || input.branchId === null) requireOwner()
+        else {
+          requireInBranch(before.branchId)
+          requireInBranch(input.branchId)
+        }
+        update((d) =>
+          withActivity(
+            { ...d, expenses: d.expenses.map((e) => (e.id === id ? { ...e, ...input, updatedAt: new Date().toISOString() } : e)) },
+            activity('expense_changed', 'Expense corrected', `${input.description}: ${formatUZS(before.amount)} → ${formatUZS(input.amount)}`, input.branchId ?? undefined),
+          ),
+        )
+      },
+      deleteExpense(id) {
+        const before = fullData.expenses.find((e) => e.id === id)
+        if (!before) return
+        if (before.branchId === null) requireOwner()
+        else requireInBranch(before.branchId)
+        update((d) => withActivity({ ...d, expenses: d.expenses.filter((e) => e.id !== id) }, activity('expense_changed', 'Expense deleted', `${before.description}: ${formatUZS(before.amount)}`, before.branchId ?? undefined)))
+      },
+
+      addSalaryPayment(input) {
+        const teacher = fullData.teachers.find((t) => t.id === input.teacherId)
+        requireInBranch(teacher?.branchId)
+        const payment: SalaryPayment = { ...input, id: createId('sal'), paidBy: user?.id, createdAt: new Date().toISOString() }
+        update((d) => withActivity({ ...d, salaryPayments: [...d.salaryPayments, payment] }, activity('salary_changed', 'Salary paid', `${teacher?.fullName}: ${formatUZS(payment.amount)} for ${payment.month}`, teacher?.branchId)))
+        return payment
+      },
+      deleteSalaryPayment(id) {
+        const payment = fullData.salaryPayments.find((p) => p.id === id)
+        const teacher = fullData.teachers.find((t) => t.id === payment?.teacherId)
+        requireInBranch(teacher?.branchId)
+        update((d) => withActivity({ ...d, salaryPayments: d.salaryPayments.filter((p) => p.id !== id) }, activity('salary_changed', 'Salary payment removed', `${teacher?.fullName}: ${formatUZS(payment?.amount ?? 0)}`, teacher?.branchId)))
+      },
+
+      saveStaffAttendance(branchId, date, marks) {
+        requireInBranch(branchId)
+        const now = new Date().toISOString()
+        const ids = new Set(marks.map((m) => m.personId))
+        const rows: StaffAttendance[] = marks.map((m) => ({ ...m, id: `stf_${m.personId}_${date}`, branchId, date, recordedBy: user?.id, savedAt: now }))
+        update((d) =>
+          withActivity(
+            { ...d, staffAttendance: [...d.staffAttendance.filter((r) => !(r.date === date && r.branchId === branchId && ids.has(r.personId))), ...rows] },
+            activity('staff_attendance', 'Staff attendance saved', `${date}: ${rows.filter((r) => r.mark === 'present' || r.mark === 'late').length} of ${rows.length} at work`, branchId),
+          ),
+        )
+      },
+
+      addContactLog(input) {
+        const branchId =
+          input.subject.type === 'student' ? fullData.students.find((s) => s.id === input.subject.id)?.branchId : fullData.leads.find((l) => l.id === input.subject.id)?.branchId
+        requireInBranch(branchId)
+        const log: ContactLog = { ...input, id: createId('log'), branchId: branchId!, at: new Date().toISOString(), byUserId: user?.id }
+        update((d) => withActivity({ ...d, contactLogs: [...d.contactLogs, log] }, activity('contact_logged', `${log.channel === 'call' ? 'Call' : log.channel === 'sms' ? 'SMS' : log.channel === 'telegram' ? 'Telegram message' : log.channel === 'visit' ? 'Visit' : 'Note'} logged`, log.summary, branchId)))
+        return log
+      },
+      deleteContactLog(id) {
+        const log = fullData.contactLogs.find((l) => l.id === id)
+        requireInBranch(log?.branchId)
+        update((d) => ({ ...d, contactLogs: d.contactLogs.filter((l) => l.id !== id) }))
+      },
+
+      addExtraLesson(input) {
+        const student = fullData.students.find((s) => s.id === input.studentId)
+        requireInBranch(student?.branchId)
+        const lesson: ExtraLesson = { ...input, id: createId('xl'), branchId: student!.branchId, createdAt: new Date().toISOString() }
+        update((d) => withActivity({ ...d, extraLessons: [...d.extraLessons, lesson] }, activity('student_updated', 'Extra lesson planned', `${student?.fullName}: ${lesson.topic}, ${lesson.date} ${lesson.time}`, lesson.branchId)))
+        return lesson
+      },
+      updateExtraLesson(id, input) {
+        const before = fullData.extraLessons.find((x) => x.id === id)
+        requireInBranch(before?.branchId)
+        update((d) => ({ ...d, extraLessons: d.extraLessons.map((x) => (x.id === id ? { ...x, ...input } : x)) }))
+      },
+      deleteExtraLesson(id) {
+        const before = fullData.extraLessons.find((x) => x.id === id)
+        requireInBranch(before?.branchId)
+        update((d) => ({ ...d, extraLessons: d.extraLessons.filter((x) => x.id !== id) }))
+      },
+
+      addUser(input) {
+        requireOwner()
+        const created: User = { ...input, username: input.username.trim().toLowerCase(), id: createId('usr'), active: true, createdAt: new Date().toISOString() }
+        update((d) => withActivity({ ...d, users: [...d.users, created] }, activity('user_changed', 'Account created', `${created.fullName} (${created.role})`, created.branchId ?? undefined)))
+        return created
+      },
+      updateUser(id, input) {
+        requireOwner()
+        const before = fullData.users.find((u) => u.id === id)
+        update((d) =>
+          withActivity(
+            { ...d, users: d.users.map((u) => (u.id === id ? { ...u, ...input, username: input.username.trim().toLowerCase() } : u)) },
+            activity(
+              'user_changed',
+              before && before.branchId !== input.branchId ? 'Branch assignment changed' : 'Account updated',
+              `${input.fullName}${before && before.branchId !== input.branchId ? `: ${before.branchId ?? 'none'} → ${input.branchId ?? 'none'}` : ''}`,
+              input.branchId ?? undefined,
+            ),
+          ),
+        )
+      },
+      setUserActive(id, active) {
+        requireOwner()
+        const target = fullData.users.find((u) => u.id === id)
+        if (!target || target.role === 'owner') return
+        update((d) => withActivity({ ...d, users: d.users.map((u) => (u.id === id ? { ...u, active } : u)) }, activity('user_changed', active ? 'Account turned on' : 'Account turned off', target.fullName, target.branchId ?? undefined)))
       },
 
       transferStudent(studentId, input) {
@@ -671,13 +906,66 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
           }
         })
       },
+      transferTeacher(teacherId, toBranchId, on) {
+        requireOwner()
+        const teacher = fullData.teachers.find((t) => t.id === teacherId)
+        const to = fullData.branches.find((b) => b.id === toBranchId)
+        if (!teacher || !to) return { ok: false, reason: 'Choose a teacher and a branch.' }
+        if (teacher.branchId === to.id) return { ok: false, reason: `${teacher.fullName} already works at ${to.name}.` }
+        const groups = fullData.groups.filter((g) => g.teacherId === teacherId && g.status !== 'completed')
+        if (groups.length) {
+          return { ok: false, reason: `${teacher.fullName} still teaches ${groups.map((g) => g.name).join(', ')}. Give these groups another teacher first; a group stays at its branch.` }
+        }
+        const from = fullData.branches.find((b) => b.id === teacher.branchId)
+        update((d) =>
+          withActivity(
+            {
+              ...d,
+              teachers: d.teachers.map((t) =>
+                t.id === teacherId
+                  ? { ...t, branchId: to.id, branchHistory: [...(t.branchHistory ?? [{ branchId: t.branchId, from: t.joinedOn }]), { branchId: to.id, from: on }] }
+                  : t,
+              ),
+              notifications: [
+                ...d.notifications,
+                notice({ kind: 'admin', title: `You’re moving to the ${to.name} branch`, body: `From ${on} you work at ${to.name} (${to.address}).`, audience: { teacherId } }),
+              ],
+            },
+            activity('teacher_changed', 'Teacher moved to another branch', `${teacher.fullName}: ${from?.name ?? '—'} → ${to.name}, from ${on}`, to.id),
+          ),
+        )
+        return { ok: true }
+      },
+      awardBonus(input) {
+        requireOwner()
+        const bonus: Bonus = { ...input, id: createId('bonus'), awardedAt: new Date().toISOString(), awardedBy: user!.id }
+        const teacher = fullData.teachers.find((t) => t.id === input.teacherId)
+        update((d) =>
+          withActivity({ ...d, bonuses: [...d.bonuses, bonus] }, activity('owner_changed', 'Bonus awarded', `${teacher?.fullName ?? 'A teacher'}: ${formatUZS(bonus.amount)}`, teacher?.branchId)),
+        )
+        return bonus
+      },
+      deleteBonus(id) {
+        requireOwner()
+        update((d) => ({ ...d, bonuses: d.bonuses.filter((b) => b.id !== id) }))
+      },
+      updateBranch(id, input) {
+        requireOwner()
+        update((d) =>
+          withActivity(
+            { ...d, branches: d.branches.map((b) => (b.id === id ? { ...b, address: input.address.trim(), phone: input.phone.trim() } : b)) },
+            activity('owner_changed', 'Branch details updated', d.branches.find((b) => b.id === id)?.name ?? 'A branch'),
+          ),
+        )
+      },
+
       resetDemoData() {
         requireManager()
         setData(createDemoData(new Date()))
         setLoadProblem(null)
       },
     }
-  }, [update, fullData, user])
+  }, [update, fullData, user, ownerBranch])
 
   const balances = useMemo(() => computeBalances(data, now), [data, now])
   // Pay and rating need everyone's payments and lessons, so they're worked out
@@ -695,10 +983,14 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     // Recalculated when data changes or the day turns, not every minute.
   }, [fullData, user, month, today])
   const branch = useMemo(() => {
-    const id = user ? userBranchId(fullData, user) : null
+    const id = user?.role === 'owner' ? ownerBranch : user ? userBranchId(fullData, user) : null
     return fullData.branches.find((b) => b.id === id) ?? null
-  }, [fullData, user])
-  const demoAccounts = useMemo(() => fullData.users.filter((u) => SIGN_IN_ROLES.includes(u.role)), [fullData.users])
+  }, [fullData, user, ownerBranch])
+  const demoAccounts = useMemo(() => fullData.users.filter((u) => u.role !== 'owner' && u.active !== false), [fullData.users])
+  const owner = useMemo<OwnerView | null>(
+    () => (user?.role === 'owner' ? { data: fullData, branchId: ownerBranch, setBranch: setOwnerBranch } : null),
+    [user, fullData, ownerBranch, setOwnerBranch],
+  )
 
   const value = useMemo<SchoolContextValue>(
     () => ({
@@ -714,9 +1006,11 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       branch,
       demoAccounts,
       signIn,
+      signInOwner,
       signOut,
+      owner,
     }),
-    [data, now, balances, teacherView, persistent, loadProblem, actions, user, branch, demoAccounts, signIn, signOut],
+    [data, now, balances, teacherView, persistent, loadProblem, actions, user, branch, demoAccounts, signIn, signInOwner, signOut, owner],
   )
 
   return <SchoolContext.Provider value={value}>{children}</SchoolContext.Provider>

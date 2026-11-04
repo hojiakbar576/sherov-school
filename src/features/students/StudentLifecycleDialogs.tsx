@@ -142,19 +142,24 @@ export function StatusDialog({ open, onClose, student }: { open: boolean; onClos
 }
 
 function StatusForm({ student, onClose }: { student: Student; onClose: () => void }) {
-  const { now, actions } = useSchool()
+  const { data, now, actions } = useSchool()
   const toast = useToast()
   const [status, setStatus] = useState<StudentStatus>(student.status === 'active' ? 'paused' : 'active')
   const [on, setOn] = useState(toISODate(now))
   const [reason, setReason] = useState('')
+  const [choice, setChoice] = useState('')
   const [error, setError] = useState('')
   const needsReason = status === 'left' || status === 'paused'
+  // The school's own list of reasons for freezing or leaving (Settings → Lists).
+  const reasons = (status === 'left' ? data.catalogs.leaveReasons : status === 'paused' ? data.catalogs.pauseReasons : []).filter((r) => r.active)
+  const chosen = reasons.find((r) => r.id === choice)
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (!isValidISODate(on)) return setError('Choose a date.')
-    if (needsReason && reason.trim().length < 3) return setError('Add a short reason, so the history makes sense later.')
-    actions.changeStudentStatus(student.id, status, on, reason)
+    const full = [chosen?.name, reason.trim()].filter(Boolean).join(': ')
+    if (needsReason && full.length < 3) return setError('Choose or write a reason, so the history makes sense later.')
+    actions.changeStudentStatus(student.id, status, on, full)
     toast.show(`${student.fullName} is now ${studentStatusLabel[status].toLowerCase()}.`)
     onClose()
   }
@@ -185,7 +190,28 @@ function StatusForm({ student, onClose }: { student: Student; onClose: () => voi
         <Field label="From">
           {(p) => <Input {...p} type="date" value={on} onChange={(e) => setOn(e.target.value)} />}
         </Field>
-        <Field label="Reason" optional={!needsReason} error={error || undefined}>
+        {reasons.length > 0 && (
+          <Field label="Reason">
+            {(p) => (
+              <Select
+                {...p}
+                value={choice}
+                onChange={(e) => {
+                  setChoice(e.target.value)
+                  setError('')
+                }}
+              >
+                <option value="">Choose a reason</option>
+                {reasons.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        )}
+        <Field label={reasons.length ? 'Details' : 'Reason'} optional={!needsReason || reasons.length > 0} error={error || undefined} className={reasons.length ? 'sm:col-span-2' : undefined}>
           {(p) => (
             <Input
               {...p}

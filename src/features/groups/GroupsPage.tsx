@@ -133,7 +133,7 @@ export function GroupsPage() {
                         <Link to={`/students?group=${g.id}`} className="font-medium text-ink hover:text-brand hover:underline">
                           {g.name}
                         </Link>
-                        <p className="text-xs text-ink-muted">{g.subject}</p>
+                        <p className="text-xs text-ink-muted">{g.subject}{g.level ? ` · ${g.level}` : ''}</p>
                       </td>
                       <td className={cn(td, 'text-ink-muted')}>{teacherName.get(g.teacherId) ?? 'Unassigned'}</td>
                       <td className={cn(td, 'whitespace-nowrap')}>
@@ -175,7 +175,7 @@ export function GroupsPage() {
                         {g.name}
                       </Link>
                       <p className="text-xs text-ink-muted">
-                        {g.subject}, {teacherName.get(g.teacherId) ?? 'Unassigned'}
+                        {g.subject}{g.level ? ` ${g.level}` : ''}, {teacherName.get(g.teacherId) ?? 'Unassigned'}
                       </p>
                     </div>
                     <GroupStatusBadge status={g.status} />

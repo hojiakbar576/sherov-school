@@ -44,7 +44,7 @@ export function ProfileMenu() {
             {isManager && (
               <>
                 <li>
-                  <Link to="/settings" onClick={close} className="flex items-center gap-3 px-4 py-2 text-sm text-ink hover:bg-subtle">
+                  <Link to={user.role === 'owner' ? '/owner/settings' : '/settings'} onClick={close} className="flex items-center gap-3 px-4 py-2 text-sm text-ink hover:bg-subtle">
                     <Settings aria-hidden className="size-4 text-ink-faint" />
                     Centre settings
                   </Link>
@@ -63,7 +63,7 @@ export function ProfileMenu() {
                 onClick={() => {
                   close()
                   signOut()
-                  navigate('/login', { replace: true })
+                  navigate(user.role === 'owner' ? '/owner/login' : '/login', { replace: true })
                 }}
                 className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-ink hover:bg-subtle"
               >

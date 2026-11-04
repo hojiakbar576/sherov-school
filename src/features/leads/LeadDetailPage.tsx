@@ -16,6 +16,7 @@ import { cn } from '../../lib/cn'
 import { StudentFormDialog } from '../students/StudentFormDialog'
 import { LeadStageBadge } from './LeadStageBadge'
 import { LeadFormDialog, LostDialog, TrialDialog, TrialResultDialog } from './LeadDialogs'
+import { ContactLogPanel } from '../contacts/ContactLogPanel'
 
 type Open = 'edit' | 'trial' | 'result' | 'lost' | 'enroll' | 'delete' | null
 
@@ -213,6 +214,8 @@ export function LeadDetailPage() {
       </div>
 
       {lead.stage === 'lost' && <p className="mt-4 text-sm text-ink-muted">Lost: {lead.lostReason ?? 'no reason given'}.</p>}
+
+      <ContactLogPanel subject={{ type: 'lead', id: lead.id }} contacts={[lead.parentName, lead.studentName].filter((x): x is string => Boolean(x))} className="mt-6" />
 
       <div className="mt-8 border-t border-line pt-4">
         <Button variant="ghost" size="sm" onClick={() => setOpen('delete')} className="text-ink-muted hover:bg-danger-soft hover:text-danger">

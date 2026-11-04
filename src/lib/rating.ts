@@ -80,6 +80,7 @@ export function teacherRatings(data: SchoolData, month: MonthKey, now: Date): Te
       let gradeSum = 0
       for (const r of records) {
         for (const [studentId, mark] of Object.entries(r.marks)) {
+          if (mark === 'excused') continue
           marks += 1
           if (mark === 'absent') continue
           came += 1

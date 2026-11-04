@@ -36,7 +36,7 @@ function NavEntry({ item, collapsed, onNavigate }: { item: NavItem } & SidebarNa
   return (
     <NavLink
       to={item.to}
-      end={item.to === '/' || item.to === '/teacher'}
+      end={item.to === '/' || item.to === '/teacher' || item.to === '/owner'}
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
       className={({ isActive }) =>
@@ -118,7 +118,7 @@ export function DemoDataNote({ collapsed }: { collapsed?: boolean }) {
 /** The teacher's sidebar: a light rounded card beside the page. */
 export function TeacherSidebar() {
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 p-3 pr-0 lg:block">
+    <aside className="sticky top-0 hidden print:hidden h-dvh w-64 shrink-0 p-3 pr-0 lg:block">
       <div className="flex h-full flex-col rounded-2xl border border-line bg-surface">
         <div className="flex h-16 items-center px-6">
           <Logo />
@@ -134,7 +134,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   return (
     <aside
       className={cn(
-        'on-dark sticky top-0 hidden h-dvh shrink-0 flex-col bg-sidebar lg:flex',
+        'on-dark sticky top-0 hidden print:hidden h-dvh shrink-0 flex-col bg-sidebar lg:flex',
         collapsed ? 'w-[72px]' : 'w-60',
       )}
     >

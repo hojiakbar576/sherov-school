@@ -19,8 +19,7 @@ import {
   formatUZS,
   genderLabel,
   guardianRelationshipLabel,
-  paymentMethodLabel,
-  tuitionAdjustmentLabel,
+  methodName,   tuitionAdjustmentLabel,
 } from '../../lib/format'
 import { groupHistory, isArchived, studentTimeline } from '../../lib/student-lifecycle'
 import { studentAssessments } from '../../lib/assessments'
@@ -34,6 +33,9 @@ import { formatAverage, formatScoreAsGrade, scoreToGrade } from '../teacher/grou
 import { StudentFormDialog } from './StudentFormDialog'
 import { DeleteStudentDialog } from './DeleteStudentDialog'
 import { StatusDialog, TransferDialog } from './StudentLifecycleDialogs'
+import { TagChips } from './StudentTags'
+import { ExtraLessonsPanel } from './ExtraLessonsPanel'
+import { ContactLogPanel } from '../contacts/ContactLogPanel'
 import { PaymentFormDialog } from '../payments/PaymentFormDialog'
 
 /** One label and value on a line. */
@@ -58,8 +60,8 @@ function Stat({ label, value, detail, tone }: { label: string; value: ReactNode;
   )
 }
 
-const markDot: Record<AttendanceMark, string> = { present: 'bg-success', late: 'bg-warning-mark', absent: 'bg-danger' }
-const markText: Record<AttendanceMark, string> = { present: 'text-success', late: 'text-warning', absent: 'text-danger' }
+const markDot: Record<AttendanceMark, string> = { present: 'bg-success', late: 'bg-warning-mark', absent: 'bg-danger', excused: 'bg-info' }
+const markText: Record<AttendanceMark, string> = { present: 'text-success', late: 'text-warning', absent: 'text-danger', excused: 'text-info' }
 
 /**
  * Everything about one student on one page, most-used first: who they are and
@@ -115,7 +117,7 @@ export function StudentDetailPage() {
           .reduce((sum, m) => sum + Math.max(0, student.monthlyTuition - paidFor(m)), 0)
       : 0
 
-  const counts = { present: 0, late: 0, absent: 0 }
+  const counts = { present: 0, late: 0, absent: 0, excused: 0 }
   for (const h of attendance.history) counts[h.mark] += 1
   const lessonGrades = attendance.history.map((h) => recordFor(h.groupId, h.date)?.grades?.[student.id]).filter((g): g is NonNullable<typeof g> => g !== undefined)
   const avgLessonGrade = lessonGrades.length ? lessonGrades.reduce((a, b) => a + b, 0) / lessonGrades.length : null
@@ -148,6 +150,7 @@ export function StudentDetailPage() {
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               <StudentStatusBadge status={student.status} />
               <TuitionBadge balance={balance} />
+              <TagChips tags={student.tags} />
             </div>
           </div>
         </div>
@@ -352,7 +355,7 @@ export function StudentDetailPage() {
                           <td className={cn(td, 'num whitespace-nowrap')}>{formatDate(p.date)}</td>
                           <td className={cn(td, 'text-ink-muted')}>{formatMonth(p.period)}</td>
                           <td className={cn(td, 'num text-right font-medium whitespace-nowrap')}>{formatUZS(p.amount)}</td>
-                          <td className={cn(td, 'text-ink-muted')}>{paymentMethodLabel[p.method]}</td>
+                          <td className={cn(td, 'text-ink-muted')}>{methodName(data.catalogs, p.method)}</td>
                           <td className={cn(td, 'hidden text-ink-muted sm:table-cell')}>{(p.recordedBy && userName.get(p.recordedBy)) ?? '—'}</td>
                           <td className={td}>
                             <PaymentStatusBadge status={p.status} />
@@ -569,6 +572,14 @@ export function StudentDetailPage() {
             </>
           )}
         </Panel>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <ContactLogPanel
+          subject={{ type: 'student', id: student.id }}
+          contacts={[...student.guardians.map((g) => `${g.fullName} (${guardianRelationshipLabel[g.relationship].toLowerCase()})`), student.fullName]}
+        />
+        <ExtraLessonsPanel student={student} />
       </div>
 
       <div className="mt-8 border-t border-line pt-4">

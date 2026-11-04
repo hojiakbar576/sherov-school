@@ -28,6 +28,7 @@ export function GroupFormDialog(props: Props) {
 interface FormState {
   name: string
   subject: Subject
+  level: string
   teacherId: string
   room: string
   days: DayPattern
@@ -44,22 +45,28 @@ function GroupForm({ onClose, group }: Props) {
   const toast = useToast()
   const enrolled = group ? (enrolmentByGroup(data).get(group.id) ?? 0) : 0
   // Rooms are managed in Settings; an older group's room stays selectable.
-  const rooms = [...data.rooms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  const allRooms = [...data.rooms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
   const courses = data.courses.filter((c) => c.active || c.name === group?.subject)
 
   const [form, setForm] = useState<FormState>(() => ({
     name: group?.name ?? '',
     subject: group?.subject ?? courses[0]?.name ?? '',
+    level: group?.level ?? '',
     teacherId: group?.teacherId ?? '',
     room: group?.room ?? '',
     days: group?.days ?? 'odd',
     startTime: group?.startTime ?? '14:00',
     durationMinutes: String(group?.durationMinutes ?? 90),
     capacity: String(group?.capacity ?? 14),
-    monthlyFee: group ? String(group.monthlyFee) : '',
+    monthlyFee: group ? String(group.monthlyFee) : courses[0]?.defaultFee ? String(courses[0].defaultFee) : '',
     status: group?.status ?? 'active',
   }))
+  // A group meets at its teacher's branch, so only that branch's rooms are offered.
+  const groupBranch = data.teachers.find((t) => t.id === form.teacherId)?.branchId ?? group?.branchId
+  const rooms = groupBranch ? allRooms.filter((r) => r.branchId === groupBranch) : allRooms
   const [errors, setErrors] = useState<Errors>({})
+  const course = data.courses.find((c) => c.name === form.subject)
+  const levels = Array.from(new Set([...(course?.levels ?? []), ...(form.level ? [form.level] : [])]))
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }))
@@ -89,6 +96,7 @@ function GroupForm({ onClose, group }: Props) {
     const input = {
       name: form.name.trim(),
       subject: form.subject,
+      level: form.level || undefined,
       teacherId: form.teacherId,
       room: form.room.trim(),
       days: form.days,
@@ -126,9 +134,32 @@ function GroupForm({ onClose, group }: Props) {
       </Field>
       <Field label="Course">
         {(p) => (
-          <Select {...p} value={form.subject} onChange={(e) => set('subject', e.target.value as Subject)}>
+          <Select
+            {...p}
+            value={form.subject}
+            onChange={(e) => {
+              const next = data.courses.find((c) => c.name === e.target.value)
+              setForm((f) => ({
+                ...f,
+                subject: e.target.value as Subject,
+                level: next?.levels?.includes(f.level) ? f.level : '',
+                // A new group starts from the course's usual fee until someone types one.
+                monthlyFee: !group && next?.defaultFee && (!f.monthlyFee || f.monthlyFee === String(course?.defaultFee ?? '')) ? String(next.defaultFee) : f.monthlyFee,
+              }))
+            }}
+          >
             {courses.map((c) => (
               <option key={c.id}>{c.name}</option>
+            ))}
+          </Select>
+        )}
+      </Field>
+      <Field label="Level" optional hint={levels.length ? undefined : 'Add levels to this course in Settings.'}>
+        {(p) => (
+          <Select {...p} value={form.level} onChange={(e) => set('level', e.target.value)} disabled={!levels.length}>
+            <option value="">No level</option>
+            {levels.map((l) => (
+              <option key={l}>{l}</option>
             ))}
           </Select>
         )}

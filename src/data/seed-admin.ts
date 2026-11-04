@@ -50,14 +50,18 @@ const DISCOUNT_REASONS = ['Sibling discount (two children at the centre)', 'Paid
 const LEAVE_REASONS = ['Moved to another district', 'Schedule clashes with school', 'Finished the level they needed', 'Family reasons']
 const PAUSE_REASONS = ['School exam period', 'Travelling with family', 'Health reasons']
 
-type BaseData = Omit<SchoolData, 'courses' | 'rooms' | 'enrollments' | 'studentEvents' | 'leads' | 'assessments'>
+/** Records added later by the office seed (seed-office.ts). */
+export type OfficeKeys = 'catalogs' | 'extraLessons' | 'expenses' | 'salaryPayments' | 'staffAttendance' | 'contactLogs'
+type BaseData = Omit<SchoolData, 'courses' | 'rooms' | 'enrollments' | 'studentEvents' | 'leads' | 'assessments' | 'bonuses' | OfficeKeys> & {
+  bonuses?: SchoolData['bonuses']
+}
 
 /**
  * Adds the administration records to data that doesn't have them yet.
  * `demo` also adds sample history (graduates, earlier transfers) that only
  * makes sense for freshly generated data, never for someone's saved records.
  */
-export function addAdministrationData(base: BaseData, now: Date, { demo }: { demo: boolean }): SchoolData {
+export function addAdministrationData(base: BaseData, now: Date, { demo }: { demo: boolean }): Omit<SchoolData, OfficeKeys> {
   const today = toISODate(now)
   const groupById = new Map(base.groups.map((g) => [g.id, g]))
   const adminFor = (branchId: string) => base.users.find((u) => u.role === 'admin' && u.branchId === branchId)?.id
@@ -139,6 +143,7 @@ export function addAdministrationData(base: BaseData, now: Date, { demo }: { dem
     studentEvents: events.sort((a, b) => a.on.localeCompare(b.on)),
     leads: seedLeads(base.groups, students, base.branches.map((b) => b.id), now),
     assessments: seedAssessments(base.groups, students, now),
+    bonuses: base.bonuses ?? [],
   }
 }
 
