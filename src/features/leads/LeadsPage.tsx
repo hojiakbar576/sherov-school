@@ -17,8 +17,10 @@ import { cn } from '../../lib/cn'
 import { RangeToggle } from '../../components/ui/RangeToggle'
 import { LeadStageBadge } from './LeadStageBadge'
 import { LeadFormDialog } from './LeadDialogs'
+import { LeadBoard } from './LeadBoard'
+import { Select } from '../../components/ui/Field'
 
-const FILTERS = ['q', 'stage', 'view'] as const
+const FILTERS = ['q', 'stage', 'view', 'course'] as const
 type View = LeadStage | 'open' | 'all'
 
 /**
@@ -43,11 +45,14 @@ export function LeadsPage() {
   const trialsToday = trialsOn(data.leads, today)
   const groupName = new Map(data.groups.map((g) => [g.id, g.name]))
 
-  const rows = useMemo(() => {
+  const board = values.view !== 'list'
+  // Search and course apply to both views; the stage filter only to the list
+  // (on the board every stage is its own column).
+  const matching = useMemo(() => {
     const q = values.q.trim().toLowerCase()
     const digits = q.replace(/\D/g, '')
     return data.leads
-      .filter((l) => (view === 'all' ? true : view === 'open' ? isOpenLead(l) : l.stage === view))
+      .filter((l) => !values.course || l.course === values.course)
       .filter(
         (l) =>
           !q ||
@@ -55,6 +60,12 @@ export function LeadsPage() {
           (l.parentName ?? '').toLowerCase().includes(q) ||
           (digits.length >= 3 && l.phone.replace(/\D/g, '').includes(digits)),
       )
+  }, [data.leads, values.q, values.course])
+  const courses = useMemo(() => [...new Set(data.leads.map((l) => l.course))].sort(), [data.leads])
+
+  const rows = useMemo(() => {
+    return matching
+      .filter((l) => (view === 'all' ? true : view === 'open' ? isOpenLead(l) : l.stage === view))
       .sort((a, b) => {
         // Trials soonest first; otherwise newest enquiry first.
         const ta = a.stage === 'trial_scheduled' ? `${a.trial?.date}${a.trial?.time}` : ''
@@ -62,7 +73,7 @@ export function LeadsPage() {
         if (ta && tb) return ta.localeCompare(tb)
         return b.createdAt.localeCompare(a.createdAt)
       })
-  }, [data.leads, values.q, view])
+  }, [matching, view])
 
   const exportCSV = () =>
     downloadCSV(`sherov-school-leads-${today}.csv`, [
@@ -122,6 +133,7 @@ export function LeadsPage() {
         </div>
       )}
 
+      {!board && (
       <nav aria-label="Pipeline" className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-8">
         {step('open', 'All open', open)}
         {PIPELINE.map((s) => (
@@ -132,21 +144,38 @@ export function LeadsPage() {
         {step('lost', 'Lost', counts.lost)}
         {step('all', 'Everyone', data.leads.length)}
       </nav>
+      )}
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <RangeToggle
           label="Show as"
-          value={values.view === 'board' ? 'board' : 'list'}
-          onChange={(v) => set('view', v === 'board' ? 'board' : '')}
+          value={board ? 'board' : 'list'}
+          onChange={(v) => set('view', v === 'list' ? 'list' : '')}
           options={[
-            { value: 'list', label: 'List' },
             { value: 'board', label: 'Board' },
+            { value: 'list', label: 'List' },
           ]}
         />
+        {board && (
+          <>
+            <SearchInput label="Search enquiries" value={values.q} onChange={(v) => set('q', v)} placeholder="Name or phone" />
+            <Select aria-label="Course" value={values.course} onChange={(e) => set('course', e.target.value)} className="sm:w-48">
+              <option value="">All courses</option>
+              {courses.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+            <p className="num text-sm text-ink-muted sm:ml-auto">
+              {matching.filter(isOpenLead).length} open {matching.filter(isOpenLead).length === 1 ? 'enquiry' : 'enquiries'}
+            </p>
+          </>
+        )}
       </div>
 
-      {values.view === 'board' ? (
-        <LeadBoard today={today} />
+      {board ? (
+        <LeadBoard leads={matching} onCreate={needsBranch ? undefined : () => setCreating(true)} />
       ) : (
       <section aria-label="Enquiries" className="rounded-panel border border-line bg-surface">
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center">
@@ -243,44 +272,5 @@ function LeadRow({ lead: l, today, now, onOpen }: { lead: Lead; today: string; n
         {l.source && <p className="text-xs">{l.source}</p>}
       </td>
     </tr>
-  )
-}
-
-/**
- * The pipeline as columns, one per stage: who is where at a glance. Moving a
- * card to the next stage is done on the enquiry page, where each step asks for
- * what it needs (the trial date, the placement result).
- */
-function LeadBoard({ today }: { today: string }) {
-  const { data } = useSchool()
-  const columns = [...PIPELINE, 'lost' as const]
-  return (
-    <div className="-mx-4 overflow-x-auto px-4 pb-2 lg:mx-0 lg:px-0">
-      <ol className="grid min-w-[1080px] grid-cols-6 gap-3" aria-label="Enquiries by stage">
-        {columns.map((stage) => {
-          const items = data.leads.filter((l) => l.stage === stage).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-          return (
-            <li key={stage} className="flex min-h-40 flex-col rounded-panel border border-line bg-canvas/60">
-              <h3 className="flex items-center justify-between px-3 pt-3 pb-2 text-sm font-semibold text-ink">
-                {leadStageLabel[stage]}
-                <span className="num rounded-full bg-surface px-2 text-xs font-medium text-ink-muted">{items.length}</span>
-              </h3>
-              <ul className="flex-1 space-y-2 px-2 pb-2">
-                {items.slice(0, 25).map((l) => (
-                  <li key={l.id}>
-                    <Link to={`/leads/${l.id}`} className="block rounded-control border border-line bg-surface px-3 py-2 text-sm hover:border-line-strong">
-                      <span className="block font-medium text-ink">{l.studentName}</span>
-                      <span className="block truncate text-xs text-ink-muted">{l.course}</span>
-                      <span className={cn('mt-1 block truncate text-xs', nextStepTone(l, today))}>{nextStep(l, today)}</span>
-                    </Link>
-                  </li>
-                ))}
-                {items.length > 25 && <li className="px-1 text-xs text-ink-muted">+{items.length - 25} more in the list view</li>}
-              </ul>
-            </li>
-          )
-        })}
-      </ol>
-    </div>
   )
 }
