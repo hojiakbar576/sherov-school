@@ -15,6 +15,7 @@ import { enrolmentByGroup, enrolmentByMonth, outstandingTotal, revenueByMonth, s
 import { downloadCSV } from '../../lib/csv'
 import { cn } from '../../lib/cn'
 import { MoreReports } from './MoreReports'
+import { tr } from '../../i18n'
 
 type Range = '3' | '6'
 
@@ -32,14 +33,14 @@ function ExportButton({ onClick }: { onClick: () => void }) {
   return (
     <Button size="sm" onClick={onClick}>
       <Download aria-hidden />
-      CSV
+      {tr("CSV")}
     </Button>
   )
 }
 
 /** Small horizontal bar. Attendance rates are coloured by health; other shares stay neutral. */
 function RateBar({ rate, neutral = false }: { rate: number | null; neutral?: boolean }) {
-  if (rate === null) return <span className="text-ink-faint">No data</span>
+  if (rate === null) return <span className="text-ink-faint">{tr("No data")}</span>
   return (
     <div className="flex items-center gap-2">
       <div aria-hidden className="h-1.5 w-20 rounded-full bg-subtle">
@@ -58,9 +59,9 @@ export function ReportsPage() {
   const stamp = toISODate(now)
   const firstMonth = addMonths(monthKey(now), -(months - 1))
   const periodKeys = monthRange(firstMonth, monthKey(now))
-  const periodLabel = `${formatMonth(firstMonth)} to ${formatMonth(monthKey(now))}`
+  const periodLabel = tr('{0} to {1}', formatMonth(firstMonth), formatMonth(monthKey(now)))
 
-  const exported = (rows: number) => toast.show(`Exported ${rows} rows.`, 'info')
+  const exported = (rows: number) => toast.show(tr("Exported {0} rows.", rows), 'info')
 
   // ---- Revenue ----
   const revenue = revenueByMonth(data, now, months)
@@ -109,29 +110,29 @@ export function ReportsPage() {
   return (
     <>
       <PageHeader
-        title="Reports"
-        description="Summaries calculated from the same records as the rest of the app. Export any table as Excel or CSV."
-        actions={<RangeToggle label="Report period" value={range} onChange={setRange} options={[{ value: '3', label: 'Last 3 months' }, { value: '6', label: 'Last 6 months' }]} />}
+        title={tr("Reports")}
+        description={tr("Summaries calculated from the same records as the rest of the app. Export any table as Excel or CSV.")}
+        actions={<RangeToggle label={tr("Report period")} value={range} onChange={setRange} options={[{ value: '3', label: tr("Last 3 months") }, { value: '6', label: tr("Last 6 months") }]} />}
       />
 
       <div className="grid gap-6 xl:grid-cols-2">
         {/* Revenue */}
         <Panel
           id="revenue-report"
-          title="Revenue summary"
+          title={tr("Revenue summary")}
           description={periodLabel}
           actions={
             <ExportButton
               onClick={() => {
-                downloadCSV(`sherov-school-revenue-${stamp}.csv`, [['Month', 'Collected (UZS)'], ...revenue.map((r) => [r.key, r.total])])
+                downloadCSV(`sherov-school-revenue-${stamp}.csv`, [[tr("Month"), tr("Collected (UZS)")], ...revenue.map((r) => [r.key, r.total])])
                 exported(revenue.length)
               }}
             />
           }
         >
           <div className="mb-4 grid grid-cols-2 gap-4">
-            <Stat label="Collected" value={formatUZSCompact(revenueTotal)} detail={`${formatNumber(paymentsCount)} paid payments`} />
-            <Stat label="Monthly average" value={formatUZSCompact(revenueTotal / months)} />
+            <Stat label={tr("Collected")} value={formatUZSCompact(revenueTotal)} detail={tr("{0} paid payments", formatNumber(paymentsCount))} />
+            <Stat label={tr("Monthly average")} value={formatUZSCompact(revenueTotal / months)} />
           </div>
           <div className="h-52" aria-hidden>
             <ResponsiveContainer width="100%" height="100%">
@@ -145,11 +146,11 @@ export function ReportsPage() {
             </ResponsiveContainer>
           </div>
           <table className="mt-4 w-full text-sm">
-            <caption className="sr-only">Revenue by month</caption>
+            <caption className="sr-only">{tr("Revenue by month")}</caption>
             <thead>
               <tr className="border-b border-line">
-                <th scope="col" className="py-2 text-left text-xs font-medium text-ink-muted">Month</th>
-                <th scope="col" className="py-2 text-right text-xs font-medium text-ink-muted">Collected</th>
+                <th scope="col" className="py-2 text-left text-xs font-medium text-ink-muted">{tr("Month")}</th>
+                <th scope="col" className="py-2 text-right text-xs font-medium text-ink-muted">{tr("Collected")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -166,13 +167,13 @@ export function ReportsPage() {
         {/* Attendance */}
         <Panel
           id="attendance-report"
-          title="Attendance summary"
-          description={`${periodLabel}. Late counts as attended.`}
+          title={tr("Attendance summary")}
+          description={tr("{0}. Late counts as attended.", periodLabel)}
           actions={
             <ExportButton
               onClick={() => {
                 downloadCSV(`sherov-school-attendance-${stamp}.csv`, [
-                  ['Group', 'Classes recorded', 'Present', 'Late', 'Absent', 'Attendance rate'],
+                  [tr("Group"), tr("Classes recorded"), tr("Present"), tr("Late"), tr("Absent"), tr("Attendance rate")],
                   ...attendanceByGroup.map((r) => [r.group.name, r.sessions, r.present, r.late, r.absent, r.rate === null ? '' : Math.round(r.rate * 100) + '%']),
                 ])
                 exported(attendanceByGroup.length)
@@ -182,26 +183,26 @@ export function ReportsPage() {
           flush
         >
           <div className="grid grid-cols-3 gap-4 px-5 pb-4">
-            <Stat label="Attendance rate" value={attendanceAll.rate === null ? '—' : formatPercent(attendanceAll.rate)} />
-            <Stat label="Late arrivals" value={formatNumber(attendanceAll.late)} />
-            <Stat label="Absences" value={formatNumber(attendanceAll.absent)} />
+            <Stat label={tr("Attendance rate")} value={attendanceAll.rate === null ? '—' : formatPercent(attendanceAll.rate)} />
+            <Stat label={tr("Late arrivals")} value={formatNumber(attendanceAll.late)} />
+            <Stat label={tr("Absences")} value={formatNumber(attendanceAll.absent)} />
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-line px-5 py-3 text-sm">
             {attendanceByMonth.map((m) => (
               <p key={m.key}>
-                <span className="text-ink-muted">{formatMonthShort(m.key)}</span> <span className="num font-medium">{m.rate === null ? 'no records' : formatPercent(m.rate)}</span>
+                <span className="text-ink-muted">{formatMonthShort(m.key)}</span> <span className="num font-medium">{m.rate === null ? tr("no records") : formatPercent(m.rate)}</span>
               </p>
             ))}
           </div>
           <TableScroll>
             <table className="w-full min-w-[460px] text-sm">
-              <caption className="sr-only">Attendance by group, lowest first</caption>
+              <caption className="sr-only">{tr("Attendance by group, lowest first")}</caption>
               <thead className="border-y border-line bg-canvas">
                 <tr>
-                  <th scope="col" className={th}>Group (lowest first)</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Classes</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Absences</th>
-                  <th scope="col" className={th}>Rate</th>
+                  <th scope="col" className={th}>{tr("Group (lowest first)")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Classes")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Absences")}</th>
+                  <th scope="col" className={th}>{tr("Rate")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -218,14 +219,14 @@ export function ReportsPage() {
               </tbody>
             </table>
           </TableScroll>
-          {attendanceByGroup.length > 8 && <p className="border-t border-line px-5 py-2.5 text-xs text-ink-muted">Showing the 8 lowest. The CSV includes all {attendanceByGroup.length} groups.</p>}
+          {attendanceByGroup.length > 8 && <p className="border-t border-line px-5 py-2.5 text-xs text-ink-muted">{tr("Showing the 8 lowest. The CSV includes all")}{' '}{attendanceByGroup.length}{' '}{tr("groups.")}</p>}
         </Panel>
 
         {/* Outstanding */}
         <Panel
           id="outstanding-report"
-          title="Outstanding tuition"
-          description="What active students owe today, by group"
+          title={tr("Outstanding tuition")}
+          description={tr("What active students owe today, by group")}
           actions={
             <ExportButton
               onClick={() => {
@@ -235,7 +236,7 @@ export function ReportsPage() {
                     const b = balances.get(s.id)!
                     return [s.fullName, s.phone, data.groups.find((g) => g.id === s.groupId)?.name ?? '', b.owed, b.unpaidMonths.join(' '), b.status]
                   })
-                downloadCSV(`sherov-school-outstanding-${stamp}.csv`, [['Student', 'Phone', 'Group', 'Owed (UZS)', 'Unpaid months', 'Status'], ...rows])
+                downloadCSV(`sherov-school-outstanding-${stamp}.csv`, [[tr("Student"), tr("Phone"), tr("Group"), tr("Owed (UZS)"), tr("Unpaid months"), tr("Status")], ...rows])
                 exported(rows.length)
               }}
             />
@@ -243,24 +244,24 @@ export function ReportsPage() {
           flush
         >
           <div className="grid grid-cols-3 gap-4 px-5 pb-4">
-            <Stat label="Total owed" value={formatUZSCompact(outstanding.total)} />
-            <Stat label="Students owing" value={outstanding.students} />
-            <Stat label="Overdue" value={outstanding.overdueStudents} detail={`After the ${data.settings.tuitionDueDay}th of the month`} />
+            <Stat label={tr("Total owed")} value={formatUZSCompact(outstanding.total)} />
+            <Stat label={tr("Students owing")} value={outstanding.students} />
+            <Stat label={tr("Overdue")} value={outstanding.overdueStudents} detail={tr("After the {0}th of the month", data.settings.tuitionDueDay)} />
           </div>
           <TableScroll>
             <table className="w-full min-w-[420px] text-sm">
-              <caption className="sr-only">Outstanding tuition by group</caption>
+              <caption className="sr-only">{tr("Outstanding tuition by group")}</caption>
               <thead className="border-y border-line bg-canvas">
                 <tr>
-                  <th scope="col" className={th}>Group</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Students</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Owed</th>
+                  <th scope="col" className={th}>{tr("Group")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Students")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Owed")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {owingByGroup.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-5 py-6 text-center text-ink-muted">Nobody owes tuition right now.</td>
+                    <td colSpan={3} className="px-5 py-6 text-center text-ink-muted">{tr("Nobody owes tuition right now.")}</td>
                   </tr>
                 ) : (
                   owingByGroup.map((r) => (
@@ -279,13 +280,13 @@ export function ReportsPage() {
         {/* Enrolment */}
         <Panel
           id="enrolment-report"
-          title="Student enrolment"
-          description={`${active.length} active students. New enrolments from ${periodLabel}.`}
+          title={tr("Student enrolment")}
+          description={tr("{0} active students. New enrolments from {1}.", active.length, periodLabel)}
           actions={
             <ExportButton
               onClick={() => {
                 downloadCSV(`sherov-school-enrolment-${stamp}.csv`, [
-                  ['Subject', 'Running groups', 'Active students', 'Seats', 'Seats filled'],
+                  [tr("Subject"), tr("Running groups"), tr("Active students"), tr("Seats"), tr("Seats filled")],
                   ...bySubject.map((r) => [r.subject, r.groups, r.students, r.capacity, r.capacity ? Math.round((r.students / r.capacity) * 100) + '%' : '']),
                 ])
                 exported(bySubject.length)
@@ -304,15 +305,15 @@ export function ReportsPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="sr-only">New students per month: {joined.map((j) => `${j.fullLabel}: ${j.joined}`).join('; ')}</p>
+          <p className="sr-only">{tr("New students per month:")}{' '}{joined.map((j) => `${j.fullLabel}: ${j.joined}`).join('; ')}</p>
           <table className="mt-4 w-full text-sm">
-            <caption className="sr-only">Active students by subject</caption>
+            <caption className="sr-only">{tr("Active students by subject")}</caption>
             <thead>
               <tr className="border-b border-line">
-                <th scope="col" className="py-2 text-left text-xs font-medium text-ink-muted">Subject</th>
-                <th scope="col" className="py-2 text-right text-xs font-medium text-ink-muted">Groups</th>
-                <th scope="col" className="py-2 text-right text-xs font-medium text-ink-muted">Students</th>
-                <th scope="col" className="py-2 pl-4 text-left text-xs font-medium text-ink-muted">Seats filled</th>
+                <th scope="col" className="py-2 text-left text-xs font-medium text-ink-muted">{tr("Subject")}</th>
+                <th scope="col" className="py-2 text-right text-xs font-medium text-ink-muted">{tr("Groups")}</th>
+                <th scope="col" className="py-2 text-right text-xs font-medium text-ink-muted">{tr("Students")}</th>
+                <th scope="col" className="py-2 pl-4 text-left text-xs font-medium text-ink-muted">{tr("Seats filled")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">

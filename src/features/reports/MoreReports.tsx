@@ -10,6 +10,7 @@ import { monthKey } from '../../lib/dates'
 import { formatMonth, formatNumber, formatPercent, formatUZS, formatUZSCompact, listName } from '../../lib/format'
 import { expensesByCategory, groupRanking, profitByMonth, retention, studentRanking, teacherPerformance } from '../../lib/reports'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 const pct = (x: number | null) => (x === null ? '—' : formatPercent(x))
 const score = (x: number | null) => (x === null ? '—' : String(Math.round(x)))
@@ -49,38 +50,38 @@ export function MoreReports({ firstMonth, periodKeys, periodLabel, stamp }: { fi
       <Panel
         id="profit-report"
         className="xl:col-span-2"
-        title="Profit and loss"
-        description={`${periodLabel}. Income received, minus expenses and teacher pay earned.`}
+        title={tr("Profit and loss")}
+        description={tr("{0}. Income received, minus expenses and teacher pay earned.", periodLabel)}
         actions={
           <ExportButtons
             size="sm"
             name="profit"
             date={stamp}
             rows={() => [
-              ['Month', 'Revenue (UZS)', 'Expenses (UZS)', 'Teacher pay (UZS)', 'Profit (UZS)'],
+              [tr("Month"), tr("Revenue (UZS)"), tr("Expenses (UZS)"), tr("Teacher pay (UZS)"), tr("Profit (UZS)")],
               ...profit.map((m) => [m.key, m.revenue, m.expenses, m.teacherPay, m.profit]),
-              ['Total', totals.revenue, totals.expenses, totals.teacherPay, totals.profit],
+              [tr("Total"), totals.revenue, totals.expenses, totals.teacherPay, totals.profit],
             ]}
           />
         }
         flush
       >
         <div className="grid grid-cols-2 gap-4 px-5 pb-4 sm:grid-cols-4">
-          <Stat label="Revenue" value={formatUZSCompact(totals.revenue)} />
-          <Stat label="Expenses" value={formatUZSCompact(totals.expenses)} />
-          <Stat label="Teacher pay" value={formatUZSCompact(totals.teacherPay)} />
-          <Stat label="Profit" value={formatUZSCompact(totals.profit)} tone={totals.profit < 0 ? 'bad' : 'good'} />
+          <Stat label={tr("Revenue")} value={formatUZSCompact(totals.revenue)} />
+          <Stat label={tr("Expenses")} value={formatUZSCompact(totals.expenses)} />
+          <Stat label={tr("Teacher pay")} value={formatUZSCompact(totals.teacherPay)} />
+          <Stat label={tr("Profit")} value={formatUZSCompact(totals.profit)} tone={totals.profit < 0 ? 'bad' : 'good'} />
         </div>
         <TableScroll>
           <table className="w-full min-w-[520px] text-sm">
-            <caption className="sr-only">Profit by month</caption>
+            <caption className="sr-only">{tr("Profit by month")}</caption>
             <thead className="border-y border-line bg-canvas">
               <tr>
-                <th scope="col" className={th}>Month</th>
-                <th scope="col" className={cn(th, 'text-right')}>Revenue</th>
-                <th scope="col" className={cn(th, 'text-right')}>Expenses</th>
-                <th scope="col" className={cn(th, 'text-right')}>Teacher pay</th>
-                <th scope="col" className={cn(th, 'text-right')}>Profit</th>
+                <th scope="col" className={th}>{tr("Month")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Revenue")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Expenses")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Teacher pay")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Profit")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -97,9 +98,9 @@ export function MoreReports({ firstMonth, periodKeys, periodLabel, stamp }: { fi
           </table>
         </TableScroll>
         <div className="border-t border-line px-5 py-3 text-sm">
-          <p className="mb-2 text-xs font-medium text-ink-muted">Expenses by category</p>
+          <p className="mb-2 text-xs font-medium text-ink-muted">{tr("Expenses by category")}</p>
           {categories.length === 0 ? (
-            <p className="text-ink-muted">No expenses recorded in this period.</p>
+            <p className="text-ink-muted">{tr("No expenses recorded in this period.")}</p>
           ) : (
             <ul className="flex flex-wrap gap-x-5 gap-y-1.5">
               {categories.map((c) => (
@@ -111,8 +112,7 @@ export function MoreReports({ firstMonth, periodKeys, periodLabel, stamp }: { fi
             </ul>
           )}
           <p className="mt-3 text-xs text-ink-muted">
-            Teacher pay is worked out from each teacher’s pay rule (see <Link to="/salaries" className="underline">Teacher salaries</Link>), so it isn’t entered again as an
-            expense. Refunded and pending payments don’t count as revenue.
+            {tr("Teacher pay is worked out from each teacher’s pay rule (see")}{' '}<Link to="/salaries" className="underline">{tr("Teacher salaries")}</Link>{tr("), so it isn’t entered again as an expense. Refunded and pending payments don’t count as revenue.")}
           </p>
         </div>
       </Panel>
@@ -120,26 +120,26 @@ export function MoreReports({ firstMonth, periodKeys, periodLabel, stamp }: { fi
       <Panel
         id="retention-report"
         className="xl:col-span-2"
-        title="Retention and leavers"
-        description={`${periodLabel}, from student status changes.`}
+        title={tr("Retention and leavers")}
+        description={tr("{0}, from student status changes.", periodLabel)}
         actions={
           <ExportButtons
             size="sm"
             name="leavers"
             date={stamp}
-            rows={() => [['Reason', 'Students who left'], ...kept.reasons.map((r) => [r.reason, r.count])]}
+            rows={() => [[tr("Reason"), tr("Students who left")], ...kept.reasons.map((r) => [r.reason, r.count])]}
           />
         }
       >
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat label="Kept" value={pct(kept.rate)} detail={`of ${formatNumber(kept.atStart)} studying at the start`} />
-          <Stat label="Left" value={formatNumber(kept.left)} tone={kept.left > 0 ? 'bad' : undefined} />
-          <Stat label="Graduated" value={formatNumber(kept.graduated)} />
-          <Stat label="Paused" value={formatNumber(kept.paused)} />
+          <Stat label={tr("Kept")} value={pct(kept.rate)} detail={tr("of {0} studying at the start", formatNumber(kept.atStart))} />
+          <Stat label={tr("Left")} value={formatNumber(kept.left)} tone={kept.left > 0 ? 'bad' : undefined} />
+          <Stat label={tr("Graduated")} value={formatNumber(kept.graduated)} />
+          <Stat label={tr("Paused")} value={formatNumber(kept.paused)} />
         </div>
-        <h3 className="mt-5 text-xs font-medium text-ink-muted">Why students left</h3>
+        <h3 className="mt-5 text-xs font-medium text-ink-muted">{tr("Why students left")}</h3>
         {kept.reasons.length === 0 ? (
-          <p className="mt-2 text-sm text-ink-muted">Nobody left in this period.</p>
+          <p className="mt-2 text-sm text-ink-muted">{tr("Nobody left in this period.")}</p>
         ) : (
           <ul className="mt-2 space-y-2 text-sm">
             {kept.reasons.map((r) => (
@@ -151,22 +151,22 @@ export function MoreReports({ firstMonth, periodKeys, periodLabel, stamp }: { fi
             ))}
           </ul>
         )}
-        <p className="mt-4 text-xs text-ink-muted">Reasons come from the list in Settings; anything written after the reason is left out here and shown on the student’s history.</p>
+        <p className="mt-4 text-xs text-ink-muted">{tr("Reasons come from the list in Settings; anything written after the reason is left out here and shown on the student’s history.")}</p>
       </Panel>
 
       <Panel
         id="ranking-report"
-        title="Rankings"
-        description={`${periodLabel}. Score = average of homework score, test % and attendance %; a part with no data is skipped.`}
+        title={tr("Rankings")}
+        description={tr("{0}. Score = average of homework score, test % and attendance %; a part with no data is skipped.", periodLabel)}
         actions={
           <>
             <RangeToggle
-              label="Rank"
+              label={tr("Rank")}
               value={rankBy}
               onChange={setRankBy}
               options={[
-                { value: 'students', label: 'Students' },
-                { value: 'groups', label: 'Groups' },
+                { value: 'students', label: tr("Students") },
+                { value: 'groups', label: tr("Groups") },
               ]}
             />
             <ExportButtons
@@ -176,11 +176,11 @@ export function MoreReports({ firstMonth, periodKeys, periodLabel, stamp }: { fi
               rows={() =>
                 rankBy === 'students'
                   ? [
-                      ['Place', 'Student', 'Group', 'Score', 'Homework avg', 'Homework scored', 'Test %', 'Tests', 'Attendance'],
+                      [tr("Place"), tr("Student"), tr("Group"), tr("Score"), tr("Homework avg"), tr("Homework scored"), tr("Test %"), tr("Tests"), tr("Attendance")],
                       ...students.map((s, i) => [i + 1, s.name, groupName.get(s.groupId ?? '') ?? '', s.score, s.homework === null ? '' : Math.round(s.homework), s.homeworkCount, s.tests === null ? '' : Math.round(s.tests), s.testCount, s.attendance === null ? '' : Math.round(s.attendance * 100) + '%']),
                     ]
                   : [
-                      ['Place', 'Group', 'Students', 'Score', 'Homework avg', 'Test %', 'Attendance'],
+                      [tr("Place"), tr("Group"), tr("Students"), tr("Score"), tr("Homework avg"), tr("Test %"), tr("Attendance")],
                       ...groups.map((g, i) => [i + 1, g.name, g.students, g.score ?? '', g.homework === null ? '' : Math.round(g.homework), g.tests === null ? '' : Math.round(g.tests), g.attendance === null ? '' : Math.round(g.attendance * 100) + '%']),
                     ]
               }
@@ -192,16 +192,16 @@ export function MoreReports({ firstMonth, periodKeys, periodLabel, stamp }: { fi
       >
         <TableScroll>
           <table className="w-full min-w-[640px] text-sm">
-            <caption className="sr-only">{rankBy === 'students' ? 'Student ranking' : 'Group ranking'}, best first</caption>
+            <caption className="sr-only">{rankBy === 'students' ? tr("Student ranking") : tr("Group ranking")}{tr(", best first")}</caption>
             <thead className="border-y border-line bg-canvas">
               <tr>
                 <th scope="col" className={cn(th, 'w-12 text-right')}>#</th>
-                <th scope="col" className={th}>{rankBy === 'students' ? 'Student' : 'Group'}</th>
-                {rankBy === 'students' ? <th scope="col" className={th}>Group</th> : <th scope="col" className={cn(th, 'text-right')}>Students</th>}
-                <th scope="col" className={cn(th, 'text-right')}>Homework</th>
-                <th scope="col" className={cn(th, 'text-right')}>Tests</th>
-                <th scope="col" className={cn(th, 'text-right')}>Attendance</th>
-                <th scope="col" className={cn(th, 'text-right')}>Score</th>
+                <th scope="col" className={th}>{rankBy === 'students' ? tr("Student") : tr("Group")}</th>
+                {rankBy === 'students' ? <th scope="col" className={th}>{tr("Group")}</th> : <th scope="col" className={cn(th, 'text-right')}>{tr("Students")}</th>}
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Homework")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Tests")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Attendance")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Score")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -236,21 +236,21 @@ export function MoreReports({ firstMonth, periodKeys, periodLabel, stamp }: { fi
           </table>
         </TableScroll>
         {rankBy === 'students' && students.length > 15 && (
-          <p className="border-t border-line px-5 py-2.5 text-xs text-ink-muted">Showing the top 15 of {students.length} ranked students. The export includes everyone.</p>
+          <p className="border-t border-line px-5 py-2.5 text-xs text-ink-muted">{tr("Showing the top 15 of")}{' '}{students.length}{' '}{tr("ranked students. The export includes everyone.")}</p>
         )}
       </Panel>
 
       <Panel
         id="teacher-report"
-        title="Teacher performance"
-        description={`${periodLabel}. Pay is for ${formatMonth(thisMonth)} so far.`}
+        title={tr("Teacher performance")}
+        description={tr("{0}. Pay is for {1} so far.", periodLabel, formatMonth(thisMonth))}
         actions={
           <ExportButtons
             size="sm"
             name="teacher-performance"
             date={stamp}
             rows={() => [
-              ['Teacher', 'Groups', 'Students', 'Attendance', 'Homework checked', 'Average test %', `Pay ${thisMonth} (UZS)`],
+              [tr("Teacher"), tr("Groups"), tr("Students"), tr("Attendance"), tr("Homework checked"), tr("Average test %"), tr("Pay {0} (UZS)", thisMonth)],
               ...teachers.map((t) => [t.name, t.groups, t.students, t.attendance === null ? '' : Math.round(t.attendance * 100) + '%', t.homeworkChecked === null ? '' : Math.round(t.homeworkChecked * 100) + '%', t.averageTest === null ? '' : Math.round(t.averageTest), t.pay]),
             ]}
           />
@@ -260,16 +260,16 @@ export function MoreReports({ firstMonth, periodKeys, periodLabel, stamp }: { fi
       >
         <TableScroll>
           <table className="w-full min-w-[720px] text-sm">
-            <caption className="sr-only">Teacher performance</caption>
+            <caption className="sr-only">{tr("Teacher performance")}</caption>
             <thead className="border-y border-line bg-canvas">
               <tr>
-                <th scope="col" className={th}>Teacher</th>
-                <th scope="col" className={cn(th, 'text-right')}>Groups</th>
-                <th scope="col" className={cn(th, 'text-right')}>Students</th>
-                <th scope="col" className={cn(th, 'text-right')}>Attendance</th>
-                <th scope="col" className={cn(th, 'text-right')}>Homework checked</th>
-                <th scope="col" className={cn(th, 'text-right')}>Average test</th>
-                <th scope="col" className={cn(th, 'text-right')}>Pay this month</th>
+                <th scope="col" className={th}>{tr("Teacher")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Groups")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Students")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Attendance")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Homework checked")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Average test")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Pay this month")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">

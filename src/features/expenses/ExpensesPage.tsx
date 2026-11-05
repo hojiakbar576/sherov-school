@@ -13,6 +13,7 @@ import { ExportButtons } from '../../components/ui/ExportButtons'
 import { addMonths, isValidISODate, monthKey, toISODate } from '../../lib/dates'
 import { formatDate, formatMonth, formatUZS, formatUZSCompact, listName, methodName } from '../../lib/format'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 const FILTERS = ['q', 'month', 'category'] as const
 
@@ -48,8 +49,8 @@ export function ExpensesPage() {
   return (
     <>
       <PageHeader
-        title="Expenses"
-        description={`Money going out${branch ? ` at ${branch.name}` : owner ? ' across the school' : ''}: rent, utilities, marketing and the rest. Teacher salaries are on the Salaries page.`}
+        title={tr("Expenses")}
+        description={tr("Money going out{0}: rent, utilities, marketing and the rest. Teacher salaries are on the Salaries page.", branch ? tr(" at {0}", branch.name) : owner ? tr(" across the school") : '')}
         actions={
           <>
             <ExportButtons
@@ -57,28 +58,28 @@ export function ExpensesPage() {
               date={toISODate(now)}
               disabled={rows.length === 0}
               rows={() => [
-                ['Date', 'Category', 'Description', 'Paid to', 'Branch', 'Method', 'Amount (UZS)'],
+                [tr("Date"), tr("Category"), tr("Description"), tr("Paid to"), tr("Branch"), tr("Method"), tr("Amount (UZS)")],
                 ...rows.map((e) => [e.date, listName(data.catalogs.expenseCategories, e.categoryId), e.description, e.paidTo, e.branchId ? branchName.get(e.branchId) : 'Whole school', methodName(data.catalogs, e.method), e.amount]),
               ]}
             />
             <Button variant="primary" onClick={() => setEditing('new')}>
               <Plus aria-hidden />
-              Add expense
+              {tr("Add expense")}
             </Button>
           </>
         }
       />
 
       <div className="mb-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <section aria-label="Month total" className="rounded-panel border border-line bg-surface px-5 py-4">
-          <p className="text-sm text-ink-muted">Spent in {formatMonth(month)}</p>
+        <section aria-label={tr("Month total")} className="rounded-panel border border-line bg-surface px-5 py-4">
+          <p className="text-sm text-ink-muted">{tr("Spent in")}{' '}{formatMonth(month)}</p>
           <p className="num mt-1 text-[1.75rem] font-semibold text-ink">{formatUZSCompact(monthTotal)}</p>
-          <p className="text-xs text-ink-muted">{lastMonthTotal ? `${formatUZSCompact(lastMonthTotal)} the month before` : 'Nothing recorded the month before'}</p>
+          <p className="text-xs text-ink-muted">{lastMonthTotal ? tr("{0} the month before", formatUZSCompact(lastMonthTotal)) : tr("Nothing recorded the month before")}</p>
         </section>
-        <section aria-label="By category" className="rounded-panel border border-line bg-surface px-5 py-4">
-          <p className="mb-2 text-sm text-ink-muted">By category</p>
+        <section aria-label={tr("By category")} className="rounded-panel border border-line bg-surface px-5 py-4">
+          <p className="mb-2 text-sm text-ink-muted">{tr("By category")}</p>
           {byCategory.length === 0 ? (
-            <p className="text-sm text-ink-faint">No expenses this month yet.</p>
+            <p className="text-sm text-ink-faint">{tr("No expenses this month yet.")}</p>
           ) : (
             <ul className="space-y-1.5">
               {byCategory.map(({ c, total: t }) => (
@@ -97,18 +98,18 @@ export function ExpensesPage() {
         </section>
       </div>
 
-      <section aria-label="Expenses" className="rounded-panel border border-line bg-surface">
+      <section aria-label={tr("Expenses")} className="rounded-panel border border-line bg-surface">
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:flex-wrap sm:items-center">
-          <SearchInput label="Search expenses" value={values.q} onChange={(v) => set('q', v)} placeholder="Description or who was paid" />
-          <Select aria-label="Month" value={month} onChange={(e) => set('month', e.target.value)} className="sm:w-44">
+          <SearchInput label={tr("Search expenses")} value={values.q} onChange={(v) => set('q', v)} placeholder={tr("Description or who was paid")} />
+          <Select aria-label={tr("Month")} value={month} onChange={(e) => set('month', e.target.value)} className="sm:w-44">
             {months.map((m) => (
               <option key={m} value={m}>
                 {formatMonth(m)}
               </option>
             ))}
           </Select>
-          <Select aria-label="Category" value={values.category} onChange={(e) => set('category', e.target.value)} className="sm:w-52">
-            <option value="">All categories</option>
+          <Select aria-label={tr("Category")} value={values.category} onChange={(e) => set('category', e.target.value)} className="sm:w-52">
+            <option value="">{tr("All categories")}</option>
             {data.catalogs.expenseCategories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -116,26 +117,26 @@ export function ExpensesPage() {
             ))}
           </Select>
           <p className="num text-sm text-ink-muted sm:ml-auto" aria-live="polite">
-            {rows.length} {rows.length === 1 ? 'expense' : 'expenses'} · {formatUZS(total)}
+            {rows.length} {rows.length === 1 ? tr("expense") : tr("expenses")} · {formatUZS(total)}
           </p>
         </div>
         {rows.length === 0 ? (
-          <EmptyState icon={ReceiptText} title="No expenses here" action={<Button onClick={() => setEditing('new')}>Add expense</Button>}>
-            Record rent, bills and purchases so the profit report is right.
+          <EmptyState icon={ReceiptText} title={tr("No expenses here")} action={<Button onClick={() => setEditing('new')}>{tr("Add expense")}</Button>}>
+            {tr("Record rent, bills and purchases so the profit report is right.")}
           </EmptyState>
         ) : (
           <TableScroll>
             <table className="w-full min-w-[720px] text-sm">
-              <caption className="sr-only">Expenses for {formatMonth(month)}</caption>
+              <caption className="sr-only">{tr("Expenses for")}{' '}{formatMonth(month)}</caption>
               <thead className="bg-canvas">
                 <tr className="border-b border-line">
-                  <th scope="col" className={th}>Date</th>
-                  <th scope="col" className={th}>What for</th>
-                  <th scope="col" className={th}>Category</th>
-                  {owner && <th scope="col" className={th}>Branch</th>}
-                  <th scope="col" className={th}>Method</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Amount</th>
-                  <th scope="col" className={th}><span className="sr-only">Actions</span></th>
+                  <th scope="col" className={th}>{tr("Date")}</th>
+                  <th scope="col" className={th}>{tr("What for")}</th>
+                  <th scope="col" className={th}>{tr("Category")}</th>
+                  {owner && <th scope="col" className={th}>{tr("Branch")}</th>}
+                  <th scope="col" className={th}>{tr("Method")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Amount")}</th>
+                  <th scope="col" className={th}><span className="sr-only">{tr("Actions")}</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -144,17 +145,17 @@ export function ExpensesPage() {
                     <td className={cn(td, 'num whitespace-nowrap')}>{formatDate(e.date)}</td>
                     <td className={td}>
                       <span className="block text-ink">{e.description}</span>
-                      {e.paidTo && <span className="block text-xs text-ink-muted">To {e.paidTo}</span>}
+                      {e.paidTo && <span className="block text-xs text-ink-muted">{tr("To")}{' '}{e.paidTo}</span>}
                     </td>
                     <td className={cn(td, 'text-ink-muted')}>{listName(data.catalogs.expenseCategories, e.categoryId)}</td>
-                    {owner && <td className={cn(td, 'text-ink-muted')}>{e.branchId ? branchName.get(e.branchId) : 'Whole school'}</td>}
+                    {owner && <td className={cn(td, 'text-ink-muted')}>{e.branchId ? branchName.get(e.branchId) : tr("Whole school")}</td>}
                     <td className={cn(td, 'text-ink-muted')}>{methodName(data.catalogs, e.method)}</td>
                     <td className={cn(td, 'num text-right font-medium whitespace-nowrap')}>{formatUZS(e.amount)}</td>
                     <td className={cn(td, 'py-1.5 text-right whitespace-nowrap')}>
-                      <IconButton label={`Edit ${e.description}`} onClick={() => setEditing(e)}>
+                      <IconButton label={tr("Edit {0}", e.description)} onClick={() => setEditing(e)}>
                         <Pencil />
                       </IconButton>
-                      <IconButton label={`Delete ${e.description}`} onClick={() => setDeleting(e)} className="hover:bg-danger-soft hover:text-danger">
+                      <IconButton label={tr("Delete {0}", e.description)} onClick={() => setDeleting(e)} className="hover:bg-danger-soft hover:text-danger">
                         <Trash2 />
                       </IconButton>
                     </td>
@@ -169,18 +170,17 @@ export function ExpensesPage() {
       <ExpenseDialog expense={editing} onClose={() => setEditing(null)} />
       <ConfirmDialog
         open={deleting !== null}
-        title="Delete this expense?"
-        confirmLabel="Delete expense"
+        title={tr("Delete this expense?")}
+        confirmLabel={tr("Delete expense")}
         onClose={() => setDeleting(null)}
         onConfirm={() => {
           if (!deleting) return
           actions.deleteExpense(deleting.id)
-          toast.show('Expense deleted.')
+          toast.show(tr("Expense deleted."))
         }}
       >
         <p>
-          {deleting?.description}, {formatUZS(deleting?.amount ?? 0)} on {deleting ? formatDate(deleting.date) : ''}. It will be removed from the reports. The deletion is kept in the
-          activity history.
+          {deleting?.description}, {formatUZS(deleting?.amount ?? 0)}{' '}{tr("on")}{' '}{deleting ? formatDate(deleting.date) : ''}{tr(". It will be removed from the reports. The deletion is kept in the activity history.")}
         </p>
       </ConfirmDialog>
     </>
@@ -189,7 +189,7 @@ export function ExpensesPage() {
 
 function ExpenseDialog({ expense, onClose }: { expense: Expense | 'new' | null; onClose: () => void }) {
   return (
-    <Dialog open={expense !== null} onClose={onClose} title={expense === 'new' ? 'Add expense' : 'Edit expense'}>
+    <Dialog open={expense !== null} onClose={onClose} title={expense === 'new' ? tr("Add expense") : tr("Edit expense")}>
       {expense !== null && <ExpenseForm expense={expense === 'new' ? undefined : expense} onClose={onClose} />}
     </Dialog>
   )
@@ -218,11 +218,11 @@ function ExpenseForm({ expense, onClose }: { expense?: Expense; onClose: () => v
     event.preventDefault()
     const e: Record<string, string> = {}
     const amount = Number(form.amount)
-    if (!Number.isFinite(amount) || amount <= 0) e.amount = 'Enter the amount in UZS.'
-    if (!isValidISODate(form.date)) e.date = 'Choose the date.'
-    else if (form.date > toISODate(now)) e.date = 'The date can’t be in the future.'
-    if (form.description.trim().length < 3) e.description = 'Say what it was for.'
-    if (!owner && !form.branchId) e.branchId = 'Choose a branch.'
+    if (!Number.isFinite(amount) || amount <= 0) e.amount = tr("Enter the amount in UZS.")
+    if (!isValidISODate(form.date)) e.date = tr("Choose the date.")
+    else if (form.date > toISODate(now)) e.date = tr("The date can’t be in the future.")
+    if (form.description.trim().length < 3) e.description = tr("Say what it was for.")
+    if (!owner && !form.branchId) e.branchId = tr("Choose a branch.")
     setErrors(e)
     if (Object.values(e).some(Boolean)) return
     const input = {
@@ -236,15 +236,15 @@ function ExpenseForm({ expense, onClose }: { expense?: Expense; onClose: () => v
     }
     if (expense) actions.updateExpense(expense.id, input)
     else actions.addExpense(input)
-    toast.show(expense ? 'Expense saved.' : `Expense of ${formatUZS(input.amount)} recorded.`)
+    toast.show(expense ? tr("Expense saved.") : tr("Expense of {0} recorded.", formatUZS(input.amount)))
     onClose()
   }
   return (
     <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
-      <Field label="What for" error={errors.description} className="sm:col-span-2">
-        {(p) => <Input {...p} autoFocus value={form.description} maxLength={120} onChange={(e) => set('description', e.target.value)} placeholder="e.g. Electricity for October" />}
+      <Field label={tr("What for")} error={errors.description} className="sm:col-span-2">
+        {(p) => <Input {...p} autoFocus value={form.description} maxLength={120} onChange={(e) => set('description', e.target.value)} placeholder={tr("e.g. Electricity for October")} />}
       </Field>
-      <Field label="Category">
+      <Field label={tr("Category")}>
         {(p) => (
           <Select {...p} value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
             {categories.map((c) => (
@@ -255,13 +255,13 @@ function ExpenseForm({ expense, onClose }: { expense?: Expense; onClose: () => v
           </Select>
         )}
       </Field>
-      <Field label="Amount (UZS)" error={errors.amount}>
+      <Field label={tr("Amount (UZS)")} error={errors.amount}>
         {(p) => <Input {...p} type="number" inputMode="numeric" min={0} step={10000} value={form.amount} onChange={(e) => set('amount', e.target.value)} />}
       </Field>
-      <Field label="Date" error={errors.date}>
+      <Field label={tr("Date")} error={errors.date}>
         {(p) => <Input {...p} type="date" max={toISODate(now)} value={form.date} onChange={(e) => set('date', e.target.value)} />}
       </Field>
-      <Field label="Paid with">
+      <Field label={tr("Paid with")}>
         {(p) => (
           <Select {...p} value={form.method} onChange={(e) => set('method', e.target.value)}>
             {methods.map((m) => (
@@ -272,14 +272,14 @@ function ExpenseForm({ expense, onClose }: { expense?: Expense; onClose: () => v
           </Select>
         )}
       </Field>
-      <Field label="Paid to" optional>
-        {(p) => <Input {...p} value={form.paidTo} maxLength={80} onChange={(e) => set('paidTo', e.target.value)} placeholder="e.g. Building owner" />}
+      <Field label={tr("Paid to")} optional>
+        {(p) => <Input {...p} value={form.paidTo} maxLength={80} onChange={(e) => set('paidTo', e.target.value)} placeholder={tr("e.g. Building owner")} />}
       </Field>
       {owner && (
-        <Field label="Branch" error={errors.branchId} hint="Whole school = shared costs, e.g. online ads for every branch.">
+        <Field label={tr("Branch")} error={errors.branchId} hint={tr("Whole school = shared costs, e.g. online ads for every branch.")}>
           {(p) => (
             <Select {...p} value={form.branchId} onChange={(e) => set('branchId', e.target.value)}>
-              <option value="">Whole school</option>
+              <option value="">{tr("Whole school")}</option>
               {owner.data.branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -290,9 +290,9 @@ function ExpenseForm({ expense, onClose }: { expense?: Expense; onClose: () => v
         </Field>
       )}
       <div className="flex justify-end gap-2 border-t border-line pt-4 sm:col-span-2">
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{tr("Cancel")}</Button>
         <Button type="submit" variant="primary">
-          {expense ? 'Save' : 'Add expense'}
+          {expense ? tr("Save") : tr("Add expense")}
         </Button>
       </div>
     </form>

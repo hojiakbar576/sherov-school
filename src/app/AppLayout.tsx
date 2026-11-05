@@ -7,6 +7,7 @@ import { DemoDataNote, Sidebar, SidebarNav, TeacherSidebar } from '../components
 import { IconButton } from '../components/ui/Button'
 import { useSchool } from '../data/school-context'
 import { cn } from '../lib/cn'
+import { tr } from '../i18n'
 
 const COLLAPSED_KEY = 'sherov-school:sidebar-collapsed'
 
@@ -33,7 +34,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
   return (
     <dialog
       ref={ref}
-      aria-label="Navigation"
+      aria-label={tr("Navigation")}
       onCancel={(event) => {
         event.preventDefault()
         onClose()
@@ -46,7 +47,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center justify-between px-5">
           <Logo onDark={!light} />
-          <IconButton label="Close navigation" onClick={onClose} className={cn('-mr-2', !light && 'text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-ink')}>
+          <IconButton label={tr("Close navigation")} onClick={onClose} className={cn('-mr-2', !light && 'text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-ink')}>
             <X />
           </IconButton>
         </div>
@@ -65,7 +66,7 @@ function LoadProblemBanner() {
       <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
       <p className="flex-1">{loadProblem}</p>
       <button type="button" onClick={dismissLoadProblem} className="font-medium text-warning hover:underline">
-        Dismiss
+        {tr("Dismiss")}
       </button>
     </div>
   )
@@ -96,7 +97,7 @@ export function AppLayout() {
   return (
     <div className="flex min-h-dvh">
       <a href="#main" className="sr-only z-50 rounded bg-surface px-3 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
-        Skip to content
+        {tr("Skip to content")}
       </a>
       {isTeacher ? <TeacherSidebar /> : <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />}
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />

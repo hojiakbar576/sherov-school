@@ -9,6 +9,7 @@ import { endTime, meetsOn } from '../../lib/schedule'
 import { cn } from '../../lib/cn'
 import { RatingCard, SalaryCard } from './TeacherCards'
 import { unmarkedLessons } from './teacher-metrics'
+import { tr } from '../../i18n'
 
 type Show = 'all' | 'today'
 
@@ -40,7 +41,7 @@ export function HomePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="sr-only">Home</h1>
+      <h1 className="sr-only">{tr("Home")}</h1>
       <p className="text-ink-muted">
         {greeting(now)}, <span className="font-medium text-ink">{user.fullName.split(' ')[0]}</span>
       </p>
@@ -56,7 +57,7 @@ export function HomePage() {
         <div role="status" className="rounded-2xl border border-warning-mark/40 bg-warning-soft px-4 py-3">
           <p className="flex items-center gap-2 text-sm font-medium text-ink">
             <CircleAlert aria-hidden className="size-5 text-warning" />
-            {pending.length === 1 ? 'One lesson still needs attendance' : `${pending.length} lessons still need attendance`}
+            {pending.length === 1 ? tr("One lesson still needs attendance") : tr("{0} lessons still need attendance", pending.length)}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {pending.slice(0, 6).map(({ group, date }) => (
@@ -74,8 +75,8 @@ export function HomePage() {
 
       <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">Groups</h2>
-          <div role="tablist" aria-label="Which groups" className="inline-flex rounded-2xl border border-line bg-surface p-1">
+          <h2 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">{tr("Groups")}</h2>
+          <div role="tablist" aria-label={tr("Which groups")} className="inline-flex rounded-2xl border border-line bg-surface p-1">
             {(['all', 'today'] as Show[]).map((v) => (
               <button
                 key={v}
@@ -85,7 +86,7 @@ export function HomePage() {
                 onClick={() => setShow(v)}
                 className={cn('h-10 rounded-xl px-5 text-sm font-medium', show === v ? 'bg-brand text-white' : 'text-ink hover:bg-subtle')}
               >
-                {v === 'all' ? 'All' : 'Today'}
+                {v === 'all' ? tr("All") : tr("Today")}
               </button>
             ))}
           </div>
@@ -94,18 +95,18 @@ export function HomePage() {
         <div className="rounded-3xl border border-line bg-canvas p-2 sm:p-3">
           {shown.length === 0 ? (
             <div className="rounded-2xl bg-surface">
-              <EmptyState icon={UsersRound} title={show === 'today' ? 'No lessons today' : 'No groups yet'}>
-                {show === 'today' ? 'None of your groups meet today.' : 'Your branch administrator assigns groups.'}
+              <EmptyState icon={UsersRound} title={show === 'today' ? tr("No lessons today") : tr("No groups yet")}>
+                {show === 'today' ? tr("None of your groups meet today.") : tr("Your branch administrator assigns groups.")}
               </EmptyState>
             </div>
           ) : (
             <>
               <div className="hidden grid-cols-[2fr_1.4fr_1fr_1fr_1.3fr] gap-4 rounded-2xl bg-surface px-6 py-4 text-sm text-ink-muted md:grid">
-                <span>Group name</span>
-                <span>Course</span>
-                <span className="text-center">Students</span>
-                <span className="text-center">Room</span>
-                <span className="text-right">{show === 'today' ? 'Today' : 'Days and time'}</span>
+                <span>{tr("Group name")}</span>
+                <span>{tr("Course")}</span>
+                <span className="text-center">{tr("Students")}</span>
+                <span className="text-center">{tr("Room")}</span>
+                <span className="text-right">{show === 'today' ? tr("Today") : tr("Days and time")}</span>
               </div>
               <ul className="mt-2 space-y-2">
                 {shown.map(({ group, students, saved, today: meetsToday }) => (
@@ -123,7 +124,7 @@ export function HomePage() {
                       </span>
                       <span className="hidden text-sm text-ink-muted uppercase md:block">{group.subject}</span>
                       <span className="num text-sm text-ink-muted md:text-center md:text-ink">
-                        <span className="md:hidden">{students} students</span>
+                        <span className="md:hidden">{students}{' '}{tr("students")}</span>
                         <span className="hidden md:inline">{students}</span>
                       </span>
                       <span className="hidden text-center text-sm md:block">{group.room.replace(/^Room\s*/, '')}</span>
@@ -137,7 +138,7 @@ export function HomePage() {
                               saved ? 'bg-success-soft text-success' : 'bg-brand text-white hover:bg-brand-hover',
                             )}
                           >
-                            {saved ? `✓ Marked · ${group.startTime}` : `Mark lesson · ${group.startTime}`}
+                            {saved ? tr("✓ Marked · {0}", group.startTime) : tr("Mark lesson · {0}", group.startTime)}
                           </Link>
                         ) : (
                           <span className="num">

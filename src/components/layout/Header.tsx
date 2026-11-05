@@ -11,6 +11,7 @@ import { HeaderSearch } from './HeaderSearch'
 import { NotificationsMenu } from './NotificationsMenu'
 import { ProfileMenu } from './ProfileMenu'
 import { BranchSwitcher } from './BranchSwitcher'
+import { tr } from '../../i18n'
 
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { pathname } = useLocation()
@@ -26,7 +27,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       )}
     >
       <div className="flex h-16 items-center gap-2 px-4 sm:gap-3 lg:px-8">
-        <IconButton label="Open navigation" onClick={onOpenMenu} className="-ml-1 lg:hidden">
+        <IconButton label={tr("Open navigation")} onClick={onOpenMenu} className="-ml-1 lg:hidden">
           <Menu />
         </IconButton>
 
@@ -43,11 +44,11 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           {isTeacher && branch && (
             <span className="mr-2 hidden items-center gap-2 rounded-xl bg-canvas px-3 py-2 text-sm font-medium text-ink lg:inline-flex">
               <span aria-hidden className="size-2 rounded-full bg-brand" />
-              {branch.name} branch
+              {branch.name}{' '}{tr("branch")}
             </span>
           )}
           <BranchSwitcher />
-          <IconButton label={mobileSearch ? 'Close search' : 'Search'} onClick={() => setMobileSearch((v) => !v)} className="md:hidden">
+          <IconButton label={mobileSearch ? tr("Close search") : tr("Search")} onClick={() => setMobileSearch((v) => !v)} className="md:hidden">
             {mobileSearch ? <X /> : <Search />}
           </IconButton>
           <NotificationsMenu />

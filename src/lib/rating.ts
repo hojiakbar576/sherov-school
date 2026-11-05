@@ -8,6 +8,7 @@
 import type { ISODate, MonthKey, SchoolData } from '../types'
 import { daysInMonth, toISODate } from './dates'
 import { meetsOn } from './schedule'
+import { tr } from '../i18n'
 
 export const RATING_PARTS = ['lessonsRecorded', 'studentAttendance', 'homeworkChecked', 'gradingActivity', 'groupFill'] as const
 export type RatingPart = (typeof RATING_PARTS)[number]
@@ -22,11 +23,11 @@ export const RATING_WEIGHTS: Record<RatingPart, number> = {
 }
 
 export const RATING_PART_LABEL: Record<RatingPart, { title: string; detail: string }> = {
-  lessonsRecorded: { title: 'Lessons recorded', detail: 'Lessons with attendance saved, out of all lessons held' },
-  studentAttendance: { title: 'Student attendance', detail: 'Students who came to class (late counts as came)' },
-  homeworkChecked: { title: 'Homework checked', detail: 'Handed-in homework that you scored' },
-  gradingActivity: { title: 'Students graded', detail: 'Students present who got a 1–5 grade in the lesson' },
-  groupFill: { title: 'Groups filled', detail: 'Active students out of the seats in your groups' },
+  lessonsRecorded: { title: tr("Lessons recorded"), detail: tr("Lessons with attendance saved, out of all lessons held") },
+  studentAttendance: { title: tr("Student attendance"), detail: tr("Students who came to class (late counts as came)") },
+  homeworkChecked: { title: tr("Homework checked"), detail: tr("Handed-in homework that you scored") },
+  gradingActivity: { title: tr("Students graded"), detail: tr("Students present who got a 1–5 grade in the lesson") },
+  groupFill: { title: tr("Groups filled"), detail: tr("Active students out of the seats in your groups") },
 }
 
 /** How many teachers each month are in the bonus places. */

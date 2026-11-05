@@ -28,12 +28,13 @@ import { PerformanceBadge, ResultStatusBadge } from './LearningBadges'
 import { rateTone } from './teacher-metrics'
 import { GradeChip } from './group/GradeChip'
 import { formatAverage, formatScoreAsGrade, scoreToGrade } from './group/grade-style'
+import { plural, tr } from '../../i18n'
 
 const TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'attendance', label: 'Attendance' },
-  { id: 'homework', label: 'Homework & performance' },
-  { id: 'notes', label: 'Notes' },
+  { id: 'overview', label: tr("Overview") },
+  { id: 'attendance', label: tr("Attendance") },
+  { id: 'homework', label: tr("Homework & performance") },
+  { id: 'notes', label: tr("Notes") },
 ] as const
 type TabId = (typeof TABS)[number]['id']
 
@@ -49,8 +50,8 @@ export function StudentProfilePage() {
   if (!student || !performance) {
     return (
       <div className="rounded-panel border border-line bg-surface">
-        <EmptyState icon={Lock} title="This student isn’t in your groups" action={<ButtonLink to="/teacher/students">Back to my students</ButtonLink>}>
-          You can only open profiles of students in groups you teach.
+        <EmptyState icon={Lock} title={tr("This student isn’t in your groups")} action={<ButtonLink to="/teacher/students">{tr("Back to my students")}</ButtonLink>}>
+          {tr("You can only open profiles of students in groups you teach.")}
         </EmptyState>
       </div>
     )
@@ -65,7 +66,7 @@ export function StudentProfilePage() {
       <div>
         <Link to="/teacher/students" className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink">
           <ChevronLeft aria-hidden className="size-4" />
-          My students
+          {tr("My students")}
         </Link>
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <Avatar name={student.fullName} />
@@ -79,10 +80,8 @@ export function StudentProfilePage() {
                 <Link to={`/teacher/groups/${group.id}`} className="hover:text-ink hover:underline">
                   {group.name}
                 </Link>
-              ) : (
-                'No group'
-              )}
-              {student.dateOfBirth && ` · ${ageOn(student.dateOfBirth, now)} years old`}
+              ) : (tr("No group"))}
+              {student.dateOfBirth && tr(" · {0} years old", ageOn(student.dateOfBirth, now))}
             </p>
           </div>
         </div>
@@ -134,7 +133,7 @@ function Tabs({ value, onChange, children }: { value: TabId; onChange: (tab: Tab
   }
   return (
     <div>
-      <div role="tablist" aria-label="Student profile" className="-mx-4 flex gap-1 overflow-x-auto border-b border-line px-4 lg:mx-0 lg:px-0">
+      <div role="tablist" aria-label={tr("Student profile")} className="-mx-4 flex gap-1 overflow-x-auto border-b border-line px-4 lg:mx-0 lg:px-0">
         {TABS.map((t, index) => (
           <button
             key={t.id}
@@ -183,10 +182,10 @@ const score = (n: number | null) => formatScoreAsGrade(n)
 
 function SummaryStrip({ performance: p }: { performance: PerformanceSummary }) {
   const items: [string, ReactNode, string][] = [
-    ['Attendance', p.attendanceRate === null ? '—' : formatPercent(p.attendanceRate), 'Of all marked classes'],
-    ['Homework average', score(p.averageScore), p.evaluated ? `Average grade out of 5, from ${p.evaluated} graded` : 'Nothing graded yet'],
-    ['Homework completed', p.completionRate === null ? '—' : formatPercent(p.completionRate), p.pastDeadline ? `${p.pastDeadline - p.missing} of ${p.pastDeadline} past their deadline` : 'No deadlines passed yet'],
-    ['Recent trend', p.trend ? trendText[p.trend] : '—', p.trend ? 'Last 3 grades against the 3 before' : 'Needs at least 4 grades'],
+    [tr("Attendance"), p.attendanceRate === null ? '—' : formatPercent(p.attendanceRate), tr("Of all marked classes")],
+    [tr("Homework average"), score(p.averageScore), p.evaluated ? tr("Average grade out of 5, from {0} graded", p.evaluated) : tr("Nothing graded yet")],
+    [tr("Homework completed"), p.completionRate === null ? '—' : formatPercent(p.completionRate), p.pastDeadline ? tr("{0} of {1} past their deadline", p.pastDeadline - p.missing, p.pastDeadline) : tr("No deadlines passed yet")],
+    [tr("Recent trend"), p.trend ? trendText[p.trend] : '—', p.trend ? tr("Last 3 grades against the 3 before") : tr("Needs at least 4 grades")],
   ]
   return (
     <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line lg:grid-cols-4">
@@ -212,34 +211,32 @@ function OverviewTab({ student, performance }: { student: Student; performance: 
 
   return (
     <div className="grid items-start gap-6 xl:grid-cols-3">
-      <Panel title="Personal information">
+      <Panel title={tr("Personal information")}>
         <Details
           rows={[
-            ['Full name', student.fullName],
-            ['Date of birth', student.dateOfBirth && `${formatDate(student.dateOfBirth)} (age ${ageOn(student.dateOfBirth, now)})`],
-            ['Gender', student.gender && genderLabel[student.gender]],
+            [tr("Full name"), student.fullName],
+            [tr("Date of birth"), student.dateOfBirth && `${formatDate(student.dateOfBirth)} (${tr('age {0}', ageOn(student.dateOfBirth, now))})`],
+            [tr("Gender"), student.gender && genderLabel[student.gender]],
             [
-              'Student phone',
+              tr("Student phone"),
               student.phone && (
                 <a key="phone" href={telHref(student.phone)} className="num hover:underline">
                   {student.phone}
                 </a>
               ),
             ],
-            ['Address', student.address],
-            ['Enrolled', formatDate(student.enrolledOn)],
-            ['Status', studentStatusLabel[student.status]],
+            [tr("Address"), student.address],
+            [tr("Enrolled"), formatDate(student.enrolledOn)],
+            [tr("Status"), studentStatusLabel[student.status]],
           ]}
         />
       </Panel>
 
-      <Panel title="Parents and guardians" description={student.guardians.length > 1 ? 'Main contact first.' : undefined}>
+      <Panel title={tr("Parents and guardians")} description={student.guardians.length > 1 ? tr("Main contact first.") : undefined}>
         {student.guardians.length === 0 ? (
           <p className="text-sm text-ink-muted">
-            No parent or guardian on record.{' '}
-            {student.dateOfBirth && ageOn(student.dateOfBirth, now) >= 18
-              ? 'As an adult student, they are their own contact (see personal information).'
-              : 'Ask the branch administrator to add one.'}
+            {tr("No parent or guardian on record.")}{' '}
+            {student.dateOfBirth && ageOn(student.dateOfBirth, now) >= 18 ? tr("As an adult student, they are their own contact (see personal information).") : tr("Ask the branch administrator to add one.")}
           </p>
         ) : (
           <ul className="divide-y divide-divider">
@@ -248,7 +245,7 @@ function OverviewTab({ student, performance }: { student: Student; performance: 
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-medium text-ink">{g.fullName}</p>
                   <Badge tone="neutral">{guardianRelationshipLabel[g.relationship]}</Badge>
-                  {index === 0 && student.guardians.length > 1 && <span className="text-xs text-ink-muted">Main contact</span>}
+                  {index === 0 && student.guardians.length > 1 && <span className="text-xs text-ink-muted">{tr("Main contact")}</span>}
                 </div>
                 <a href={telHref(g.phone)} className="num mt-1 flex items-center gap-1.5 text-sm text-ink hover:underline">
                   <Phone aria-hidden className="size-3.5 text-ink-faint" />
@@ -257,7 +254,7 @@ function OverviewTab({ student, performance }: { student: Student; performance: 
                 {g.altPhone && (
                   <a href={telHref(g.altPhone)} className="num mt-0.5 flex items-center gap-1.5 text-sm text-ink-muted hover:underline">
                     <Phone aria-hidden className="size-3.5 text-ink-faint" />
-                    {g.altPhone} <span className="text-xs">(additional)</span>
+                    {g.altPhone} <span className="text-xs">{tr("(additional)")}</span>
                   </a>
                 )}
               </li>
@@ -266,16 +263,16 @@ function OverviewTab({ student, performance }: { student: Student; performance: 
         )}
       </Panel>
 
-      <Panel title="Academic information">
+      <Panel title={tr("Academic information")}>
         <Details
           rows={[
-            ['Group', group?.name],
-            ['Course', group?.subject],
-            ['Teacher', teacher?.fullName ?? user.fullName],
-            ['Branch', branch?.name],
-            ['Enrolled', formatDate(student.enrolledOn)],
+            [tr("Group"), group?.name],
+            [tr("Course"), group?.subject],
+            [tr("Teacher"), teacher?.fullName ?? user.fullName],
+            [tr("Branch"), branch?.name],
+            [tr("Enrolled"), formatDate(student.enrolledOn)],
             [
-              'Progress',
+              tr("Progress"),
               <span key="progress" className="flex flex-wrap items-center gap-2">
                 <PerformanceBadge label={performance.label} />
                 {performance.trend && <span className="text-xs text-ink-muted">{trendText[performance.trend]}</span>}
@@ -283,7 +280,7 @@ function OverviewTab({ student, performance }: { student: Student; performance: 
             ],
           ]}
         />
-        <p className="mt-3 text-xs text-ink-muted">Progress is an indicative label from homework grades only, not a ranking.</p>
+        <p className="mt-3 text-xs text-ink-muted">{tr("Progress is an indicative label from homework grades only, not a ranking.")}</p>
       </Panel>
     </div>
   )
@@ -309,25 +306,25 @@ function AttendanceTab({ student }: { student: Student }) {
   return (
     <div className="grid items-start gap-6 xl:grid-cols-12">
       <div className="space-y-6 xl:col-span-4">
-        <Panel title="Summary">
+        <Panel title={tr("Summary")}>
           <Details
             rows={[
-              ['Attendance', <span key="rate" className={cn('num font-semibold', rateTone(rate))}>{rate === null ? '—' : formatPercent(rate)}</span>],
-              ['Classes attended', <span key="att" className="num">{attended} of {history.length}{late ? `, ${late} late` : ''}</span>],
-              ['Classes missed', <span key="miss" className="num">{absences.length}</span>],
-              ['Average lesson grade', <span key="grade" className="num font-semibold">{formatAverage(avgGrade)}{lessonGrades.length ? ` (${lessonGrades.length} grades)` : ''}</span>],
+              [tr("Attendance"), <span key="rate" className={cn('num font-semibold', rateTone(rate))}>{rate === null ? '—' : formatPercent(rate)}</span>],
+              [tr("Classes attended"), <span key="att" className="num">{attended}{' '}{tr("of")}{' '}{history.length}{late ? tr(", {0} late", late) : ''}</span>],
+              [tr("Classes missed"), <span key="miss" className="num">{absences.length}</span>],
+              [tr("Average lesson grade"), <span key="grade" className="num font-semibold">{formatAverage(avgGrade)}{lessonGrades.length ? tr(" ({0} grades)", lessonGrades.length) : ''}</span>],
             ]}
           />
         </Panel>
-        <Panel title="Recent absences" flush>
+        <Panel title={tr("Recent absences")} flush>
           {absences.length === 0 ? (
-            <p className="px-5 pb-5 text-sm text-ink-muted">No absences recorded.</p>
+            <p className="px-5 pb-5 text-sm text-ink-muted">{tr("No absences recorded.")}</p>
           ) : (
             <ul className="divide-y divide-line border-t border-line">
               {absences.slice(0, 5).map((a) => (
                 <li key={`${a.groupId}-${a.date}`} className="px-5 py-2.5 text-sm">
                   <p className="num font-medium text-ink">{formatDate(a.date)}</p>
-                  <p className="text-ink-muted">{noteFor(a.groupId, a.date) ?? 'No reason noted'}</p>
+                  <p className="text-ink-muted">{noteFor(a.groupId, a.date) ?? tr("No reason noted")}</p>
                 </li>
               ))}
             </ul>
@@ -335,20 +332,20 @@ function AttendanceTab({ student }: { student: Student }) {
         </Panel>
       </div>
 
-      <Panel title="Attendance history" description="Newest first." className="xl:col-span-8" flush>
+      <Panel title={tr("Attendance history")} description={tr("Newest first.")} className="xl:col-span-8" flush>
         {history.length === 0 ? (
-          <EmptyState icon={History} title="No attendance recorded yet" />
+          <EmptyState icon={History} title={tr("No attendance recorded yet")} />
         ) : (
           <>
             <TableScroll>
               <table className="w-full min-w-[480px] text-sm">
                 <thead className="border-y border-line bg-canvas">
                   <tr>
-                    <th scope="col" className={th}>Date</th>
-                    <th scope="col" className={th}>Group</th>
-                    <th scope="col" className={th}>Mark</th>
-                    <th scope="col" className={th}>Grade</th>
-                    <th scope="col" className={th}>Note</th>
+                    <th scope="col" className={th}>{tr("Date")}</th>
+                    <th scope="col" className={th}>{tr("Group")}</th>
+                    <th scope="col" className={th}>{tr("Mark")}</th>
+                    <th scope="col" className={th}>{tr("Grade")}</th>
+                    <th scope="col" className={th}>{tr("Note")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -367,7 +364,7 @@ function AttendanceTab({ student }: { student: Student }) {
             {history.length > 15 && (
               <div className="border-t border-line px-5 py-3">
                 <Button size="sm" variant="ghost" onClick={() => setShowAll((v) => !v)}>
-                  {showAll ? 'Show fewer' : `Show all ${history.length} classes`}
+                  {showAll ? tr("Show fewer") : tr("Show all {0} classes", history.length)}
                 </Button>
               </div>
             )}
@@ -389,19 +386,19 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
     <div className="space-y-6">
       <div className="grid items-start gap-6 xl:grid-cols-12">
         <Panel
-          title="Performance overview"
-          description="Indicative only. Each number stands on its own; nothing here is a final ranking."
+          title={tr("Performance overview")}
+          description={tr("Indicative only. Each number stands on its own; nothing here is a final ranking.")}
           className="xl:col-span-7"
         >
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
             {(
               [
-                ['Average grade', score(p.averageScore)],
-                ['Completion', p.completionRate === null ? '—' : formatPercent(p.completionRate)],
-                ['Attendance', p.attendanceRate === null ? '—' : formatPercent(p.attendanceRate)],
-                ['Assigned', String(p.assigned)],
-                ['Submitted', `${p.submitted}${p.late ? ` (${p.late} late)` : ''}`],
-                ['Graded', String(p.evaluated)],
+                [tr("Average grade"), score(p.averageScore)],
+                [tr("Completion"), p.completionRate === null ? '—' : formatPercent(p.completionRate)],
+                [tr("Attendance"), p.attendanceRate === null ? '—' : formatPercent(p.attendanceRate)],
+                [tr("Assigned"), String(p.assigned)],
+                [tr("Submitted"), `${p.submitted}${p.late ? ` (${p.late} late)` : ''}`],
+                [tr("Graded"), String(p.evaluated)],
               ] as const
             ).map(([label, value]) => (
               <div key={label}>
@@ -411,21 +408,20 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
             ))}
           </dl>
           <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4">
-            <span className="text-sm text-ink-muted">Homework level</span>
+            <span className="text-sm text-ink-muted">{tr("Homework level")}</span>
             <PerformanceBadge label={p.label} />
             {p.trend && <span className="text-sm text-ink-muted">· {trendText[p.trend]}</span>}
           </div>
           <p className="mt-2 text-xs text-ink-muted">
-            Level comes from the average homework grade only: {formatScoreAsGrade(LABEL_THRESHOLDS.excellent)}+ excellent, {formatScoreAsGrade(LABEL_THRESHOLDS.good)}+ good, lower needs
-            improvement.
+            {tr("Level comes from the average homework grade only:")}{' '}{formatScoreAsGrade(LABEL_THRESHOLDS.excellent)}{tr("+ excellent,")}{' '}{formatScoreAsGrade(LABEL_THRESHOLDS.good)}{tr("+ good, lower needs improvement.")}
           </p>
         </Panel>
 
-        <Panel title="Recent grades" description={recentScores.length ? 'Homework, oldest to newest.' : undefined} className="xl:col-span-5">
+        <Panel title={tr("Recent grades")} description={recentScores.length ? tr("Homework, oldest to newest.") : undefined} className="xl:col-span-5">
           {recentScores.length === 0 ? (
-            <p className="text-sm text-ink-muted">No graded homework yet.</p>
+            <p className="text-sm text-ink-muted">{tr("No graded homework yet.")}</p>
           ) : (
-            <ol className="flex h-36 items-end gap-2" aria-label="Recent homework grades">
+            <ol className="flex h-36 items-end gap-2" aria-label={tr("Recent homework grades")}>
               {recentScores.map((s) => (
                 <li key={s.homework.id} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${s.homework.title}: ${scoreToGrade(s.score)}`}>
                   <span className="num text-xs font-medium text-ink">{scoreToGrade(s.score)}</span>
@@ -435,7 +431,7 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
                     style={{ height: `${Math.max(4, s.score)}%` }}
                   />
                   <span className="sr-only">
-                    {s.homework.title}, due {formatDate(s.homework.dueDate)}: grade {scoreToGrade(s.score)}
+                    {s.homework.title}{tr(", due")}{' '}{formatDate(s.homework.dueDate)}{tr(": grade")}{' '}{scoreToGrade(s.score)}
                   </span>
                 </li>
               ))}
@@ -445,13 +441,13 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
       </div>
 
       {p.recentFeedback.length > 0 && (
-        <Panel title="Recent teacher feedback">
+        <Panel title={tr("Recent teacher feedback")}>
           <ul className="space-y-3">
             {p.recentFeedback.map(({ homework, evaluation }) => (
               <li key={homework.id} className="border-l-2 border-brand-muted pl-3">
                 <p className="text-sm text-ink">“{evaluation.feedback}”</p>
                 <p className="num mt-0.5 text-xs text-ink-muted">
-                  {homework.title} · grade {scoreToGrade(evaluation.score)} · {formatDate(evaluation.evaluatedAt.slice(0, 10))}
+                  {homework.title}{' '}{tr("· grade")}{' '}{scoreToGrade(evaluation.score)} · {formatDate(evaluation.evaluatedAt.slice(0, 10))}
                 </p>
               </li>
             ))}
@@ -459,19 +455,19 @@ function HomeworkTab({ student, performance: p }: { student: Student; performanc
         </Panel>
       )}
 
-      <Panel title="Homework history" description={`${p.assigned} assignments, newest first.`} flush>
+      <Panel title={tr("Homework history")} description={tr("{0} assignments, newest first.", p.assigned)} flush>
         {lines.length === 0 ? (
-          <EmptyState icon={NotebookPen} title="No homework set yet" />
+          <EmptyState icon={NotebookPen} title={tr("No homework set yet")} />
         ) : (
           <TableScroll>
             <table className="w-full min-w-[680px] text-sm">
               <thead className="border-y border-line bg-canvas">
                 <tr>
-                  <th scope="col" className={th}>Homework</th>
-                  <th scope="col" className={th}>Due</th>
-                  <th scope="col" className={th}>Status</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Grade</th>
-                  <th scope="col" className={th}>Feedback</th>
+                  <th scope="col" className={th}>{tr("Homework")}</th>
+                  <th scope="col" className={th}>{tr("Due")}</th>
+                  <th scope="col" className={th}>{tr("Status")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Grade")}</th>
+                  <th scope="col" className={th}>{tr("Feedback")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -517,19 +513,19 @@ function NotesTab({ student }: { student: Student }) {
       return
     }
     if (!actions.addStudentNote(student.id, text, important)) {
-      toast.show('The note wasn’t saved: you can only add notes for your own students.', 'error')
+      toast.show(tr("The note wasn’t saved: you can only add notes for your own students."), 'error')
       return
     }
     setText('')
     setImportant(false)
-    toast.show('Note added.')
+    toast.show(tr("Note added."))
   }
 
   return (
     <div className="grid items-start gap-6 xl:grid-cols-12">
-      <Panel title="Add a note" description="Visible to staff only, never to parents." className="xl:col-span-5">
+      <Panel title={tr("Add a note")} description={tr("Visible to staff only, never to parents.")} className="xl:col-span-5">
         <form onSubmit={submit} noValidate className="space-y-4">
-          <Field label="Note" error={error ?? undefined}>
+          <Field label={tr("Note")} error={error ?? undefined}>
             {(control) => (
               <Textarea
                 {...control}
@@ -540,29 +536,29 @@ function NotesTab({ student }: { student: Student }) {
                   setText(e.target.value)
                   setError(null)
                 }}
-                placeholder="e.g. Needs more speaking practice; parents asked for a call after the mid-term."
+                placeholder={tr("e.g. Needs more speaking practice; parents asked for a call after the mid-term.")}
               />
             )}
           </Field>
           <label className="flex items-start gap-2.5 text-sm text-ink">
             <input type="checkbox" checked={important} onChange={(e) => setImportant(e.target.checked)} className="mt-0.5 size-4 accent-[var(--color-brand)]" />
             <span>
-              Important remark
-              <span className="block text-xs text-ink-muted">Shown at the top of the profile, e.g. health or safety information.</span>
+              {tr("Important remark")}
+              <span className="block text-xs text-ink-muted">{tr("Shown at the top of the profile, e.g. health or safety information.")}</span>
             </span>
           </label>
           <div className="flex justify-end">
             <Button type="submit" variant="primary">
-              Add note
+              {tr("Add note")}
             </Button>
           </div>
         </form>
       </Panel>
 
-      <Panel title="Notes" description={notes.length ? `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}` : undefined} className="xl:col-span-7" flush>
+      <Panel title={tr("Notes")} description={notes.length ? `${notes.length} ${plural(notes.length, 'note', 'notes')}` : undefined} className="xl:col-span-7" flush>
         {notes.length === 0 ? (
-          <EmptyState icon={StickyNote} title="No notes yet">
-            Notes help you and the administrator remember what matters about this student.
+          <EmptyState icon={StickyNote} title={tr("No notes yet")}>
+            {tr("Notes help you and the administrator remember what matters about this student.")}
           </EmptyState>
         ) : (
           <ul className="divide-y divide-line border-t border-line">
@@ -571,7 +567,7 @@ function NotesTab({ student }: { student: Student }) {
                 <div className="min-w-0 flex-1">
                   {n.important && (
                     <Badge tone="warning" className="mb-1">
-                      Important
+                      {tr("Important")}
                     </Badge>
                   )}
                   <p className="text-sm whitespace-pre-line text-ink">{n.text}</p>
@@ -581,9 +577,9 @@ function NotesTab({ student }: { student: Student }) {
                 </div>
                 {n.authorId === user.id && (
                   <IconButton
-                    label="Delete note"
+                    label={tr("Delete note")}
                     onClick={() => {
-                      if (actions.deleteStudentNote(n.id)) toast.show('Note deleted.')
+                      if (actions.deleteStudentNote(n.id)) toast.show(tr("Note deleted."))
                     }}
                     className="hover:bg-danger-soft hover:text-danger"
                   >

@@ -11,6 +11,7 @@ import { Field, Input } from '../../components/ui/Field'
 import { formatPercent, formatPhone, formatUZSCompact, isValidPhone } from '../../lib/format'
 import { branchSummaries } from '../../lib/owner'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 /** Each branch: who runs it, its size and this month's numbers, and a way into its pages. */
 export function OwnerBranchesPage() {
@@ -22,7 +23,7 @@ export function OwnerBranchesPage() {
 
   return (
     <>
-      <PageHeader title="Branches" description="Each branch is run by its administrator. Open a branch to see and change its students, groups, payments and more." />
+      <PageHeader title={tr("Branches")} description={tr("Each branch is run by its administrator. Open a branch to see and change its students, groups, payments and more.")} />
       <ul className="grid gap-6 xl:grid-cols-3">
         {rows.map((r) => {
           const admin = data.users.find((u) => u.role === 'admin' && u.branchId === r.branch.id)
@@ -42,27 +43,27 @@ export function OwnerBranchesPage() {
                     {r.branch.phone}
                   </p>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setEditing(r.branch)} aria-label={`Edit ${r.branch.name} details`}>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(r.branch)} aria-label={tr("Edit {0} details", r.branch.name)}>
                   <Pencil aria-hidden />
                 </Button>
               </div>
               <p className="px-5 text-sm">
-                <span className="text-ink-muted">Administrator: </span>
-                <span className="font-medium text-ink">{admin?.fullName ?? 'None'}</span>
+                <span className="text-ink-muted">{tr("Administrator:")}{' '}</span>
+                <span className="font-medium text-ink">{admin?.fullName ?? tr("None")}</span>
                 {admin && <span className="text-ink-muted"> ({admin.username})</span>}
               </p>
               <dl className="num mt-4 grid grid-cols-3 gap-px border-y border-line bg-line">
                 {(
                   [
-                    ['Students', String(r.activeStudents)],
-                    ['Teachers', String(r.activeTeachers)],
-                    ['Groups', `${r.runningGroups}`],
-                    ['Seats filled', r.fill === null ? '—' : formatPercent(r.fill)],
-                    ['Rooms', String(rooms)],
-                    ['Attendance', r.attendanceRate === null ? '—' : formatPercent(r.attendanceRate)],
-                    ['Collected', formatUZSCompact(r.revenueThisMonth)],
-                    ['Overdue', formatUZSCompact(r.overdue)],
-                    ['Enquiries', `${r.openLeads} open`],
+                    [tr("Students"), String(r.activeStudents)],
+                    [tr("Teachers"), String(r.activeTeachers)],
+                    [tr("Groups"), `${r.runningGroups}`],
+                    [tr("Seats filled"), r.fill === null ? '—' : formatPercent(r.fill)],
+                    [tr("Rooms"), String(rooms)],
+                    [tr("Attendance"), r.attendanceRate === null ? '—' : formatPercent(r.attendanceRate)],
+                    [tr("Collected"), formatUZSCompact(r.revenueThisMonth)],
+                    [tr("Overdue"), formatUZSCompact(r.overdue)],
+                    [tr("Enquiries"), tr("{0} open", r.openLeads)],
                   ] as const
                 ).map(([label, value]) => (
                   <div key={label} className="bg-surface px-4 py-3">
@@ -72,7 +73,7 @@ export function OwnerBranchesPage() {
                 ))}
               </dl>
               <div className="mt-auto flex flex-wrap items-center justify-between gap-2 px-5 py-4">
-                <span className="text-sm text-ink-muted">{openTasks ? `${openTasks} open tasks today` : 'No open tasks today'}</span>
+                <span className="text-sm text-ink-muted">{openTasks ? tr("{0} open tasks today", openTasks) : tr("No open tasks today")}</span>
                 <Button
                   variant="primary"
                   size="sm"
@@ -81,7 +82,7 @@ export function OwnerBranchesPage() {
                     navigate('/')
                   }}
                 >
-                  Open {r.branch.name}
+                  {tr("Open")}{' '}{r.branch.name}
                   <ArrowRight aria-hidden />
                 </Button>
               </div>
@@ -96,7 +97,7 @@ export function OwnerBranchesPage() {
 
 function BranchDialog({ branch, onClose }: { branch: Branch | null; onClose: () => void }) {
   return (
-    <Dialog open={branch !== null} onClose={onClose} title={branch ? `${branch.name} details` : 'Branch details'} size="sm">
+    <Dialog open={branch !== null} onClose={onClose} title={branch ? tr("{0} details", branch.name) : tr("Branch details")} size="sm">
       {branch && <BranchForm branch={branch} onClose={onClose} />}
     </Dialog>
   )
@@ -111,26 +112,26 @@ function BranchForm({ branch, onClose }: { branch: Branch; onClose: () => void }
   const submit = (event: FormEvent) => {
     event.preventDefault()
     const e: Record<string, string> = {}
-    if (address.trim().length < 5) e.address = 'Enter the address.'
-    if (!isValidPhone(phone)) e.phone = 'Enter a phone like +998 71 200 00 01.'
+    if (address.trim().length < 5) e.address = tr("Enter the address.")
+    if (!isValidPhone(phone)) e.phone = tr("Enter a phone like +998 71 200 00 01.")
     setErrors(e)
     if (Object.keys(e).length) return
     actions.updateBranch(branch.id, { address, phone: formatPhone(phone) })
-    toast.show(`${branch.name} details saved.`)
+    toast.show(tr("{0} details saved.", branch.name))
     onClose()
   }
   return (
     <form onSubmit={submit} noValidate className="space-y-4">
-      <Field label="Address" error={errors.address}>
+      <Field label={tr("Address")} error={errors.address}>
         {(p) => <Input {...p} value={address} maxLength={120} onChange={(e) => setAddress(e.target.value)} />}
       </Field>
-      <Field label="Phone" error={errors.phone}>
+      <Field label={tr("Phone")} error={errors.phone}>
         {(p) => <Input {...p} type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />}
       </Field>
       <div className="flex justify-end gap-2 border-t border-line pt-4">
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{tr("Cancel")}</Button>
         <Button type="submit" variant="primary">
-          Save
+          {tr("Save")}
         </Button>
       </div>
     </form>

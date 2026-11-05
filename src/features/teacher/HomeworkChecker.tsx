@@ -13,6 +13,7 @@ import { cn } from '../../lib/cn'
 import { GradeChip } from './group/GradeChip'
 import { ToolButton } from './group/ToolButton'
 import { gradeToScore, gradeTone, scoreToGrade } from './group/grade-style'
+import { plural, tr } from '../../i18n'
 
 /** What a tap on a student does. Pick it once, then tap every student it applies to. */
 type Tool = 'missing' | 'late' | 'handed' | Grade | 'comment' | 'clear'
@@ -118,17 +119,17 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
     })
     const count = actions.saveHomeworkResults(homework.id, rows)
     if (count === null) {
-      toast.show('Not saved: you can only check homework for your own groups.', 'error')
+      toast.show(tr("Not saved: you can only check homework for your own groups."), 'error')
       return
     }
-    toast.show(`Saved ${count} ${count === 1 ? 'student' : 'students'} for “${homework.title}”.`, 'success')
+    toast.show(tr("Saved {0} {1} for “{2}”.", count, plural(count, 'student', 'students'), homework.title), 'success')
   }
 
   if (students.length === 0) {
     return (
       <section className="rounded-2xl border border-line bg-surface">
-        <EmptyState icon={Users} title="No students on this homework">
-          It was set when the group had no students.
+        <EmptyState icon={Users} title={tr("No students on this homework")}>
+          {tr("It was set when the group had no students.")}
         </EmptyState>
       </section>
     )
@@ -138,24 +139,24 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
     <section aria-labelledby="check-title" className="rounded-2xl border border-line bg-surface">
       <header className="px-5 pt-4">
         <h2 id="check-title" className="font-semibold text-ink">
-          Check homework
+          {tr("Check homework")}
         </h2>
-        <p className="text-sm text-ink-muted">Pick a mark, then tap the students it applies to. A grade also marks the work as handed in.</p>
+        <p className="text-sm text-ink-muted">{tr("Pick a mark, then tap the students it applies to. A grade also marks the work as handed in.")}</p>
       </header>
 
       <div className="sticky top-[5.5rem] z-10 mt-3 border-y border-line bg-surface/95 px-5 py-3 backdrop-blur">
         <p id="hw-tool-label" className="mb-2 text-xs font-medium text-ink-muted">
-          1. Pick a mark
+          {tr("1. Pick a mark")}
         </p>
         <div role="radiogroup" aria-labelledby="hw-tool-label" className="flex flex-wrap gap-2">
           <ToolButton active={tool === 'missing'} onClick={() => setTool('missing')} shortcut="N" className="data-[active=true]:bg-danger data-[active=true]:text-white">
-            <X aria-hidden className="size-4" /> Not done
+            <X aria-hidden className="size-4" />{' '}{tr("Not done")}
           </ToolButton>
           <ToolButton active={tool === 'late'} onClick={() => setTool('late')} shortcut="L" className="data-[active=true]:bg-warning-mark data-[active=true]:text-ink">
-            <Clock aria-hidden className="size-4" /> Late
+            <Clock aria-hidden className="size-4" />{' '}{tr("Late")}
           </ToolButton>
           <ToolButton active={tool === 'handed'} onClick={() => setTool('handed')} shortcut="H" className="data-[active=true]:bg-success data-[active=true]:text-white">
-            <Check aria-hidden className="size-4" /> Handed in
+            <Check aria-hidden className="size-4" />{' '}{tr("Handed in")}
           </ToolButton>
           <span aria-hidden className="mx-1 hidden w-px self-stretch bg-line sm:block" />
           {GRADES.map((g) => (
@@ -164,24 +165,24 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
               active={tool === g}
               onClick={() => setTool(g)}
               shortcut={String(g)}
-              label={`Grade ${g}`}
+              label={tr("Grade {0}", g)}
               className={cn('w-12 justify-center text-base font-semibold', tool === g && gradeTone[g])}
             >
               {g}
             </ToolButton>
           ))}
           <ToolButton active={tool === 'comment'} onClick={() => setTool('comment')} shortcut="M" className="data-[active=true]:bg-info data-[active=true]:text-white">
-            <MessageSquare aria-hidden className="size-4" /> Comment
+            <MessageSquare aria-hidden className="size-4" />{' '}{tr("Comment")}
           </ToolButton>
           <ToolButton active={tool === 'clear'} onClick={() => setTool('clear')} shortcut="C" className="data-[active=true]:bg-ink data-[active=true]:text-white">
-            <Eraser aria-hidden className="size-4" /> Clear
+            <Eraser aria-hidden className="size-4" />{' '}{tr("Clear")}
           </ToolButton>
         </div>
       </div>
 
       <div className="space-y-3 px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <p className="text-xs font-medium text-ink-muted">2. Tap the students it applies to</p>
+          <p className="text-xs font-medium text-ink-muted">{tr("2. Tap the students it applies to")}</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {notHanded.length > 0 && (
               <button
@@ -189,7 +190,7 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
                 onClick={() => setStates((prev) => ({ ...prev, ...Object.fromEntries(notHanded.map((s) => [s.id, { submission: 'submitted' as const }])) }))}
                 className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline"
               >
-                <CheckCheck aria-hidden className="size-4" /> Everyone handed it in
+                <CheckCheck aria-hidden className="size-4" />{' '}{tr("Everyone handed it in")}
               </button>
             )}
             {typeof tool === 'number' && handedNoGrade.length > 0 && (
@@ -198,7 +199,7 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
                 onClick={() => setStates((prev) => ({ ...prev, ...Object.fromEntries(handedNoGrade.map((s) => [s.id, { ...prev[s.id], grade: tool }])) }))}
                 className="text-sm font-medium text-brand hover:underline"
               >
-                Give {tool} to the {handedNoGrade.length} handed in but not graded
+                {tr("Give")}{' '}{tool}{' '}{tr("to the")}{' '}{handedNoGrade.length}{' '}{tr("handed in but not graded")}
               </button>
             )}
           </div>
@@ -214,7 +215,7 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
                 <button
                   type="button"
                   onClick={() => apply(s.id)}
-                  aria-label={`${s.fullName}: ${missing ? 'not handed in' : st.submission === 'late' ? 'handed in late' : 'handed in'}${st.grade ? `, grade ${st.grade}` : ''}`}
+                  aria-label={`${s.fullName}: ${missing ? tr('Not handed in') : st.submission === 'late' ? tr('Handed in late') : tr('Handed in')}${st.grade ? `, ${tr('Grade {0}', st.grade)}` : ''}`}
                   className={cn(
                     'relative flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors active:scale-[0.99]',
                     missing && overdue
@@ -224,17 +225,17 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
                         : 'border-line bg-surface hover:border-line-strong hover:bg-canvas',
                   )}
                 >
-                  {isChanged && <span aria-hidden title="Not saved yet" className="absolute top-1.5 left-1.5 size-2 rounded-full bg-accent" />}
+                  {isChanged && <span aria-hidden title={tr("Not saved yet")} className="absolute top-1.5 left-1.5 size-2 rounded-full bg-accent" />}
                   <Avatar name={s.fullName} size="sm" />
                   <span className={cn('min-w-0 flex-1 truncate text-sm font-medium', missing && overdue ? 'text-danger' : 'text-ink')}>{s.fullName}</span>
-                  {missing && <span className={cn('text-xs font-semibold', overdue ? 'text-danger' : 'text-ink-faint')}>{overdue ? 'Not done' : 'Not yet'}</span>}
-                  {st.submission === 'late' && <span className="text-xs font-semibold text-warning">Late</span>}
-                  {st.comment && <MessageSquare aria-label="Has a comment" className="size-4 shrink-0 text-info" />}
+                  {missing && <span className={cn('text-xs font-semibold', overdue ? 'text-danger' : 'text-ink-faint')}>{overdue ? tr("Not done") : tr("Not yet")}</span>}
+                  {st.submission === 'late' && <span className="text-xs font-semibold text-warning">{tr("Late")}</span>}
+                  {st.comment && <MessageSquare aria-label={tr("Has a comment")} className="size-4 shrink-0 text-info" />}
                   {st.grade ? (
                     <GradeChip grade={st.grade} />
                   ) : (
                     !missing && (
-                      <span title="Handed in, not graded" className="flex size-8 items-center justify-center rounded-lg bg-success-soft text-success">
+                      <span title={tr("Handed in, not graded")} className="flex size-8 items-center justify-center rounded-lg bg-success-soft text-success">
                         <Check aria-hidden className="size-4" />
                       </span>
                     )
@@ -246,26 +247,26 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
         </ul>
         {hiddenCount > 0 && (
           <p className="text-xs text-ink-muted">
-            {hiddenCount} {hiddenCount === 1 ? 'student has' : 'students have'} since left your groups; their results are kept but not shown.
+            {hiddenCount} {hiddenCount === 1 ? tr("student has") : tr("students have")}{' '}{tr("since left your groups; their results are kept but not shown.")}
           </p>
         )}
       </div>
 
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border-t border-line bg-canvas/95 px-5 py-3 backdrop-blur">
         <p className="num text-sm text-ink-muted" aria-live="polite">
-          <span className="font-semibold text-ink">{students.length - notHanded.length}</span> handed in ·{' '}
-          <span className={cn('font-semibold', notHanded.length && overdue ? 'text-danger' : 'text-ink')}>{notHanded.length}</span> not ·{' '}
-          <span className="font-semibold text-ink">{graded}</span> graded
-          {changed.length > 0 && <span className="text-accent-ink"> · {changed.length} not saved</span>}
+          <span className="font-semibold text-ink">{students.length - notHanded.length}</span>{' '}{tr("handed in ·")}{' '}
+          <span className={cn('font-semibold', notHanded.length && overdue ? 'text-danger' : 'text-ink')}>{notHanded.length}</span>{' '}{tr("not ·")}{' '}
+          <span className="font-semibold text-ink">{graded}</span>{' '}{tr("graded")}
+          {changed.length > 0 && <span className="text-accent-ink"> · {changed.length}{' '}{tr("not saved")}</span>}
         </p>
         <div className="flex gap-2">
           {changed.length > 0 && (
             <Button variant="ghost" onClick={() => setStates(Object.fromEntries(students.map((s) => [s.id, savedState(s.id)])))}>
-              Undo changes
+              {tr("Undo changes")}
             </Button>
           )}
           <Button variant="primary" onClick={save} disabled={changed.length === 0}>
-            Save
+            {tr("Save")}
           </Button>
         </div>
       </div>
@@ -286,7 +287,7 @@ export function HomeworkChecker({ homework }: { homework: Homework }) {
 /** A short comment for one student. Saved with the grade, so a grade is needed first. */
 function CommentDialog({ student, state, onClose, onSave }: { student: Student | null; state?: State; onClose: () => void; onSave: (comment: string) => void }) {
   return (
-    <Dialog open={student !== null} onClose={onClose} title={student ? `Comment for ${student.fullName}` : 'Comment'} size="sm">
+    <Dialog open={student !== null} onClose={onClose} title={student ? tr("Comment for {0}", student.fullName) : tr("Comment")} size="sm">
       {student && state && <CommentForm key={student.id} state={state} onClose={onClose} onSave={onSave} />}
     </Dialog>
   )
@@ -297,9 +298,9 @@ function CommentForm({ state, onClose, onSave }: { state: State; onClose: () => 
   if (!state.grade) {
     return (
       <div className="space-y-4 text-sm">
-        <p className="text-ink-muted">Give this student a grade first. The comment is saved together with the grade.</p>
+        <p className="text-ink-muted">{tr("Give this student a grade first. The comment is saved together with the grade.")}</p>
         <div className="flex justify-end">
-          <Button onClick={onClose}>OK</Button>
+          <Button onClick={onClose}>{tr("OK")}</Button>
         </div>
       </div>
     )
@@ -312,19 +313,19 @@ function CommentForm({ state, onClose, onSave }: { state: State; onClose: () => 
         onSave(text.trim().slice(0, 300))
       }}
     >
-      <Textarea aria-label="Comment" autoFocus value={text} maxLength={300} onChange={(e) => setText(e.target.value)} placeholder="What went well, what to improve" />
+      <Textarea aria-label={tr("Comment")} autoFocus value={text} maxLength={300} onChange={(e) => setText(e.target.value)} placeholder={tr("What went well, what to improve")} />
       <div className="flex justify-between gap-2">
         {state.comment ? (
           <Button variant="ghost" onClick={() => onSave('')} className="text-danger hover:bg-danger-soft hover:text-danger">
-            Remove
+            {tr("Remove")}
           </Button>
         ) : (
           <span />
         )}
         <div className="flex gap-2">
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>{tr("Cancel")}</Button>
           <Button type="submit" variant="primary">
-            Done
+            {tr("Done")}
           </Button>
         </div>
       </div>

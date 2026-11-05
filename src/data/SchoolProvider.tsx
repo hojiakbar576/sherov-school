@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BRANCH_STAFF_ROLES } from '../types'
-import type { Activity, ActivityType, Assessment, Bonus, ContactLog, Course, Expense, ExtraLesson, HomeworkResult, Lead, ListItem, Notification, Payment, Room, SalaryPayment, SchoolData, StaffAttendance, Student, StudentNote, User } from '../types'
+import { checkCourse, levelOf, withGroupLabels } from '../lib/courses'
+import type { Activity, ActivityType, Assessment, Bonus, ContactLog, Course, Expense, ExtraLesson, Group, HomeworkResult, Lead, ListItem, Notification, Payment, Room, SalaryPayment, SchoolData, StaffAttendance, Student, StudentNote, User } from '../types'
 import { withReceipts } from './seed-office'
+import { deleteStage, isSystemStage, stageName, stageNameProblem, SYSTEM_STAGE_NAME, withStageAdded, withStageMoved } from '../lib/lead-stages'
+import { tr } from '../i18n'
 
 import { branchData } from '../lib/owner'
 import { applyStudentChange, isArchived } from '../lib/student-lifecycle'
@@ -164,6 +167,12 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
 
     // Administrators (and later the owner) manage records; teachers can't.
     // The UI never offers these to teachers, so a call is a programming error.
+    // Course → Level → Group: a group must sit in a real level of a real course; its course and level names are copied on.
+    const labelled = (g: Group): Group => {
+      const { course, level } = levelOf(fullData.courses, g)
+      if (!course || !level) throw new Error('Choose the group’s course and level.')
+      return withGroupLabels([g], fullData.courses)[0]
+    }
     const requireOwner = () => {
       if (user?.role !== 'owner') throw new NotPermittedError('Only the owner can do this.')
     }
@@ -196,6 +205,20 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
           ),
         )
         return student
+      },
+      importStudents(inputs) {
+        requireManager()
+        if (inputs.length === 0) return []
+        const students: Student[] = inputs.map((input) => ({ guardians: [], ...input, id: createId('stu'), branchId: branchForGroup(input.groupId) }))
+        for (const s of students) requireInBranch(s.branchId)
+        // One save for the whole file, so a half-finished import can't happen.
+        update((d) => {
+          let next = d
+          for (const s of students) next = applyStudentChange(next, { before: undefined, after: s, on: s.enrolledOn, byUserId: user?.id })
+          const branches = [...new Set(students.map((s) => s.branchId))]
+          return withActivity(next, activity('student_added', 'Students imported from Excel', `${students.length} ${students.length === 1 ? 'student' : 'students'} added`, branches.length === 1 ? branches[0] : undefined))
+        })
+        return students
       },
       updateStudent(id, input) {
         const before = fullData.students.find((s) => s.id === id)
@@ -243,9 +266,10 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         })
       },
 
+      // Only the owner adds, edits or removes teachers.
       addTeacher(input) {
-        requireManager()
-        // New teachers join the administrator's branch. Moving branches is for the owner.
+        requireOwner()
+        // New teachers join the branch the owner has chosen at the top of the page.
         const teacher = { ...input, id: createId('tch'), branchId: actorBranch ?? DEFAULT_BRANCH_ID }
         update((d) =>
           withActivity(
@@ -256,8 +280,8 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         return teacher
       },
       updateTeacher(id, input) {
+        requireOwner()
         const before = fullData.teachers.find((t) => t.id === id)
-        requireInBranch(before?.branchId)
         update((d) =>
           withActivity(
             {
@@ -270,8 +294,8 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         )
       },
       deleteTeacher(id) {
+        requireOwner()
         const teacher = fullData.teachers.find((t) => t.id === id)
-        requireInBranch(teacher?.branchId)
         if (fullData.groups.some((g) => g.teacherId === id)) return false
         update((d) =>
           withActivity(
@@ -285,7 +309,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       addGroup(input) {
         const branchId = fullData.teachers.find((t) => t.id === input.teacherId)?.branchId ?? actorBranch ?? DEFAULT_BRANCH_ID
         requireInBranch(branchId)
-        const group = { ...input, id: createId('grp'), branchId }
+        const group = labelled({ ...input, id: createId('grp'), branchId })
         update((d) =>
           withActivity(
             {
@@ -339,7 +363,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
           withActivity(
             {
               ...d,
-              groups: d.groups.map((g) => (g.id === id ? { ...input, id, branchId } : g)),
+              groups: d.groups.map((g) => (g.id === id ? labelled({ ...input, id, branchId }) : g)),
               notifications: [...d.notifications, ...messages],
             },
             activity('group_changed', 'Group updated', input.name, branchId),
@@ -624,7 +648,31 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       },
       updateCourse(id, input) {
         requireManager()
-        update((d) => ({ ...d, courses: d.courses.map((c) => (c.id === id ? { ...c, levels: input.levels, defaultFee: input.defaultFee } : c)) }))
+        const before = fullData.courses.find((c) => c.id === id)
+        if (!before) throw new Error('That course no longer exists.')
+        const problem = checkCourse(fullData.courses, id, input.name, input.levels)
+        if (problem) throw new Error(problem)
+        // A level can only be removed while no group uses it (turning it off is always allowed).
+        const kept = new Set(input.levels.map((l) => l.id))
+        const inUse = fullData.groups.find((g) => g.courseId === id && !kept.has(g.levelId))
+        if (inUse) throw new Error(`${inUse.name} is in a level you removed. Move the group first, or turn the level off instead.`)
+        const name = input.name.trim().replace(/\s+/g, ' ')
+        const levels = input.levels.map((l) => ({ ...l, name: l.name.trim().replace(/\s+/g, ' ') }))
+        const rename = (value: string) => (value === before.name ? name : value)
+        update((d) => {
+          const courses = d.courses.map((c) => (c.id === id ? { ...c, name, levels, defaultFee: input.defaultFee } : c))
+          return withActivity(
+            {
+              ...d,
+              courses,
+              // The course and level names shown on groups, teachers, enquiries and assessments follow the rename.
+              groups: withGroupLabels(d.groups, courses),
+              teachers: name === before.name ? d.teachers : d.teachers.map((t) => ({ ...t, subject: rename(t.subject) })),
+              leads: name === before.name ? d.leads : d.leads.map((l) => ({ ...l, course: rename(l.course) })),
+            },
+            activity('settings_changed', 'Course updated', name === before.name ? name : `${before.name} → ${name}`),
+          )
+        })
       },
 
       addExpense(input) {
@@ -791,7 +839,53 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         const lead = fullData.leads.find((l) => l.id === id)
         requireInBranch(lead?.branchId)
         if (!lead) return
+        // Only stages on the owner's list (shared by every branch).
+        if (changes.stage !== undefined && !fullData.leadStages.some((s) => s.id === changes.stage)) throw new Error(`Unknown admissions stage "${changes.stage}".`)
         update((d) => ({ ...d, leads: d.leads.map((l) => (l.id === id ? { ...l, ...changes, updatedAt: new Date().toISOString() } : l)) }))
+      },
+
+      addLeadStage(input) {
+        requireOwner()
+        const problem = stageNameProblem(fullData.leadStages, input.name)
+        if (problem) throw new Error(problem)
+        const stage = { id: createId('stage'), name: input.name.trim().replace(/\s+/g, ' '), color: input.color }
+        update((d) => withActivity({ ...d, leadStages: withStageAdded(d.leadStages, stage) }, activity('owner_changed', 'Admissions stage added', stage.name)))
+        return stage
+      },
+      updateLeadStage(id, input) {
+        requireOwner()
+        const before = fullData.leadStages.find((s) => s.id === id)
+        if (!before) return
+        const problem = stageNameProblem(fullData.leadStages, input.name, id)
+        if (problem) throw new Error(problem)
+        const clean = input.name.trim().replace(/\s+/g, ' ')
+        // A built-in stage given back its default name keeps following translations.
+        const name = isSystemStage(id) && (clean === tr(SYSTEM_STAGE_NAME[id]) || clean === SYSTEM_STAGE_NAME[id]) ? undefined : clean
+        const oldName = stageName(fullData.leadStages, id)
+        update((d) =>
+          withActivity(
+            { ...d, leadStages: d.leadStages.map((s) => (s.id === id ? { id, color: input.color, ...(name ? { name } : {}) } : s)) },
+            activity('owner_changed', 'Admissions stage changed', oldName === clean ? clean : `${oldName} → ${clean}`),
+          ),
+        )
+      },
+      moveLeadStage(id, direction) {
+        requireOwner()
+        update((d) => ({ ...d, leadStages: withStageMoved(d.leadStages, id, direction) }))
+      },
+      deleteLeadStage(id, moveLeadsTo) {
+        requireOwner()
+        // Checked against every branch's enquiries, not just the branch on screen.
+        const result = deleteStage(fullData, id, moveLeadsTo)
+        if (!result.ok) return result
+        const name = stageName(fullData.leadStages, id)
+        const target = moveLeadsTo ? stageName(fullData.leadStages, moveLeadsTo) : ''
+        update((d) => {
+          const again = deleteStage(d, id, moveLeadsTo)
+          if (!again.ok) return d
+          return withActivity(again.data, activity('owner_changed', 'Admissions stage deleted', again.moved ? `${name}: ${again.moved} enquiries moved to ${target}` : name))
+        })
+        return { ok: true, moved: result.moved }
       },
       deleteLead(id) {
         const lead = fullData.leads.find((l) => l.id === id)
@@ -858,7 +952,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
 
       addCourse(name) {
         requireManager()
-        const course: Course = { id: createId('crs'), name: name.trim(), active: true }
+        const course: Course = { id: createId('crs'), name: name.trim(), active: true, levels: [] }
         update((d) => withActivity({ ...d, courses: [...d.courses, course] }, activity('settings_changed', 'Course added', course.name)))
         return course
       },

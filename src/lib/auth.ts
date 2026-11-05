@@ -7,6 +7,7 @@
 // useSchool(), so swapping the implementation won't touch them.
 
 import type { Role, User } from '../types'
+import { tr } from '../i18n'
 
 /** Shared by every administrator and teacher demo account, and shown on the sign-in page on purpose. */
 export const DEMO_PASSWORD = 'demo'
@@ -25,13 +26,12 @@ export const OWNER_DEMO_CREDENTIALS = {
 export const SESSION_KEY = 'sherov-school:session'
 
 /** Roles that can sign in. Branch staff and teachers on /login, the owner on /owner/login. */
-export const SIGN_IN_ROLES: readonly Role[] = ['owner', 'admin', 'reception', 'accountant', 'teacher']
+export const SIGN_IN_ROLES: readonly Role[] = ['owner', 'admin', 'accountant', 'teacher']
 
 /** Where each role lands after signing in. */
 export const ROLE_HOME: Record<Role, string> = {
   owner: '/owner',
   admin: '/',
-  reception: '/',
   accountant: '/',
   teacher: '/teacher',
 }
@@ -40,17 +40,15 @@ export const ROLE_HOME: Record<Role, string> = {
 export const ROLE_LOGIN: Record<Role, string> = {
   owner: '/owner/login',
   admin: '/login',
-  reception: '/login',
   accountant: '/login',
   teacher: '/login',
 }
 
 export const roleLabel: Record<Role, string> = {
-  owner: 'Owner',
-  admin: 'Administrator',
-  reception: 'Receptionist',
-  accountant: 'Accountant',
-  teacher: 'Teacher',
+  owner: tr("Owner"),
+  admin: tr("Administrator"),
+  accountant: tr("Accountant"),
+  teacher: tr("Teacher"),
 }
 
 // The owner's session lasts for this browser tab session only (sessionStorage),

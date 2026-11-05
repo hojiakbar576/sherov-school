@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { ClipboardCheck, Plus, Wallet } from 'lucide-react'
+import { ArrowRight, ClipboardCheck, Plus, Wallet } from 'lucide-react'
 import { useSchool } from '../../data/school-context'
-import { useAttention } from '../../hooks/useAttention'
 import { Button, ButtonLink } from '../../components/ui/Button'
 import { monthKey, toISODate } from '../../lib/dates'
 import { formatLongDate, greeting } from '../../lib/format'
@@ -11,23 +10,25 @@ import { StudentFormDialog } from '../students/StudentFormDialog'
 import { PaymentFormDialog } from '../payments/PaymentFormDialog'
 import { KpiStrip } from './KpiStrip'
 import { TodayClasses } from './TodayClasses'
-import { TodayTasks } from './TodayTasks'
-import { RecentActivity } from './RecentActivity'
+import { WeekTimetable } from '../schedule/WeekTimetable'
+import { can } from '../../app/permissions'
+import { tr } from '../../i18n'
 
 /**
  * Answers one question: what does the administrator need to know or do today?
- * Numbers first, then tasks with actions, then today's classes. Trends and
+ * Numbers first, then this week's timetable (for those who may open
+ * Schedule), then today's classes. Trends and
  * charts live on the Reports page.
  */
 export function DashboardPage() {
   const { data, now, balances, user, branch } = useSchool()
-  const attention = useAttention()
   const [addingStudent, setAddingStudent] = useState(false)
   // undefined = closed, '' = open without a student, id = open for that student
   const [paymentFor, setPaymentFor] = useState<string | undefined>(undefined)
 
   const today = toISODate(now)
   const sessions = useMemo(() => sessionsOn(data, today, now), [data, today, now])
+  const showTimetable = user ? can(user.role, 'schedule') : false
   const todayMarks = useMemo(() => summarizeMarks(recordsOn(data, today)), [data, today])
 
   return (
@@ -35,24 +36,24 @@ export function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">
-            {greeting(now)}, {user?.fullName.split(' ')[0] ?? 'Admin'}
+            {greeting(now)}, {user?.fullName.split(' ')[0] ?? tr("Admin")}
           </h1>
           <p className="mt-1 text-ink-muted">
-            {branch ? `${branch.name} branch` : data.settings.centerName} · {formatLongDate(now)}
+            {branch ? tr("{0} branch", branch.name) : data.settings.centerName} · {formatLongDate(now)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <ButtonLink to="/attendance" variant="ghost">
             <ClipboardCheck aria-hidden />
-            Take attendance
+            {tr("Take attendance")}
           </ButtonLink>
           <Button onClick={() => setPaymentFor('')}>
             <Wallet aria-hidden />
-            Record payment
+            {tr("Record payment")}
           </Button>
           <Button variant="primary" onClick={() => setAddingStudent(true)}>
             <Plus aria-hidden />
-            Add student
+            {tr("Add student")}
           </Button>
         </div>
       </div>
@@ -70,21 +71,27 @@ export function DashboardPage() {
         outstanding={outstandingTotal(balances)}
       />
 
-      <div className="grid items-start gap-6 xl:grid-cols-12">
-        <div className="min-w-0 xl:col-span-8">
-          <TodayTasks items={attention} balances={balances} onRecordPayment={(id) => setPaymentFor(id)} />
-        </div>
-        <div className="min-w-0 xl:col-span-4">
-          <RecentActivity activity={data.activity} now={now} />
-        </div>
-      </div>
+      {showTimetable && (
+        <section aria-labelledby="week-timetable-title" className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h2 id="week-timetable-title" className="text-[0.9375rem] font-semibold text-ink">
+              {tr("This week's timetable")}
+            </h2>
+            <Link to="/schedule" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline">
+              {tr("Open schedule")}
+              <ArrowRight aria-hidden className="size-3.5" />
+            </Link>
+          </div>
+          <WeekTimetable showTeacher labelLevel="h3" />
+        </section>
+      )}
 
       <TodayClasses sessions={sessions} now={now} />
 
       <p className="text-sm text-ink-muted">
-        Attendance and revenue trends are in{' '}
+        {tr("Attendance and revenue trends are in")}{' '}
         <Link to="/reports" className="font-medium text-brand hover:underline">
-          Reports
+          {tr("Reports")}
         </Link>
         .
       </p>

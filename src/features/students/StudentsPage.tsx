@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Pencil, Plus, Users } from 'lucide-react'
+import { Download, FileSpreadsheet, Pencil, Plus, Upload, Users } from 'lucide-react'
 import type { Student, StudentStatus } from '../../types'
 import { ARCHIVED_STUDENT_STATUSES, CURRENT_STUDENT_STATUSES } from '../../types'
 import { useSchool } from '../../data/school-context'
@@ -17,7 +17,10 @@ import { RangeToggle } from '../../components/ui/RangeToggle'
 import { toISODate } from '../../lib/dates'
 import { StudentFormDialog } from './StudentFormDialog'
 import { TagChips } from './StudentTags'
-import { ExportButtons } from '../../components/ui/ExportButtons'
+import { downloadXlsx } from '../../lib/xlsx'
+import { downloadCSV } from '../../lib/csv'
+import { ImportStudentsDialog } from './ImportStudentsDialog'
+import { tr } from '../../i18n'
 
 const PAGE_SIZE = 20
 
@@ -34,6 +37,7 @@ export function StudentsPage() {
   const { data, balances, now } = useSchool()
   const { values, page, set, setPage, clear, active } = useListParams(FILTERS)
   const [editing, setEditing] = useState<Student | 'new' | null>(null)
+  const [importing, setImporting] = useState(false)
 
   const groupName = useMemo(() => new Map(data.groups.map((g) => [g.id, g.name])), [data.groups])
   const teacherOf = useMemo(() => {
@@ -87,7 +91,7 @@ export function StudentsPage() {
   const archivedCount = data.students.filter((s) => ARCHIVED_STUDENT_STATUSES.includes(s.status)).length
 
   const exportRows = () => [
-      ['Student', 'Student phone', 'Group', 'Teacher', 'Parent / guardian', 'Relationship', 'Parent phone', 'Second parent', 'Second parent phone', 'Attendance %', 'Monthly tuition (UZS)', 'Price note', 'Owed (UZS)', 'Tuition status', 'Status', 'Enrolled'],
+      [tr("Student"), tr("Student phone"), tr("Group"), tr("Teacher"), tr("Parent / guardian"), tr("Relationship"), tr("Parent phone"), tr("Second parent"), tr("Second parent phone"), tr("Attendance %"), tr("Monthly tuition (UZS)"), tr("Price note"), tr("Owed (UZS)"), tr("Tuition status"), tr("Status"), tr("Enrolled")],
       ...filtered.map((s) => {
         const [g1, g2] = s.guardians
         const rate = attendanceRate.get(s.id)
@@ -103,7 +107,7 @@ export function StudentsPage() {
 
   const actions = (s: Student) => (
     <div className="flex justify-end gap-0.5">
-      <IconButton label={`Edit ${s.fullName}`} onClick={() => setEditing(s)}>
+      <IconButton label={tr("Edit {0}", s.fullName)} onClick={() => setEditing(s)}>
         <Pencil />
       </IconButton>
     </div>
@@ -112,14 +116,12 @@ export function StudentsPage() {
   return (
     <>
       <PageHeader
-        title="Students"
-        description={`${formatNumber(activeCount)} active and ${formatNumber(pausedCount)} paused. ${formatNumber(archivedCount)} who left or graduated are in the archive.`}
+        title={tr("Students")}
         actions={
           <>
-          <ExportButtons name={archive ? 'students-archive' : 'students'} date={toISODate(now)} rows={exportRows} disabled={filtered.length === 0} />
           <Button variant="primary" onClick={() => setEditing('new')}>
             <Plus aria-hidden />
-            Add student
+            {tr("Add student")}
           </Button>
           </>
         }
@@ -127,86 +129,86 @@ export function StudentsPage() {
 
       <div className="mb-4">
         <RangeToggle
-          label="Which students"
+          label={tr("Which students")}
           value={archive ? 'archive' : 'current'}
           onChange={(v) => set('view', v === 'archive' ? 'archive' : '')}
           options={[
-            { value: 'current', label: `Current (${activeCount + pausedCount})` },
-            { value: 'archive', label: `Archive (${archivedCount})` },
+            { value: 'current', label: tr("Current ({0})", activeCount + pausedCount) },
+            { value: 'archive', label: tr("Archive ({0})", archivedCount) },
           ]}
         />
       </div>
 
-      <section aria-label="Student list" className="rounded-panel border border-line bg-surface">
+      <section aria-label={tr("Student list")} className="rounded-panel border border-line bg-surface">
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:flex-wrap sm:items-center">
-          <SearchInput label="Search students" value={values.q} onChange={(v) => set('q', v)} placeholder="Name, student or parent phone" />
+          <SearchInput label={tr("Search students")} value={values.q} onChange={(v) => set('q', v)} placeholder={tr("Name, student or parent phone")} />
           <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
-            <Select aria-label="Filter by group" value={values.group} onChange={(e) => set('group', e.target.value)} className="sm:w-52">
-              <option value="">All groups</option>
-              <option value="none">No group</option>
+            <Select aria-label={tr("Filter by group")} value={values.group} onChange={(e) => set('group', e.target.value)} className="sm:w-52">
+              <option value="">{tr("All groups")}</option>
+              <option value="none">{tr("No group")}</option>
               {data.groups.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
                 </option>
               ))}
             </Select>
-            <Select aria-label="Filter by status" value={statuses.includes(values.status as StudentStatus) ? values.status : ''} onChange={(e) => set('status', e.target.value)} className="sm:w-36">
-              <option value="">{archive ? 'Left and graduated' : 'Active and paused'}</option>
+            <Select aria-label={tr("Filter by status")} value={statuses.includes(values.status as StudentStatus) ? values.status : ''} onChange={(e) => set('status', e.target.value)} className="sm:w-36">
+              <option value="">{archive ? tr("Left and graduated") : tr("Active and paused")}</option>
               {statuses.map((value) => (
                 <option key={value} value={value}>
                   {studentStatusLabel[value]}
                 </option>
               ))}
             </Select>
-            <Select aria-label="Filter by tag" value={values.tag} onChange={(e) => set('tag', e.target.value)} className="sm:w-40">
-              <option value="">Any tag</option>
+            <Select aria-label={tr("Filter by tag")} value={values.tag} onChange={(e) => set('tag', e.target.value)} className="sm:w-40">
+              <option value="">{tr("Any tag")}</option>
               {data.catalogs.studentTags.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
                 </option>
               ))}
             </Select>
-            <Select aria-label="Filter by tuition" value={values.tuition} onChange={(e) => set('tuition', e.target.value)} className="col-span-2 sm:w-44">
-              <option value="">Any tuition status</option>
-              <option value="owing">Owes tuition</option>
-              <option value="overdue">Overdue</option>
-              <option value="paid">Fully paid</option>
+            <Select aria-label={tr("Filter by tuition")} value={values.tuition} onChange={(e) => set('tuition', e.target.value)} className="col-span-2 sm:w-44">
+              <option value="">{tr("Any tuition status")}</option>
+              <option value="owing">{tr("Owes tuition")}</option>
+              <option value="overdue">{tr("Overdue")}</option>
+              <option value="paid">{tr("Fully paid")}</option>
             </Select>
           </div>
           {active && (
             <Button variant="ghost" size="sm" onClick={clear} className="self-start sm:self-auto">
-              Clear filters
+              {tr("Clear filters")}
             </Button>
           )}
           <p className="num text-sm text-ink-muted sm:ml-auto" aria-live="polite">
-            {formatNumber(filtered.length)} {filtered.length === 1 ? 'student' : 'students'}
+            {formatNumber(filtered.length)} {filtered.length === 1 ? tr("student") : tr("students")}
           </p>
         </div>
 
         {filtered.length === 0 ? (
           <EmptyState
             icon={Users}
-            title={data.students.length ? 'No students match these filters' : 'No students yet'}
-            action={active ? <Button onClick={clear}>Clear filters</Button> : <Button variant="primary" onClick={() => setEditing('new')}>Add student</Button>}
+            title={data.students.length ? tr("No students match these filters") : tr("No students yet")}
+            action={active ? <Button onClick={clear}>{tr("Clear filters")}</Button> : <Button variant="primary" onClick={() => setEditing('new')}>{tr("Add student")}</Button>}
           >
-            {active ? 'Try a different name, or clear the filters to see everyone.' : 'Add the first student to start tracking attendance and tuition.'}
+            {active ? tr("Try a different name, or clear the filters to see everyone.") : tr("Add the first student to start tracking attendance and tuition.")}
           </EmptyState>
         ) : (
           <>
             {/* Wide screens: table */}
             <TableScroll>
               <table className="hidden w-full text-sm md:table">
-                <caption className="sr-only">Students. Click a row to open the student profile.</caption>
+                <caption className="sr-only">{tr("Students. Click a row to open the student profile.")}</caption>
                 <thead className="bg-canvas">
                   <tr className="border-b border-line">
-                    <th scope="col" className={th}>Student</th>
-                    <th scope="col" className={th}>Group</th>
-                    <th scope="col" className={cn(th, 'hidden xl:table-cell')}>Parent / guardian</th>
-                    <th scope="col" className={th}>Parent phone</th>
-                    <th scope="col" className={cn(th, 'hidden lg:table-cell text-right')}>Attendance</th>
-                    <th scope="col" className={th}>Tuition</th>
-                    <th scope="col" className={th}>Status</th>
-                    <th scope="col" className={th}><span className="sr-only">Actions</span></th>
+                    <th scope="col" className={th}>{tr("Student")}</th>
+                    <th scope="col" className={th}>{tr("Group")}</th>
+                    <th scope="col" className={cn(th, 'hidden xl:table-cell')}>{tr("Parent / guardian")}</th>
+                    <th scope="col" className={th}>{tr("Parent phone")}</th>
+                    <th scope="col" className={cn(th, 'hidden lg:table-cell text-right')}>{tr("Attendance")}</th>
+                    <th scope="col" className={th}>{tr("Tuition")}</th>
+                    <th scope="col" className={th}>{tr("Status")}</th>
+                    <th scope="col" className={th}><span className="sr-only">{tr("Actions")}</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -231,10 +233,10 @@ export function StudentsPage() {
                           {s.groupId ? (
                             <>
                               <p className="max-w-48 truncate text-ink" title={groupName.get(s.groupId)}>{groupName.get(s.groupId)}</p>
-                              <p className="truncate text-xs text-ink-muted">{teacherOf.get(s.groupId) ?? 'No teacher'}</p>
+                              <p className="truncate text-xs text-ink-muted">{teacherOf.get(s.groupId) ?? tr("No teacher")}</p>
                             </>
                           ) : (
-                            <span className="text-ink-faint">No group</span>
+                            <span className="text-ink-faint">{tr("No group")}</span>
                           )}
                         </td>
                         <td className={cn(td, 'hidden xl:table-cell')}>
@@ -244,7 +246,7 @@ export function StudentsPage() {
                               <p className="text-xs text-ink-muted">{guardianRelationshipLabel[parent.relationship]}</p>
                             </>
                           ) : (
-                            <span className="text-ink-faint">Not added</span>
+                            <span className="text-ink-faint">{tr("Not added")}</span>
                           )}
                         </td>
                         <td className={cn(td, 'py-2 text-ink')} onClick={(e) => e.stopPropagation()}>
@@ -278,7 +280,7 @@ export function StudentsPage() {
                     <Link to={`/students/${s.id}`} className="font-medium text-ink hover:underline">
                       {s.fullName}
                     </Link>
-                    <p className="truncate text-xs text-ink-muted">{s.groupId ? groupName.get(s.groupId) : 'No group'}</p>
+                    <p className="truncate text-xs text-ink-muted">{s.groupId ? groupName.get(s.groupId) : tr("No group")}</p>
                     {s.guardians[0] ? (
                       <p className="text-xs text-ink-muted">
                         {guardianRelationshipLabel[s.guardians[0].relationship]}: <PhoneLine phone={s.guardians[0].phone} />
@@ -298,7 +300,26 @@ export function StudentsPage() {
             <Pagination page={current} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} noun="students" />
           </>
         )}
+        {/* Import and export sit under the list, as in LC UP. */}
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
+          {!archive && (
+            <Button size="sm" onClick={() => setImporting(true)}>
+              <Upload aria-hidden />
+              {tr("Import from Excel")}
+            </Button>
+          )}
+          <Button size="sm" onClick={() => downloadXlsx(`sherov-school-${archive ? 'students-archive' : 'students'}-${toISODate(now)}.xlsx`, exportRows(), 'students')} disabled={filtered.length === 0}>
+            <FileSpreadsheet aria-hidden />
+            {active ? tr("Export {0} to Excel", filtered.length) : tr("Export to Excel")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => downloadCSV(`sherov-school-${archive ? 'students-archive' : 'students'}-${toISODate(now)}.csv`, exportRows())} disabled={filtered.length === 0}>
+            <Download aria-hidden />
+            {tr("CSV")}
+          </Button>
+        </div>
       </section>
+
+      <ImportStudentsDialog open={importing} onClose={() => setImporting(false)} />
 
       <StudentFormDialog open={editing !== null} student={editing === 'new' || editing === null ? undefined : editing} onClose={() => setEditing(null)} />
     </>

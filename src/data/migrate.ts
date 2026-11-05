@@ -7,6 +7,8 @@ import { toISODate } from '../lib/dates'
 import { BRANCHES, DEFAULT_BRANCH_ID, TEACHER_BRANCH, buildUsers, seedNotifications, ADMIN_USERS } from './seed-portal'
 import { addAdministrationData } from './seed-admin'
 import { addOfficeData } from './seed-office'
+import { defaultLeadStages } from '../lib/lead-stages'
+import { structureCourses } from '../lib/courses'
 import { DEFAULT_SALARY_PERCENT, SALARY_PERCENT, homeworkStudents, seedHomework, seedHomeworkResults, seedStudentNotes, studentProfile, withSampleGrades } from './seed-learning'
 
 type Obj = Record<string, unknown>
@@ -112,7 +114,56 @@ function v6ToV7(old: Obj, now: Date): SchoolData {
   return { ...addOfficeData(old as unknown as Parameters<typeof addOfficeData>[0], now, { demo: false }), version: 7 }
 }
 
-const STEPS: Record<number, (old: Obj, now: Date) => unknown> = { 1: v1ToV2, 2: v2ToV3, 3: v3ToV4, 4: v4ToV5, 5: v5ToV6, 6: v6ToV7 }
+/**
+ * Version 7 had fixed admissions stages. The same six become the owner's
+ * editable list; every saved enquiry keeps its stage.
+ */
+function v7ToV8(old: Obj): SchoolData {
+  const data = old as unknown as SchoolData
+  return { ...data, leadStages: Array.isArray(data.leadStages) ? data.leadStages : defaultLeadStages(), version: 8 }
+}
+
+/**
+ * Version 8 had a receptionist role. The branch administrator now runs the
+ * front desk, so receptionist accounts are removed and everything they
+ * recorded (payments, calls, staff attendance…) is credited to their branch's
+ * administrator, so no history is lost.
+ */
+function v8ToV9(old: Obj): SchoolData {
+  const users = (old.users ?? []) as { id: string; role: string; branchId: string | null }[]
+  const adminFor = (branchId: string | null) =>
+    users.find((u) => u.role === 'admin' && u.branchId === branchId)?.id ?? users.find((u) => u.role === 'admin')?.id ?? 'usr_owner'
+  const replace = new Map(users.filter((u) => u.role === 'reception').map((u) => [u.id, adminFor(u.branchId)]))
+  const swap = (value: unknown): unknown => {
+    if (typeof value === 'string') return replace.get(value) ?? value
+    if (Array.isArray(value)) return value.map(swap)
+    if (value && typeof value === 'object') {
+      const out: Obj = {}
+      for (const [k, v] of Object.entries(value)) {
+        const key = replace.get(k) ?? k
+        const next = swap(v)
+        // Two people's lists merged under one key (e.g. read notifications) keep both.
+        out[key] = Array.isArray(out[key]) && Array.isArray(next) ? [...new Set([...(out[key] as unknown[]), ...next])] : next
+      }
+      return out
+    }
+    return value
+  }
+  const { users: _users, ...rest } = old
+  return { ...(swap(rest) as Obj), users: users.filter((u) => u.role !== 'reception'), version: 9 } as unknown as SchoolData
+}
+
+/**
+ * Version 9 linked groups to courses by name and kept levels as plain text.
+ * Now every group points at a Course and a Level by id (Course → Level →
+ * Group). Levels become records; a group whose level wasn't on its course's
+ * list gets that level added, so every group keeps what it teaches.
+ */
+function v9ToV10(old: Obj): SchoolData {
+  return { ...structureCourses(old as unknown as SchoolData), version: 10 }
+}
+
+const STEPS: Record<number, (old: Obj, now: Date) => unknown> = { 1: v1ToV2, 2: v2ToV3, 3: v3ToV4, 4: v4ToV5, 5: v5ToV6, 6: v6ToV7, 7: v7ToV8, 8: v8ToV9, 9: v9ToV10 }
 
 /**
  * Brings saved data up to `target`. Returns null when there's no upgrade path

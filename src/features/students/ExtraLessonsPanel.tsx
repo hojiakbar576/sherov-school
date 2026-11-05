@@ -10,6 +10,7 @@ import { Field, Input, Select } from '../../components/ui/Field'
 import { Badge } from '../../components/ui/Badge'
 import { isValidISODate, toISODate } from '../../lib/dates'
 import { formatDate, formatUZS } from '../../lib/format'
+import { tr } from '../../i18n'
 
 const statusTone = { planned: 'info', done: 'success', cancelled: 'neutral' } as const
 const statusLabel = { planned: 'Planned', done: 'Done', cancelled: 'Cancelled' } as const
@@ -24,19 +25,19 @@ export function ExtraLessonsPanel({ student, className }: { student: Student; cl
 
   return (
     <Panel
-      title="Extra lessons"
-      description={unpaid.length ? `${unpaid.length} done but not paid (${formatUZS(unpaid.reduce((s, x) => s + x.fee, 0))})` : 'Lessons outside the group’s timetable.'}
+      title={tr("Extra lessons")}
+      description={unpaid.length ? tr("{0} done but not paid ({1})", unpaid.length, formatUZS(unpaid.reduce((s, x) => s + x.fee, 0))) : tr("Lessons outside the group’s timetable.")}
       actions={
         <Button size="sm" onClick={() => setEditing('new')}>
           <CalendarPlus aria-hidden />
-          Plan extra lesson
+          {tr("Plan extra lesson")}
         </Button>
       }
       className={className}
       flush
     >
       {lessons.length === 0 ? (
-        <p className="border-t border-line px-5 py-4 text-sm text-ink-muted">No extra lessons.</p>
+        <p className="border-t border-line px-5 py-4 text-sm text-ink-muted">{tr("No extra lessons.")}</p>
       ) : (
         <ul className="divide-y divide-line border-t border-line">
           {lessons.map((x) => (
@@ -47,18 +48,18 @@ export function ExtraLessonsPanel({ student, className }: { student: Student; cl
               <span className="min-w-0 flex-1">
                 <span className="block text-ink">{x.topic}</span>
                 <span className="block text-xs text-ink-muted">
-                  {teacherName.get(x.teacherId) ?? '—'} · {x.durationMinutes} min · {x.fee ? `${formatUZS(x.fee)}${x.paid ? ', paid' : ', not paid'}` : 'no extra fee'}
+                  {teacherName.get(x.teacherId) ?? '—'} · {x.durationMinutes}{' '}{tr("min ·")}{' '}{x.fee ? `${formatUZS(x.fee)}${x.paid ? ', paid' : ', not paid'}` : tr("no extra fee")}
                 </span>
               </span>
               <Badge tone={statusTone[x.status]}>{statusLabel[x.status]}</Badge>
-              <IconButton label={`Edit extra lesson on ${formatDate(x.date)}`} onClick={() => setEditing(x)}>
+              <IconButton label={tr("Edit extra lesson on {0}", formatDate(x.date))} onClick={() => setEditing(x)}>
                 <Pencil />
               </IconButton>
             </li>
           ))}
         </ul>
       )}
-      <Dialog open={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? 'Plan an extra lesson' : 'Extra lesson'} description={student.fullName}>
+      <Dialog open={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? tr("Plan an extra lesson") : tr("Extra lesson")} description={student.fullName}>
         {editing !== null && <ExtraLessonForm student={student} lesson={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
       </Dialog>
     </Panel>
@@ -91,15 +92,15 @@ function ExtraLessonForm({ student, lesson, onClose }: { student: Student; lesso
     const input = { studentId: student.id, teacherId: form.teacherId, date: form.date, time: form.time, durationMinutes: Number(form.durationMinutes), topic: form.topic.trim(), fee: Math.round(fee), status: form.status, paid: fee > 0 && form.paid }
     if (lesson) actions.updateExtraLesson(lesson.id, input)
     else actions.addExtraLesson(input)
-    toast.show(lesson ? 'Extra lesson saved.' : 'Extra lesson planned.')
+    toast.show(lesson ? tr("Extra lesson saved.") : tr("Extra lesson planned."))
     onClose()
   }
   return (
     <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
-      <Field label="What for" error={error || undefined} className="sm:col-span-2">
-        {(p) => <Input {...p} autoFocus value={form.topic} maxLength={100} onChange={(e) => set('topic', e.target.value)} placeholder="e.g. Catching up after an absence" />}
+      <Field label={tr("What for")} error={error || undefined} className="sm:col-span-2">
+        {(p) => <Input {...p} autoFocus value={form.topic} maxLength={100} onChange={(e) => set('topic', e.target.value)} placeholder={tr("e.g. Catching up after an absence")} />}
       </Field>
-      <Field label="Teacher">
+      <Field label={tr("Teacher")}>
         {(p) => (
           <Select {...p} value={form.teacherId} onChange={(e) => set('teacherId', e.target.value)}>
             {teachers.map((t) => (
@@ -110,37 +111,37 @@ function ExtraLessonForm({ student, lesson, onClose }: { student: Student; lesso
           </Select>
         )}
       </Field>
-      <Field label="Length">
+      <Field label={tr("Length")}>
         {(p) => (
           <Select {...p} value={form.durationMinutes} onChange={(e) => set('durationMinutes', e.target.value)}>
-            <option value="45">45 minutes</option>
-            <option value="60">60 minutes</option>
-            <option value="90">90 minutes</option>
+            <option value="45">{tr("45 minutes")}</option>
+            <option value="60">{tr("60 minutes")}</option>
+            <option value="90">{tr("90 minutes")}</option>
           </Select>
         )}
       </Field>
-      <Field label="Date">
+      <Field label={tr("Date")}>
         {(p) => <Input {...p} type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />}
       </Field>
-      <Field label="Time">
+      <Field label={tr("Time")}>
         {(p) => <Input {...p} type="time" value={form.time} onChange={(e) => set('time', e.target.value)} />}
       </Field>
-      <Field label="Extra fee (UZS)" hint="0 if it’s included in tuition.">
+      <Field label={tr("Extra fee (UZS)")} hint={tr("0 if it’s included in tuition.")}>
         {(p) => <Input {...p} type="number" inputMode="numeric" min={0} step={10000} value={form.fee} onChange={(e) => set('fee', e.target.value)} />}
       </Field>
-      <Field label="Status">
+      <Field label={tr("Status")}>
         {(p) => (
           <Select {...p} value={form.status} onChange={(e) => set('status', e.target.value as ExtraLesson['status'])}>
-            <option value="planned">Planned</option>
-            <option value="done">Done</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="planned">{tr("Planned")}</option>
+            <option value="done">{tr("Done")}</option>
+            <option value="cancelled">{tr("Cancelled")}</option>
           </Select>
         )}
       </Field>
       {Number(form.fee) > 0 && (
         <label className="flex items-center gap-2 text-sm text-ink sm:col-span-2">
           <input type="checkbox" checked={form.paid} onChange={(e) => set('paid', e.target.checked)} className="size-4 accent-[var(--color-brand)]" />
-          The fee has been paid
+          {tr("The fee has been paid")}
         </label>
       )}
       <div className="flex justify-end gap-2 border-t border-line pt-4 sm:col-span-2">
@@ -150,16 +151,16 @@ function ExtraLessonForm({ student, lesson, onClose }: { student: Student; lesso
             className="mr-auto text-danger hover:bg-danger-soft"
             onClick={() => {
               actions.deleteExtraLesson(lesson.id)
-              toast.show('Extra lesson deleted.')
+              toast.show(tr("Extra lesson deleted."))
               onClose()
             }}
           >
-            Delete
+            {tr("Delete")}
           </Button>
         )}
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{tr("Cancel")}</Button>
         <Button type="submit" variant="primary">
-          Save
+          {tr("Save")}
         </Button>
       </div>
     </form>

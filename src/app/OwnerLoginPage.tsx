@@ -3,9 +3,11 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { ArrowRight, ShieldAlert } from 'lucide-react'
 import { useSchool } from '../data/school-context'
 import { Logo } from '../components/layout/Logo'
+import { LanguageSwitcher } from '../components/layout/LanguageSwitcher'
 import { Button } from '../components/ui/Button'
 import { Field, Input } from '../components/ui/Field'
 import { ROLE_HOME } from '../lib/auth'
+import { tr } from '../i18n'
 
 /** Sign-in for the owner only. Administrators and teachers use /login. */
 export function OwnerLoginPage() {
@@ -32,22 +34,24 @@ export function OwnerLoginPage() {
     <div className="flex min-h-dvh items-start justify-center bg-canvas px-4 py-10 sm:items-center">
       <main className="w-full max-w-md">
         <section aria-labelledby="owner-sign-in" className="rounded-panel border border-line bg-surface p-6 sm:p-8">
-          <Logo />
+          <div className="flex items-center justify-between gap-4">
+            <Logo />
+            <LanguageSwitcher />
+          </div>
           <h1 id="owner-sign-in" className="mt-8 text-2xl font-semibold tracking-[-0.015em] text-ink">
-            Owner sign-in
+            {tr("Owner sign-in")}
           </h1>
-          <p className="mt-1 text-ink-muted">For Mr. Sherzod: every branch, finances and teachers in one place.</p>
+          <p className="mt-1 text-ink-muted">{tr("For Mr. Sherzod: every branch, finances and teachers in one place.")}</p>
 
           <div role="note" className="mt-6 flex gap-3 rounded-control border border-warning-mark/40 bg-warning-soft px-3.5 py-3 text-sm text-ink">
             <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
             <p>
-              <span className="font-semibold">Temporary development login.</span> Not secure: the details are set in the app’s code and nothing is checked by a
-              server. You stay signed in until you sign out or close the browser.
+              <span className="font-semibold">{tr("Temporary development login.")}</span>{' '}{tr("Not secure: the details are set in the app’s code and nothing is checked by a server. You stay signed in until you sign out or close the browser.")}
             </p>
           </div>
 
           <form onSubmit={submit} noValidate className="mt-6 space-y-4">
-            <Field label="Username">
+            <Field label={tr("Username")}>
               {(control) => (
                 <Input
                   {...control}
@@ -64,7 +68,7 @@ export function OwnerLoginPage() {
                 />
               )}
             </Field>
-            <Field label="Password" error={error ?? undefined}>
+            <Field label={tr("Password")} error={error ?? undefined}>
               {(control) => (
                 <Input
                   {...control}
@@ -80,15 +84,15 @@ export function OwnerLoginPage() {
               )}
             </Field>
             <Button type="submit" variant="primary" className="w-full">
-              Sign in
+              {tr("Sign in")}
               <ArrowRight aria-hidden />
             </Button>
           </form>
         </section>
         <p className="mt-4 text-center text-sm text-ink-muted">
-          Administrator or teacher?{' '}
+          {tr("Administrator or teacher?")}{' '}
           <Link to="/login" className="font-medium text-brand hover:underline">
-            Sign in here
+            {tr("Sign in here")}
           </Link>
         </p>
       </main>

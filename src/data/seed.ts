@@ -12,6 +12,7 @@ import type {
   StudentStatus,
   Teacher,
 } from '../types'
+import { structureCourses } from '../lib/courses'
 import {
   addDays,
   addMonths,
@@ -37,7 +38,7 @@ import { SALARY_PERCENT, seedHomework, seedHomeworkResults, seedStudentNotes, st
  * Bump when the stored data shape changes. data/migrate.ts upgrades older
  * saved data; anything it can't upgrade is set aside as a backup.
  */
-export const DATA_VERSION = 7
+export const DATA_VERSION = 10
 /** How many months of tuition history the demo covers (including this month). */
 export const HISTORY_MONTHS = 6
 
@@ -64,7 +65,7 @@ const TEACHERS: Omit<Teacher, 'branchId' | 'salaryPercent'>[] = [
   { id: 'tch_10', fullName: 'Otabek Ergashev', subject: 'Mathematics', phone: '+998 90 958 27 15', email: 'otabek.ergashev@sherovschool.uz', status: 'on_leave', joinedOn: '2023-09-04' },
 ]
 
-type GroupSeed = Omit<Group, 'durationMinutes' | 'status' | 'branchId'> & { fill: number; status?: Group['status'] }
+type GroupSeed = Omit<Group, 'durationMinutes' | 'status' | 'branchId' | 'courseId' | 'levelId'> & { fill: number; status?: Group['status'] }
 
 // Hand-planned timetable: no teacher or room is double-booked.
 // `fill` is how many active students the group starts with.
@@ -162,6 +163,9 @@ export function createDemoData(now: Date = new Date()): SchoolData {
   const groups: Group[] = GROUPS.map(({ fill: _fill, status, ...g }) => ({
     ...g,
     branchId: TEACHER_BRANCH[g.teacherId],
+    // Filled in from the course and level names by structureCourses below.
+    courseId: '',
+    levelId: '',
     durationMinutes: 90,
     status: status ?? 'active',
   }))
@@ -318,7 +322,7 @@ export function createDemoData(now: Date = new Date()): SchoolData {
     notificationReads: {},
     bonuses: [],
   }, now, { demo: true })
-  return addOfficeData(administration, now, { demo: true })
+  return structureCourses(addOfficeData(administration, now, { demo: true }))
 }
 
 /** Recent activity for each branch, so every administrator starts with some. */

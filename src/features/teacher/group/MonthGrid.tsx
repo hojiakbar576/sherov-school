@@ -1,14 +1,14 @@
 import type { AttendanceRecord, Group, ISODate, Student } from '../../../types'
 import { parseISODate } from '../../../lib/dates'
-import { formatPercent } from '../../../lib/format'
+import { formatPercent, shortWeekday } from '../../../lib/format'
 import { summarizeMarks } from '../../../lib/metrics'
 import { cn } from '../../../lib/cn'
 import { Avatar } from '../../../components/ui/misc'
 import { averageGrade } from '../teacher-metrics'
 import { GradeChip, MarkChip } from './GradeChip'
 import { formatAverage } from './grade-style'
+import { tr } from '../../../i18n'
 
-const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 interface Props {
   group: Group
@@ -33,7 +33,7 @@ export function MonthGrid({ mode, dates, students, records, today, onOpenLesson 
         <thead>
           <tr>
             <th scope="col" className="sticky left-0 z-10 min-w-52 border-b border-line bg-surface px-4 py-3 text-left text-xs font-medium text-ink-muted">
-              Students
+              {tr("Students")}
             </th>
             {dates.map((date) => {
               const d = parseISODate(date)
@@ -46,7 +46,7 @@ export function MonthGrid({ mode, dates, students, records, today, onOpenLesson 
                     type="button"
                     disabled={future}
                     onClick={() => onOpenLesson(date)}
-                    title={future ? 'Not yet' : record ? 'Open this lesson' : 'Mark this lesson'}
+                    title={future ? tr("Not yet") : record ? tr("Open this lesson") : tr("Mark this lesson")}
                     className={cn(
                       'mx-auto flex w-11 flex-col items-center rounded-lg py-1 leading-tight transition-colors',
                       date === today && 'bg-brand text-white',
@@ -55,14 +55,14 @@ export function MonthGrid({ mode, dates, students, records, today, onOpenLesson 
                     )}
                   >
                     <span className="num text-sm font-semibold">{String(d.getDate()).padStart(2, '0')}</span>
-                    <span className={cn('text-2xs', date === today ? 'text-white/80' : 'text-ink-muted')}>{WEEKDAY[d.getDay()]}</span>
+                    <span className={cn('text-2xs', date === today ? 'text-white/80' : 'text-ink-muted')}>{shortWeekday(d.getDay())}</span>
                     <span aria-hidden className={cn('mt-0.5 size-1.5 rounded-full', missing ? 'bg-danger-mark' : 'bg-transparent')} />
                   </button>
                 </th>
               )
             })}
             <th scope="col" className="border-b border-l border-line px-3 py-3 text-center text-xs font-medium whitespace-nowrap text-ink-muted">
-              {mode === 'attendance' ? 'Came' : 'Average'}
+              {mode === 'attendance' ? tr("Came") : tr("Average")}
             </th>
           </tr>
         </thead>
@@ -91,8 +91,8 @@ export function MonthGrid({ mode, dates, students, records, today, onOpenLesson 
                       ) : grade ? (
                         <GradeChip grade={grade} size="sm" />
                       ) : mark === 'absent' ? (
-                        <span title="Absent" className="text-xs font-medium text-danger">
-                          abs
+                        <span title={tr("Absent")} className="text-xs font-medium text-danger">
+                          {tr("abs")}
                         </span>
                       ) : (
                         <Empty future={date > today} />

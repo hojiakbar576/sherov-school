@@ -4,13 +4,14 @@
 // attendance: a ranking formula is still to be agreed.
 
 import type { Assessment, AssessmentKind, AssessmentResult, SchoolData } from '../types'
+import { tr } from '../i18n'
 
 export const assessmentKindLabel: Record<AssessmentKind, string> = {
-  level: 'Level test',
-  monthly: 'Monthly test',
-  midterm: 'Midterm',
-  final: 'Final exam',
-  other: 'Other',
+  level: tr("Level test"),
+  monthly: tr("Monthly test"),
+  midterm: tr("Midterm"),
+  final: tr("Final exam"),
+  other: tr("Other"),
 }
 
 export interface AssessmentSummary {

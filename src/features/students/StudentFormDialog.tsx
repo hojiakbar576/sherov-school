@@ -11,6 +11,7 @@ import { formatPhone, formatUZS, genderLabel, guardianRelationshipLabel, isValid
 import { createId } from '../../lib/id'
 import { TagPicker } from './StudentTags'
 import { enrolmentByGroup } from '../../lib/metrics'
+import { tr } from '../../i18n'
 
 interface StudentFormDialogProps {
   open: boolean
@@ -60,8 +61,8 @@ export function StudentFormDialog(props: StudentFormDialogProps) {
     <Dialog
       open={props.open}
       onClose={props.onClose}
-      title={props.title ?? (props.student ? 'Edit student' : 'Add student')}
-      description={props.student ? props.student.fullName : 'Four short steps: the student, a parent, the group and tuition.'}
+      title={props.title ?? (props.student ? tr("Edit student") : tr("Add student"))}
+      description={props.student ? props.student.fullName : tr("Four short steps: the student, a parent, the group and tuition.")}
       size="lg"
     >
       {props.open && <StudentForm {...props} />}
@@ -112,29 +113,29 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
 
   const validate = (): Errors => {
     const e: Errors = {}
-    if (form.fullName.trim().length < 3) e.fullName = 'Enter the student’s full name.'
-    if (!isValidPhone(form.phone)) e.phone = 'Enter a phone number like +998 90 123 45 67.'
-    if (form.email.trim() && !isValidEmail(form.email.trim())) e.email = 'This email address doesn’t look right.'
-    if (form.dateOfBirth && form.dateOfBirth >= toISODate(now)) e.dateOfBirth = 'Date of birth must be in the past.'
+    if (form.fullName.trim().length < 3) e.fullName = tr("Enter the student’s full name.")
+    if (!isValidPhone(form.phone)) e.phone = tr("Enter a phone number like +998 90 123 45 67.")
+    if (form.email.trim() && !isValidEmail(form.email.trim())) e.email = tr("This email address doesn’t look right.")
+    if (form.dateOfBirth && form.dateOfBirth >= toISODate(now)) e.dateOfBirth = tr("Date of birth must be in the past.")
     // A parent row is optional (adult students), but a started one must be complete.
     form.guardians.forEach((g, i) => {
       if (isBlank(g)) return
       const ge: { fullName?: string; phone?: string; altPhone?: string } = {}
-      if (g.fullName.trim().length < 3) ge.fullName = 'Enter the parent’s full name.'
-      if (!isValidPhone(g.phone)) ge.phone = 'Enter a phone like +998 90 123 45 67.'
-      if (g.altPhone.trim() && !isValidPhone(g.altPhone)) ge.altPhone = 'This number doesn’t look right.'
+      if (g.fullName.trim().length < 3) ge.fullName = tr("Enter the parent’s full name.")
+      if (!isValidPhone(g.phone)) ge.phone = tr("Enter a phone like +998 90 123 45 67.")
+      if (g.altPhone.trim() && !isValidPhone(g.altPhone)) ge.altPhone = tr("This number doesn’t look right.")
       if (Object.keys(ge).length) e.guardians = { ...e.guardians, [i]: ge }
     })
-    if (!form.enrolledOn) e.enrolledOn = 'Choose the enrolment date.'
-    else if (form.enrolledOn > toISODate(now)) e.enrolledOn = 'Enrolment date can’t be in the future.'
+    if (!form.enrolledOn) e.enrolledOn = tr("Choose the enrolment date.")
+    else if (form.enrolledOn > toISODate(now)) e.enrolledOn = tr("Enrolment date can’t be in the future.")
     const tuition = Number(form.monthlyTuition)
-    if (!form.monthlyTuition || !Number.isFinite(tuition) || tuition <= 0) e.monthlyTuition = 'Enter the monthly tuition in UZS.'
-    else if (tuition > 50_000_000) e.monthlyTuition = 'That amount is too large for monthly tuition.'
-    if (priceDiffers && form.adjustmentReason.trim().length < 3) e.adjustmentReason = 'Say why this student pays a different price.'
+    if (!form.monthlyTuition || !Number.isFinite(tuition) || tuition <= 0) e.monthlyTuition = tr("Enter the monthly tuition in UZS.")
+    else if (tuition > 50_000_000) e.monthlyTuition = tr("That amount is too large for monthly tuition.")
+    if (priceDiffers && form.adjustmentReason.trim().length < 3) e.adjustmentReason = tr("Say why this student pays a different price.")
     const group = data.groups.find((g) => g.id === form.groupId)
     const joiningGroup = group && !student
     if (group && joiningGroup && (enrolment.get(group.id) ?? 0) >= group.capacity) {
-      e.groupId = `${group.name} is full (${group.capacity} seats). Choose another group or raise its capacity.`
+      e.groupId = tr("{0} is full ({1} seats). Choose another group or raise its capacity.", group.name, group.capacity)
     }
     return e
   }
@@ -174,11 +175,11 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
     }
     if (student) {
       actions.updateStudent(student.id, input)
-      toast.show(`Saved changes to ${input.fullName}.`)
+      toast.show(tr("Saved changes to {0}.", input.fullName))
       onSaved?.({ ...student, ...input })
     } else {
       const created = (create ?? actions.addStudent)(input)
-      toast.show(`${created.fullName} was added.`)
+      toast.show(tr("{0} was added.", created.fullName))
       onSaved?.(created)
     }
     onClose()
@@ -188,20 +189,20 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
 
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
-      <Section step={1} title="Student">
-        <Field label="Full name" error={errors.fullName} className="sm:col-span-2">
-          {(p) => <Input {...p} value={form.fullName} onChange={(e) => set('fullName', e.target.value)} autoComplete="off" placeholder="e.g. Madina Karimova" autoFocus />}
+      <Section step={1} title={tr("Student")}>
+        <Field label={tr("Full name")} error={errors.fullName} className="sm:col-span-2">
+          {(p) => <Input {...p} value={form.fullName} onChange={(e) => set('fullName', e.target.value)} autoComplete="off" placeholder={tr("e.g. Madina Karimova")} autoFocus />}
         </Field>
-        <Field label="Student’s phone" error={errors.phone}>
+        <Field label={tr("Student’s phone")} error={errors.phone}>
           {(p) => <Input {...p} type="tel" inputMode="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)} onBlur={() => set('phone', formatPhone(form.phone))} placeholder="+998 90 123 45 67" />}
         </Field>
-        <Field label="Date of birth" optional error={errors.dateOfBirth}>
+        <Field label={tr("Date of birth")} optional error={errors.dateOfBirth}>
           {(p) => <Input {...p} type="date" max={toISODate(now)} value={form.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} />}
         </Field>
-        <Field label="Gender" optional>
+        <Field label={tr("Gender")} optional>
           {(p) => (
             <Select {...p} value={form.gender} onChange={(e) => set('gender', e.target.value as Gender | '')}>
-              <option value="">Not given</option>
+              <option value="">{tr("Not given")}</option>
               {(Object.keys(genderLabel) as Gender[]).map((g) => (
                 <option key={g} value={g}>
                   {genderLabel[g]}
@@ -210,29 +211,29 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
             </Select>
           )}
         </Field>
-        <Field label="Email" optional error={errors.email}>
-          {(p) => <Input {...p} type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="name@example.com" />}
+        <Field label={tr("Email")} optional error={errors.email}>
+          {(p) => <Input {...p} type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder={tr("name@example.com")} />}
         </Field>
-        <Field label="Address" optional className="sm:col-span-2">
-          {(p) => <Input {...p} value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="District, street" />}
+        <Field label={tr("Address")} optional className="sm:col-span-2">
+          {(p) => <Input {...p} value={form.address} onChange={(e) => set('address', e.target.value)} placeholder={tr("District, street")} />}
         </Field>
       </Section>
 
-      <Section step={2} title="Parent / guardian" hint="Who to call about this student. Leave empty for adult students.">
+      <Section step={2} title={tr("Parent / guardian")} hint={tr("Who to call about this student. Leave empty for adult students.")}>
         {form.guardians.map((g, i) => (
           <div key={g.id} className="grid gap-4 rounded-panel border border-line bg-canvas p-4 sm:col-span-2 sm:grid-cols-2">
             <div className="flex items-center justify-between sm:col-span-2">
-              <p className="text-sm font-medium text-ink">{i === 0 ? 'Main contact' : 'Second contact'}</p>
+              <p className="text-sm font-medium text-ink">{i === 0 ? tr("Main contact") : tr("Second contact")}</p>
               {i > 0 && (
                 <button type="button" onClick={() => set('guardians', form.guardians.filter((_, j) => j !== i))} className="text-sm text-ink-muted hover:text-danger">
-                  Remove
+                  {tr("Remove")}
                 </button>
               )}
             </div>
-            <Field label="Full name" error={gErr(i).fullName}>
-              {(p) => <Input {...p} value={g.fullName} onChange={(e) => setGuardian(i, { fullName: e.target.value })} placeholder="e.g. Dilnoza Karimova" />}
+            <Field label={tr("Full name")} error={gErr(i).fullName}>
+              {(p) => <Input {...p} value={g.fullName} onChange={(e) => setGuardian(i, { fullName: e.target.value })} placeholder={tr("e.g. Dilnoza Karimova")} />}
             </Field>
-            <Field label="Relationship">
+            <Field label={tr("Relationship")}>
               {(p) => (
                 <Select {...p} value={g.relationship} onChange={(e) => setGuardian(i, { relationship: e.target.value as GuardianRelationship })}>
                   {GUARDIAN_RELATIONSHIPS.map((r) => (
@@ -243,32 +244,32 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
                 </Select>
               )}
             </Field>
-            <Field label="Phone" error={gErr(i).phone}>
+            <Field label={tr("Phone")} error={gErr(i).phone}>
               {(p) => <Input {...p} type="tel" inputMode="tel" value={g.phone} onChange={(e) => setGuardian(i, { phone: e.target.value })} onBlur={() => setGuardian(i, { phone: formatPhone(g.phone) })} placeholder="+998 90 123 45 67" />}
             </Field>
-            <Field label="Second phone" optional error={gErr(i).altPhone}>
-              {(p) => <Input {...p} type="tel" inputMode="tel" value={g.altPhone} onChange={(e) => setGuardian(i, { altPhone: e.target.value })} onBlur={() => setGuardian(i, { altPhone: g.altPhone ? formatPhone(g.altPhone) : '' })} placeholder="Work or another number" />}
+            <Field label={tr("Second phone")} optional error={gErr(i).altPhone}>
+              {(p) => <Input {...p} type="tel" inputMode="tel" value={g.altPhone} onChange={(e) => setGuardian(i, { altPhone: e.target.value })} onBlur={() => setGuardian(i, { altPhone: g.altPhone ? formatPhone(g.altPhone) : '' })} placeholder={tr("Work or another number")} />}
             </Field>
           </div>
         ))}
         {form.guardians.length < 3 && (
           <div className="sm:col-span-2">
             <Button size="sm" onClick={() => set('guardians', [...form.guardians, emptyGuardian(form.guardians.some((g) => g.relationship === 'father') ? 'mother' : 'father')])}>
-              + Add {form.guardians.length === 0 ? 'a parent' : 'another parent'}
+              {tr("+ Add")}{' '}{form.guardians.length === 0 ? tr("a parent") : tr("another parent")}
             </Button>
           </div>
         )}
       </Section>
 
-      <Section step={3} title="Group">
+      <Section step={3} title={tr("Group")}>
         {student ? (
           <p className="rounded-control bg-subtle px-3 py-2.5 text-sm text-ink-muted sm:col-span-2">
-            {student.groupId ? <>In <span className="font-medium text-ink">{data.groups.find((g) => g.id === student.groupId)?.name}</span>. </> : 'Not in a group. '}
-            To move them to another group or change their status, use <span className="font-medium text-ink">Transfer</span> or{' '}
-            <span className="font-medium text-ink">Change status</span> on their profile, so the history is kept.
+            {student.groupId ? <>{tr("In")}{' '}<span className="font-medium text-ink">{data.groups.find((g) => g.id === student.groupId)?.name}</span>. </> : tr("Not in a group. ")}
+            {tr("To move them to another group or change their status, use")}{' '}<span className="font-medium text-ink">{tr("Transfer")}</span>{' '}{tr("or")}{' '}
+            <span className="font-medium text-ink">{tr("Change status")}</span>{' '}{tr("on their profile, so the history is kept.")}
           </p>
         ) : (
-        <Field label="Group" error={errors.groupId} hint="Tuition below is filled in from the group’s monthly fee." className="sm:col-span-2">
+        <Field label={tr("Group")} error={errors.groupId} hint={tr("Tuition below is filled in from the group’s monthly fee.")} className="sm:col-span-2">
           {(p) => (
             <Select
               {...p}
@@ -280,12 +281,12 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
                 if (fee && !tuitionEdited) set('monthlyTuition', String(fee))
               }}
             >
-              <option value="">No group yet</option>
+              <option value="">{tr("No group yet")}</option>
               {activeGroups.map((g) => {
                 const count = enrolment.get(g.id) ?? 0
                 return (
                   <option key={g.id} value={g.id}>
-                    {g.name} ({count}/{g.capacity}){count >= g.capacity ? ', full' : ''}
+                    {g.name} ({count}/{g.capacity}){count >= g.capacity ? tr(", full") : ''}
                   </option>
                 )
               })}
@@ -293,21 +294,17 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
           )}
         </Field>
         )}
-        <Field label="Enrolment date" error={errors.enrolledOn}>
+        <Field label={tr("Enrolment date")} error={errors.enrolledOn}>
           {(p) => <Input {...p} type="date" max={toISODate(now)} value={form.enrolledOn} onChange={(e) => set('enrolledOn', e.target.value)} />}
         </Field>
       </Section>
 
-      <Section step={4} title="Tuition and tags">
+      <Section step={4} title={tr("Tuition and tags")}>
         <Field
-          label="Monthly tuition (UZS)"
+          label={tr("Monthly tuition (UZS)")}
           error={errors.monthlyTuition}
           hint={
-            standardFee !== undefined
-              ? `The group’s standard fee is ${formatUZS(standardFee)}.${priceDiffers ? '' : ' Change it for a discount or special price.'}`
-              : form.monthlyTuition && Number(form.monthlyTuition) > 0
-                ? `${formatUZS(Number(form.monthlyTuition))} a month.`
-                : undefined
+            standardFee !== undefined ? tr("The group’s standard fee is {0}.{1}", formatUZS(standardFee), priceDiffers ? '' : tr(" Change it for a discount or special price.")) : form.monthlyTuition && Number(form.monthlyTuition) > 0 ? tr("{0} a month.", formatUZS(Number(form.monthlyTuition))) : undefined
           }
         >
           {(p) => (
@@ -328,7 +325,7 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
         </Field>
         {priceDiffers && (
           <>
-            <Field label="Why a different price">
+            <Field label={tr("Why a different price")}>
               {(p) => (
                 <Select {...p} value={form.adjustmentKind} onChange={(e) => set('adjustmentKind', e.target.value as TuitionAdjustmentKind)}>
                   {(Object.keys(tuitionAdjustmentLabel) as TuitionAdjustmentKind[]).map((k) => (
@@ -339,22 +336,22 @@ function StudentForm({ onClose, student, onSaved, initial, create }: StudentForm
                 </Select>
               )}
             </Field>
-            <Field label="Reason" error={errors.adjustmentReason} hint="Shown on the profile so everyone knows why the price differs.">
-              {(p) => <Input {...p} value={form.adjustmentReason} maxLength={160} onChange={(e) => set('adjustmentReason', e.target.value)} placeholder="e.g. Sibling discount" />}
+            <Field label={tr("Reason")} error={errors.adjustmentReason} hint={tr("Shown on the profile so everyone knows why the price differs.")}>
+              {(p) => <Input {...p} value={form.adjustmentReason} maxLength={160} onChange={(e) => set('adjustmentReason', e.target.value)} placeholder={tr("e.g. Sibling discount")} />}
             </Field>
           </>
         )}
       </Section>
 
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-ink">Tags <span className="font-normal text-ink-muted">· optional labels you can filter the student list by</span></p>
+        <p className="text-sm font-medium text-ink">{tr("Tags")}{' '}<span className="font-normal text-ink-muted">{tr("· optional labels you can filter the student list by")}</span></p>
         <TagPicker value={form.tags} onChange={(tags) => set('tags', tags)} />
       </div>
 
       <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{tr("Cancel")}</Button>
         <Button type="submit" variant="primary">
-          {student ? 'Save changes' : 'Add student'}
+          {student ? tr("Save changes") : tr("Add student")}
         </Button>
       </div>
     </form>

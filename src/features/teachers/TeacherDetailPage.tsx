@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { ArrowLeft, CalendarOff, Pencil, UserRoundX, UsersRound } from 'lucide-react'
 import { useSchool } from '../../data/school-context'
 import { Panel } from '../../components/ui/Panel'
@@ -15,6 +15,8 @@ import { RATING_PART_LABEL, RATING_PARTS, teacherRatings } from '../../lib/ratin
 import { teacherSalary } from '../../lib/salary'
 import { cn } from '../../lib/cn'
 import { TeacherFormDialog } from './TeacherFormDialog'
+import { AttendanceJournal } from '../groups/AttendanceJournal'
+import { tr } from '../../i18n'
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -25,10 +27,16 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-/** One teacher for the administrator: contact, groups, this week's classes and how this month is going. */
+/**
+ * One teacher: first their groups' attendance day by day (what an
+ * administrator checks most), then contact, groups, this week and this month.
+ * Only the owner can edit a teacher's details.
+ */
 export function TeacherDetailPage() {
   const { teacherId } = useParams()
-  const { data, now } = useSchool()
+  const { data, now, user } = useSchool()
+  const [params, setParams] = useSearchParams()
+  const isOwner = user?.role === 'owner'
   const [editing, setEditing] = useState(false)
   const teacher = data.teachers.find((t) => t.id === teacherId)
   const month = monthKey(now)
@@ -38,8 +46,8 @@ export function TeacherDetailPage() {
   if (!teacher || !salary) {
     return (
       <div className="rounded-panel border border-line bg-surface">
-        <EmptyState icon={UserRoundX} title="Teacher not found" action={<ButtonLink to="/teachers">Back to teachers</ButtonLink>}>
-          They may have been deleted, or they work at another branch.
+        <EmptyState icon={UserRoundX} title={tr("Teacher not found")} action={<ButtonLink to="/teachers">{tr("Back to teachers")}</ButtonLink>}>
+          {tr("They may have been deleted, or they work at another branch.")}
         </EmptyState>
       </div>
     )
@@ -48,6 +56,7 @@ export function TeacherDetailPage() {
   const enrolment = enrolmentByGroup(data)
   const groups = data.groups.filter((g) => g.teacherId === teacher.id).sort((a, b) => Number(a.status !== 'active') - Number(b.status !== 'active') || a.name.localeCompare(b.name))
   const running = groups.filter((g) => g.status === 'active')
+  const journalGroup = groups.find((g) => g.id === params.get('group')) ?? running[0] ?? groups[0]
   const students = running.reduce((sum, g) => sum + (enrolment.get(g.id) ?? 0), 0)
   const branchName = new Map(data.branches.map((b) => [b.id, b.name]))
   const week = Array.from({ length: 7 }, (_, i) => toISODate(addDays(now, i))).flatMap((date) =>
@@ -59,7 +68,7 @@ export function TeacherDetailPage() {
     <>
       <Link to="/teachers" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
         <ArrowLeft aria-hidden className="size-4" />
-        All teachers
+        {tr("All teachers")}
       </Link>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
@@ -70,52 +79,100 @@ export function TeacherDetailPage() {
               <TeacherStatusBadge status={teacher.status} />
             </div>
             <p className="mt-0.5 text-ink-muted">
-              {teacher.subject} · {branchName.get(teacher.branchId)} branch · {running.length} running {running.length === 1 ? 'group' : 'groups'}, {students} students
+              {teacher.subject} · {branchName.get(teacher.branchId)}{' '}{tr("branch ·")}{' '}{running.length}{' '}{tr("running")}{' '}{running.length === 1 ? tr("group") : tr("groups")}, {students}{' '}{tr("students")}
             </p>
           </div>
         </div>
-        <Button onClick={() => setEditing(true)}>
-          <Pencil aria-hidden />
-          Edit
-        </Button>
+        {isOwner ? (
+          <Button onClick={() => setEditing(true)}>
+            <Pencil aria-hidden />
+            {tr("Edit")}
+          </Button>
+        ) : (
+          <p className="text-sm text-ink-muted">{tr("Only the owner can edit teacher details.")}</p>
+        )}
       </div>
+
+      {groups.length > 0 && journalGroup && (
+        <Panel
+          title={tr("Attendance by group")}
+          description={tr("Day by day, one group at a time.")}
+          className="mb-6"
+          actions={
+            <div role="tablist" aria-label={tr("Choose a group")} className="flex flex-wrap gap-1.5">
+              {groups.map((g) => (
+                <button
+                  key={g.id}
+                  role="tab"
+                  type="button"
+                  aria-selected={g.id === journalGroup.id}
+                  onClick={() =>
+                    setParams(
+                      (prev) => {
+                        const next = new URLSearchParams(prev)
+                        next.set('group', g.id)
+                        return next
+                      },
+                      { replace: true },
+                    )
+                  }
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-sm transition-colors',
+                    g.id === journalGroup.id ? 'border-brand bg-brand-soft font-medium text-brand-ink' : 'border-line text-ink-muted hover:border-line-strong hover:text-ink',
+                    g.status !== 'active' && 'opacity-70',
+                  )}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          <AttendanceJournal group={journalGroup} />
+          <p className="mt-2 text-sm">
+            <Link to={`/groups/${journalGroup.id}`} className="font-medium text-brand hover:underline">
+              {tr("Open {0}", journalGroup.name)}
+            </Link>
+          </p>
+        </Panel>
+      )}
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
         <div className="min-w-0 space-y-6 lg:col-span-4">
-          <Panel title="Contact and work">
+          <Panel title={tr("Contact and work")}>
             <dl className="divide-y divide-line text-sm">
-              <Row label="Phone">
+              <Row label={tr("Phone")}>
                 <PhoneLine phone={teacher.phone} />
               </Row>
-              <Row label="Email">
+              <Row label={tr("Email")}>
                 <a href={`mailto:${teacher.email}`} className="break-all hover:text-brand hover:underline">
                   {teacher.email}
                 </a>
               </Row>
-              <Row label="Teaches">{teacher.subject}</Row>
-              <Row label="Joined">
+              <Row label={tr("Teaches")}>{teacher.subject}</Row>
+              <Row label={tr("Joined")}>
                 <span className="num">{formatDate(teacher.joinedOn)}</span>
               </Row>
-              <Row label="Branch">{branchName.get(teacher.branchId)}</Row>
+              <Row label={tr("Branch")}>{branchName.get(teacher.branchId)}</Row>
               {teacher.branchHistory && teacher.branchHistory.length > 1 && (
-                <Row label="Earlier branches">
+                <Row label={tr("Earlier branches")}>
                   {teacher.branchHistory
                     .slice(0, -1)
                     .map((h) => `${branchName.get(h.branchId) ?? '—'} from ${formatDate(h.from)}`)
                     .join('; ')}
                 </Row>
               )}
-              <Row label="Pay share">
-                <span className="num">{teacher.salaryPercent}% of paid tuition</span>
+              <Row label={tr("Pay share")}>
+                <span className="num">{teacher.salaryPercent}{tr("% of paid tuition")}</span>
               </Row>
             </dl>
-            <p className="mt-3 text-xs text-ink-muted">Only the owner can move a teacher to another branch. Their history stays with them.</p>
+            <p className="mt-3 text-xs text-ink-muted">{tr("Only the owner can move a teacher to another branch. Their history stays with them.")}</p>
           </Panel>
 
-          <Panel title={`Pay for ${formatMonth(month)}`} description="So far, from tuition paid for this month.">
+          <Panel title={tr("Pay for {0}", formatMonth(month))} description={tr("So far, from tuition paid for this month.")}>
             <p className="num text-2xl font-semibold text-ink">{formatUZS(salary.amount)}</p>
             <p className="num mt-1 text-sm text-ink-muted">
-              {teacher.salaryPercent}% of {formatUZS(salary.collected)} collected from {salary.lines.length} {salary.lines.length === 1 ? 'payment' : 'payments'}
+              {teacher.salaryPercent}{tr("% of")}{' '}{formatUZS(salary.collected)}{' '}{tr("collected from")}{' '}{salary.lines.length} {salary.lines.length === 1 ? tr("payment") : tr("payments")}
             </p>
             {salary.groups.length > 0 && (
               <ul className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
@@ -131,21 +188,21 @@ export function TeacherDetailPage() {
         </div>
 
         <div className="min-w-0 space-y-6 lg:col-span-8">
-          <Panel title="Groups" flush>
+          <Panel title={tr("Groups")} flush>
             {groups.length === 0 ? (
-              <EmptyState icon={UsersRound} title="No groups yet" action={<ButtonLink to="/groups">Open groups</ButtonLink>}>
-                Assign this teacher to a group on the Groups page.
+              <EmptyState icon={UsersRound} title={tr("No groups yet")} action={<ButtonLink to="/groups">{tr("Open groups")}</ButtonLink>}>
+                {tr("Assign this teacher to a group on the Groups page.")}
               </EmptyState>
             ) : (
               <TableScroll>
                 <table className="w-full min-w-[620px] text-sm">
                   <thead className="border-y border-line bg-canvas">
                     <tr>
-                      <th scope="col" className={th}>Group</th>
-                      <th scope="col" className={th}>Schedule</th>
-                      <th scope="col" className={cn(th, 'text-right')}>Students</th>
-                      <th scope="col" className={cn(th, 'text-right')}>Attendance</th>
-                      <th scope="col" className={th}>Status</th>
+                      <th scope="col" className={th}>{tr("Group")}</th>
+                      <th scope="col" className={th}>{tr("Schedule")}</th>
+                      <th scope="col" className={cn(th, 'text-right')}>{tr("Students")}</th>
+                      <th scope="col" className={cn(th, 'text-right')}>{tr("Attendance")}</th>
+                      <th scope="col" className={th}>{tr("Status")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -154,7 +211,7 @@ export function TeacherDetailPage() {
                       return (
                         <tr key={g.id}>
                           <td className={td}>
-                            <Link to={`/groups?q=${encodeURIComponent(g.name)}`} className="font-medium text-ink hover:text-brand hover:underline">
+                            <Link to={`/groups/${g.id}`} className="font-medium text-ink hover:text-brand hover:underline">
                               {g.name}
                             </Link>
                             <p className="text-xs text-ink-muted">{g.subject}</p>
@@ -179,14 +236,14 @@ export function TeacherDetailPage() {
             )}
           </Panel>
 
-          <Panel title="Next 7 days" flush>
+          <Panel title={tr("Next 7 days")} flush>
             {week.length === 0 ? (
-              <EmptyState icon={CalendarOff} title="No classes in the next 7 days" />
+              <EmptyState icon={CalendarOff} title={tr("No classes in the next 7 days")} />
             ) : (
               <ul className="divide-y divide-line border-t border-line">
                 {week.map((s) => (
                   <li key={`${s.group.id}-${s.date}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 text-sm">
-                    <span className="num w-28 shrink-0 text-ink-muted">{s.date === today ? 'Today' : formatDayShort(new Date(`${s.date}T12:00`))}</span>
+                    <span className="num w-28 shrink-0 text-ink-muted">{s.date === today ? tr("Today") : formatDayShort(new Date(`${s.date}T12:00`))}</span>
                     <span className="num w-24 shrink-0 font-medium text-ink">
                       {s.start}–{s.end}
                     </span>
@@ -200,9 +257,9 @@ export function TeacherDetailPage() {
             )}
           </Panel>
 
-          <Panel title={`This month so far`} description="Measured from lessons, attendance and homework they recorded. Not a final ranking.">
+          <Panel title={tr("This month so far")} description={tr("Measured from lessons, attendance and homework they recorded. Not a final ranking.")}>
             {!rating ? (
-              <p className="text-sm text-ink-muted">Nothing to measure yet this month.</p>
+              <p className="text-sm text-ink-muted">{tr("Nothing to measure yet this month.")}</p>
             ) : (
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
                 {RATING_PARTS.map((part) => {
@@ -222,7 +279,7 @@ export function TeacherDetailPage() {
         </div>
       </div>
 
-      <TeacherFormDialog open={editing} teacher={teacher} onClose={() => setEditing(false)} />
+      {isOwner && <TeacherFormDialog open={editing} teacher={teacher} onClose={() => setEditing(false)} />}
     </>
   )
 }

@@ -15,9 +15,10 @@ import {
   timeToMinutes,
   toISODate,
 } from './dates'
-import { formatDayMonth, formatDayShort, formatMonth, formatMonthShort, formatUZS } from './format'
+import { formatDayMonth, formatDayShort, formatMonth, formatMonthShort, formatUZS, shortWeekday } from './format'
 import { endTime, meetsOn } from './schedule'
 import { trialsAwaitingResult, trialsOn } from './admissions'
+import { tr } from '../i18n'
 
 // ---------------------------------------------------------------- tuition
 
@@ -233,7 +234,7 @@ export function weekAttendance(data: SchoolData, now: Date): DayAttendance[] {
     return {
       ...summarizeMarks(records),
       date,
-      label: day.toLocaleDateString('en-GB', { weekday: 'short' }),
+      label: shortWeekday(day.getDay()),
       isFuture: date > today,
       sessionsPlanned: data.groups.filter((g) => meetsOn(g, date)).length,
       sessionsRecorded: records.length,
@@ -343,7 +344,7 @@ export function attentionItems(data: SchoolData, now: Date, balances: Map<string
       id: `overdue:${studentId}:${b.owed}`,
       kind: 'overdue',
       title: s.fullName,
-      reason: `${formatUZS(b.owed)} unpaid tuition (${months})`,
+      reason: tr("{0} unpaid tuition ({1})", formatUZS(b.owed), months),
       weight: b.owed,
       studentId,
     })
@@ -357,7 +358,7 @@ export function attentionItems(data: SchoolData, now: Date, balances: Map<string
       id: `absences:${studentId}:${count}`,
       kind: 'absences',
       title: s.fullName,
-      reason: `${count} absences in the last ${ABSENCE_WINDOW_DAYS} days (${group.get(s.groupId ?? '')?.name ?? 'no group'})`,
+      reason: tr("{0} absences in the last {1} days ({2})", count, ABSENCE_WINDOW_DAYS, group.get(s.groupId ?? '')?.name ?? 'no group'),
       weight: count,
       studentId,
     })
@@ -371,7 +372,7 @@ export function attentionItems(data: SchoolData, now: Date, balances: Map<string
       id: `trial:${lead.id}:${today}`,
       kind: 'trial_today',
       title: lead.studentName,
-      reason: `Trial at ${lead.trial?.time}${g ? ` in ${g.name}` : ''} · ${lead.course}`,
+      reason: tr("Trial at {0}{1} · {2}", lead.trial?.time, g ? tr(" in {0}", g.name) : '', lead.course),
       weight: -timeToMinutes(lead.trial?.time ?? '00:00'),
       leadId: lead.id,
     })
@@ -381,7 +382,7 @@ export function attentionItems(data: SchoolData, now: Date, balances: Map<string
       id: `trial-result:${lead.id}`,
       kind: 'trial_result',
       title: lead.studentName,
-      reason: `Trial on ${formatDayShort(atTime(lead.trial!.date, lead.trial!.time))}: record how it went and place them`,
+      reason: tr("Trial on {0}: record how it went and place them", formatDayShort(atTime(lead.trial!.date, lead.trial!.time))),
       weight: 0,
       leadId: lead.id,
     })
@@ -394,7 +395,7 @@ export function attentionItems(data: SchoolData, now: Date, balances: Map<string
       id: `lead-new:${lead.id}`,
       kind: 'lead_new',
       title: lead.studentName,
-      reason: `Asked about ${lead.course}${lead.source ? ` via ${lead.source}` : ''}. Call back.`,
+      reason: tr("Asked about {0}{1}. Call back.", lead.course, lead.source ? tr(" via {0}", lead.source) : ''),
       weight: -new Date(lead.createdAt).getTime(),
       leadId: lead.id,
     })
@@ -409,7 +410,7 @@ export function attentionItems(data: SchoolData, now: Date, balances: Map<string
       id: `teacher:${g.id}:${t?.status ?? 'none'}`,
       kind: 'teacher_away',
       title: g.name,
-      reason: t ? `${t.fullName} is on leave. Assign a teacher or pause the group.` : 'No teacher assigned. Choose a teacher for this group.',
+      reason: t ? tr("{0} is on leave. Assign a teacher or pause the group.", t.fullName) : tr("No teacher assigned. Choose a teacher for this group."),
       weight: 1,
       groupId: g.id,
     })
@@ -425,7 +426,7 @@ export function attentionItems(data: SchoolData, now: Date, balances: Map<string
       id: `capacity:${g.id}:${count}`,
       kind: 'capacity',
       title: g.name,
-      reason: seatsLeft <= 0 ? `Full: ${count} of ${g.capacity} seats taken` : `1 seat left: ${count} of ${g.capacity} taken`,
+      reason: seatsLeft <= 0 ? tr("Full: {0} of {1} seats taken", count, g.capacity) : tr("1 seat left: {0} of {1} taken", count, g.capacity),
       weight: count / g.capacity,
       groupId: g.id,
     })
@@ -440,7 +441,7 @@ export function attentionItems(data: SchoolData, now: Date, balances: Map<string
         id: `missing:${session.group.id}:${date}`,
         kind: 'attendance_missing',
         title: session.group.name,
-        reason: `Attendance not recorded for ${formatDayShort(atTime(date, session.start))}, ${session.start}`,
+        reason: tr("Attendance not recorded for {0}, {1}", formatDayShort(atTime(date, session.start)), session.start),
         weight: -i,
         groupId: session.group.id,
         date,

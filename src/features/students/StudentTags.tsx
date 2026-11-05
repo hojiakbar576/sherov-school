@@ -1,5 +1,6 @@
 import { useSchool } from '../../data/school-context'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 /** A student's tags as small chips. */
 export function TagChips({ tags, className }: { tags?: string[]; className?: string }) {
@@ -10,7 +11,7 @@ export function TagChips({ tags, className }: { tags?: string[]; className?: str
     <span className={cn('inline-flex flex-wrap gap-1', className)}>
       {tags.map((id) => (
         <span key={id} className="rounded-full border border-line-strong bg-surface px-2 py-0.5 text-xs text-ink-muted">
-          {name.get(id) ?? 'Tag'}
+          {name.get(id) ?? tr("Tag")}
         </span>
       ))}
     </span>
@@ -21,9 +22,9 @@ export function TagChips({ tags, className }: { tags?: string[]; className?: str
 export function TagPicker({ value, onChange }: { value: string[]; onChange: (tags: string[]) => void }) {
   const { data } = useSchool()
   const tags = data.catalogs.studentTags.filter((t) => t.active || value.includes(t.id))
-  if (tags.length === 0) return <p className="text-sm text-ink-muted">No tags yet. Add some in Settings → Lists.</p>
+  if (tags.length === 0) return <p className="text-sm text-ink-muted">{tr("No tags yet. Add some in Settings → Lists.")}</p>
   return (
-    <div role="group" aria-label="Tags" className="flex flex-wrap gap-1.5">
+    <div role="group" aria-label={tr("Tags")} className="flex flex-wrap gap-1.5">
       {tags.map((t) => {
         const on = value.includes(t.id)
         return (

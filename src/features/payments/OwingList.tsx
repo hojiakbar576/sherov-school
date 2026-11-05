@@ -11,6 +11,7 @@ import { formatMonthShort, formatNumber, formatUZS, guardianRelationshipLabel } 
 import { cn } from '../../lib/cn'
 import { toISODate } from '../../lib/dates'
 import { ExportButtons } from '../../components/ui/ExportButtons'
+import { tr } from '../../i18n'
 
 /**
  * Active students who still owe tuition, overdue first, with the parent's
@@ -31,16 +32,16 @@ export function OwingList({ onRecordPayment }: { onRecordPayment: (studentId: st
   }, [data.students, balances, q, show])
 
   return (
-    <section aria-label="Students who haven’t paid" className="rounded-panel border border-line bg-surface">
+    <section aria-label={tr("Students who haven’t paid")} className="rounded-panel border border-line bg-surface">
       <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:flex-wrap sm:items-center">
-        <SearchInput label="Search students who owe" value={q} onChange={setQ} placeholder="Student or parent name" />
-        <Select aria-label="Which students" value={show} onChange={(e) => setShow(e.target.value as typeof show)} className="sm:w-56">
-          <option value="">Everyone who owes</option>
-          <option value="overdue">Overdue only</option>
-          <option value="due">Not yet due</option>
+        <SearchInput label={tr("Search students who owe")} value={q} onChange={setQ} placeholder={tr("Student or parent name")} />
+        <Select aria-label={tr("Which students")} value={show} onChange={(e) => setShow(e.target.value as typeof show)} className="sm:w-56">
+          <option value="">{tr("Everyone who owes")}</option>
+          <option value="overdue">{tr("Overdue only")}</option>
+          <option value="due">{tr("Not yet due")}</option>
         </Select>
         <p className="num text-sm text-ink-muted sm:ml-auto" aria-live="polite">
-          {formatNumber(rows.length)} {rows.length === 1 ? 'student' : 'students'} · {formatUZS(rows.reduce((sum, r) => sum + r.b!.owed, 0))}
+          {formatNumber(rows.length)} {rows.length === 1 ? tr("student") : tr("students")} · {formatUZS(rows.reduce((sum, r) => sum + r.b!.owed, 0))}
         </p>
         <ExportButtons
           size="sm"
@@ -48,7 +49,7 @@ export function OwingList({ onRecordPayment }: { onRecordPayment: (studentId: st
           date={toISODate(now)}
           disabled={rows.length === 0}
           rows={() => [
-              ['Student', 'Group', 'Owed (UZS)', 'Unpaid months', 'Status', 'Parent / guardian', 'Relationship', 'Parent phone', 'Student phone'],
+              [tr("Student"), tr("Group"), tr("Owed (UZS)"), tr("Unpaid months"), tr("Status"), tr("Parent / guardian"), tr("Relationship"), tr("Parent phone"), tr("Student phone")],
               ...rows.map(({ s, b }) => {
                 const g = s.guardians[0]
                 return [s.fullName, groupName.get(s.groupId ?? '') ?? '', b!.owed, b!.unpaidMonths.join(' '), b!.status, g?.fullName, g ? guardianRelationshipLabel[g.relationship] : '', g?.phone, s.phone]
@@ -57,21 +58,21 @@ export function OwingList({ onRecordPayment }: { onRecordPayment: (studentId: st
         />
       </div>
       {rows.length === 0 ? (
-        <EmptyState icon={CircleCheck} title="Everyone is paid up">
-          No active student in this list owes tuition.
+        <EmptyState icon={CircleCheck} title={tr("Everyone is paid up")}>
+          {tr("No active student in this list owes tuition.")}
         </EmptyState>
       ) : (
         <TableScroll>
           <table className="w-full min-w-[760px] text-sm">
-            <caption className="sr-only">Students who owe tuition, overdue first</caption>
+            <caption className="sr-only">{tr("Students who owe tuition, overdue first")}</caption>
             <thead className="bg-canvas">
               <tr className="border-b border-line">
-                <th scope="col" className={th}>Student</th>
-                <th scope="col" className={th}>Parent to call</th>
-                <th scope="col" className={th}>Unpaid months</th>
-                <th scope="col" className={cn(th, 'text-right')}>Owed</th>
-                <th scope="col" className={th}>Status</th>
-                <th scope="col" className={th}><span className="sr-only">Action</span></th>
+                <th scope="col" className={th}>{tr("Student")}</th>
+                <th scope="col" className={th}>{tr("Parent to call")}</th>
+                <th scope="col" className={th}>{tr("Unpaid months")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Owed")}</th>
+                <th scope="col" className={th}>{tr("Status")}</th>
+                <th scope="col" className={th}><span className="sr-only">{tr("Action")}</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -80,10 +81,10 @@ export function OwingList({ onRecordPayment }: { onRecordPayment: (studentId: st
                 return (
                   <tr key={s.id} className={cn(b!.status === 'overdue' && 'bg-danger-soft/30')}>
                     <td className={td}>
-                      <Link to={`/students/${s.id}#tuition`} className="font-medium text-ink hover:text-brand hover:underline">
+                      <Link to={`/students/${s.id}?tab=payments`} className="font-medium text-ink hover:text-brand hover:underline">
                         {s.fullName}
                       </Link>
-                      <p className="text-xs text-ink-muted">{s.groupId ? groupName.get(s.groupId) : 'No group'}</p>
+                      <p className="text-xs text-ink-muted">{s.groupId ? groupName.get(s.groupId) : tr("No group")}</p>
                     </td>
                     <td className={cn(td, 'py-2')}>
                       {parent ? (
@@ -95,7 +96,7 @@ export function OwingList({ onRecordPayment }: { onRecordPayment: (studentId: st
                         </>
                       ) : (
                         <>
-                          <p className="text-xs text-ink-muted">Student’s own phone</p>
+                          <p className="text-xs text-ink-muted">{tr("Student’s own phone")}</p>
                           <PhoneLine phone={s.phone} className="text-ink-muted" />
                         </>
                       )}
@@ -107,7 +108,7 @@ export function OwingList({ onRecordPayment }: { onRecordPayment: (studentId: st
                     </td>
                     <td className={cn(td, 'py-1.5 text-right')}>
                       <Button size="sm" onClick={() => onRecordPayment(s.id)}>
-                        Record payment<span className="sr-only"> for {s.fullName}</span>
+                        {tr("Record payment")}<span className="sr-only">{' '}{tr("for")}{' '}{s.fullName}</span>
                       </Button>
                     </td>
                   </tr>

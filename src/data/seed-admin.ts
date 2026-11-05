@@ -27,7 +27,7 @@ import { phone, randomFor } from './seed-learning'
 
 /** Courses the centre offers. Russian and Korean are new: no groups yet, but leads ask for them. */
 export function seedCourses(): Course[] {
-  return [...SUBJECTS, 'Russian', 'Korean'].map((name) => ({ id: `crs_${name.toLowerCase().replace(/[^a-z]+/g, '_')}`, name, active: true }))
+  return [...SUBJECTS, 'Russian', 'Korean'].map((name) => ({ id: `crs_${name.toLowerCase().replace(/[^a-z]+/g, '_')}`, name, active: true, levels: [] }))
 }
 
 /** Every room a group uses, plus a spare room at each branch. */
@@ -51,7 +51,7 @@ const LEAVE_REASONS = ['Moved to another district', 'Schedule clashes with schoo
 const PAUSE_REASONS = ['School exam period', 'Travelling with family', 'Health reasons']
 
 /** Records added later by the office seed (seed-office.ts). */
-export type OfficeKeys = 'catalogs' | 'extraLessons' | 'expenses' | 'salaryPayments' | 'staffAttendance' | 'contactLogs'
+export type OfficeKeys = 'catalogs' | 'extraLessons' | 'expenses' | 'salaryPayments' | 'staffAttendance' | 'contactLogs' | 'leadStages'
 type BaseData = Omit<SchoolData, 'courses' | 'rooms' | 'enrollments' | 'studentEvents' | 'leads' | 'assessments' | 'bonuses' | OfficeKeys> & {
   bonuses?: SchoolData['bonuses']
 }

@@ -2,12 +2,13 @@ import type { GroupStatus, PaymentStatus, StudentStatus, TeacherStatus } from '.
 import type { SessionStatus, TuitionBalance } from '../lib/metrics'
 import { formatUZSCompact, groupStatusLabel, paymentStatusLabel, studentStatusLabel, teacherStatusLabel } from '../lib/format'
 import { Badge, type Tone } from './ui/Badge'
+import { tr } from '../i18n'
 
 export function TuitionBadge({ balance }: { balance: TuitionBalance | undefined }) {
-  if (!balance || balance.status === 'inactive') return <Badge>Not billed</Badge>
-  if (balance.status === 'paid') return <Badge tone="success">Paid</Badge>
-  if (balance.status === 'due') return <Badge tone="warning">Due {formatUZSCompact(balance.owed)}</Badge>
-  return <Badge tone="danger">Overdue {formatUZSCompact(balance.owed)}</Badge>
+  if (!balance || balance.status === 'inactive') return <Badge>{tr("Not billed")}</Badge>
+  if (balance.status === 'paid') return <Badge tone="success">{tr("Paid")}</Badge>
+  if (balance.status === 'due') return <Badge tone="warning">{tr("Due")}{' '}{formatUZSCompact(balance.owed)}</Badge>
+  return <Badge tone="danger">{tr("Overdue")}{' '}{formatUZSCompact(balance.owed)}</Badge>
 }
 
 const studentTone: Record<StudentStatus, Tone> = { active: 'success', paused: 'warning', left: 'neutral', graduated: 'info' }
@@ -31,10 +32,10 @@ export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
 }
 
 const sessionBadge: Record<SessionStatus, [Tone, string]> = {
-  upcoming: ['neutral', 'Upcoming'],
-  in_progress: ['brand', 'In progress'],
-  recorded: ['success', 'Attendance taken'],
-  not_recorded: ['danger', 'Attendance missing'],
+  upcoming: ['neutral', tr("Upcoming")],
+  in_progress: ['brand', tr("In progress")],
+  recorded: ['success', tr("Attendance taken")],
+  not_recorded: ['danger', tr("Attendance missing")],
 }
 export function SessionStatusBadge({ status }: { status: SessionStatus }) {
   const [tone, label] = sessionBadge[status]

@@ -7,6 +7,7 @@ import type { AttentionItem, AttentionKind } from '../../lib/metrics'
 import { notificationIcon, notificationKindLabel, teacherNotifications } from '../../lib/notifications'
 import { cn } from '../../lib/cn'
 import { Popover } from '../ui/Popover'
+import { tr } from '../../i18n'
 
 const attentionIcon: Record<AttentionKind, LucideIcon> = {
   attendance_missing: CalendarX2,
@@ -50,7 +51,7 @@ export function NotificationsMenu() {
 function AdminNotificationsMenu() {
   const attention = useAttention()
   const items = useMemo(() => pickAttention(attention), [attention])
-  return <Menu items={items} empty="Nothing needs your attention right now." />
+  return <Menu items={items} empty={tr("Nothing needs your attention right now.")} />
 }
 
 function TeacherNotificationsMenu() {
@@ -69,7 +70,7 @@ function TeacherNotificationsMenu() {
         })),
     [data, now],
   )
-  return <Menu items={items} empty="No notifications yet." footerLink="/teacher/notifications" />
+  return <Menu items={items} empty={tr("No notifications yet.")} footerLink="/teacher/notifications" />
 }
 
 function Menu({ items, empty, footerLink }: { items: MenuItem[]; empty: string; footerLink?: string }) {
@@ -79,13 +80,13 @@ function Menu({ items, empty, footerLink }: { items: MenuItem[]; empty: string; 
 
   return (
     <Popover
-      label="Notifications"
+      label={tr("Notifications")}
       className="w-[min(24rem,calc(100vw-2rem))]"
       trigger={(props) => (
         <button
           type="button"
           {...props}
-          aria-label={unread.length ? `Notifications, ${unread.length} unread` : 'Notifications'}
+          aria-label={unread.length ? tr("Notifications, {0} unread", unread.length) : tr("Notifications")}
           className="relative inline-flex size-10 items-center justify-center rounded-control text-ink-muted hover:bg-subtle hover:text-ink"
         >
           <Bell className="size-[18px]" />
@@ -100,14 +101,14 @@ function Menu({ items, empty, footerLink }: { items: MenuItem[]; empty: string; 
       {(close) => (
         <>
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
-            <h2 className="text-sm font-semibold">Notifications</h2>
+            <h2 className="text-sm font-semibold">{tr("Notifications")}</h2>
             <button
               type="button"
               disabled={unread.length === 0}
               onClick={() => actions.markNotificationsRead(items.map((n) => n.id))}
               className="text-xs font-medium text-brand hover:underline disabled:text-ink-faint disabled:no-underline"
             >
-              Mark all as read
+              {tr("Mark all as read")}
             </button>
           </div>
           {items.length === 0 ? (
@@ -133,7 +134,7 @@ function Menu({ items, empty, footerLink }: { items: MenuItem[]; empty: string; 
                         <span className={cn('block truncate text-sm', isUnread ? 'font-semibold text-ink' : 'text-ink')}>{item.title}</span>
                         <span className="line-clamp-2 block text-xs text-ink-muted">{item.detail}</span>
                       </span>
-                      {isUnread && <span aria-label="Unread" className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" />}
+                      {isUnread && <span aria-label={tr("Unread")} className="mt-1.5 size-2 shrink-0 rounded-full bg-brand" />}
                     </Link>
                   </li>
                 )
@@ -142,10 +143,10 @@ function Menu({ items, empty, footerLink }: { items: MenuItem[]; empty: string; 
           )}
           {footerLink ? (
             <Link to={footerLink} onClick={close} className="block border-t border-line px-4 py-2.5 text-xs font-medium text-brand hover:bg-subtle">
-              See all notifications
+              {tr("See all notifications")}
             </Link>
           ) : (
-            <p className="border-t border-line px-4 py-2.5 text-xs text-ink-muted">Generated from the demo data in this browser.</p>
+            <p className="border-t border-line px-4 py-2.5 text-xs text-ink-muted">{tr("Generated from the demo data in this browser.")}</p>
           )}
         </>
       )}

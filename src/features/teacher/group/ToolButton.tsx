@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '../../../lib/cn'
+import { tr } from '../../../i18n'
 
 /** One choice in the "pick a mark" palette (lessons and homework). */
 export function ToolButton({
@@ -24,7 +25,7 @@ export function ToolButton({
       aria-checked={active}
       aria-label={label}
       data-active={active}
-      title={`${label ?? ''} (key ${shortcut})`.trim()}
+      title={tr('{0} (key {1})', label ?? '', shortcut).trim()}
       onClick={onClick}
       className={cn(
         'inline-flex h-11 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-medium transition-colors',

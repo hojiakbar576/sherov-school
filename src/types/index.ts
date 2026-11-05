@@ -12,14 +12,29 @@ export const SUBJECTS = ['English', 'IELTS Preparation', 'Mathematics', 'Compute
 /** A course name, e.g. "English". Groups and teachers keep the name; the list of courses is data. */
 export type Subject = string
 
-/** A course the centre offers. New courses can be added without code changes. */
+/**
+ * One level of a course, e.g. "Intermediate" or "Band 6.5". Each centre names
+ * its own levels; groups point at a level by id, so renaming it is safe.
+ */
+export interface CourseLevel {
+  id: string
+  name: string
+  /** Turned-off levels stay on old groups but can't be chosen for new ones. */
+  active: boolean
+}
+
+/**
+ * A course (program) the centre offers, e.g. "General English" or "IELTS".
+ * The academic structure is Course → Level → Group. New courses and levels
+ * are added in Settings, without code changes.
+ */
 export interface Course {
   id: string
   name: Subject
   /** Inactive courses stay on old groups but can't be chosen for new ones. */
   active: boolean
-  /** Levels in order, e.g. Beginner → Elementary → … */
-  levels?: string[]
+  /** Levels in teaching order, e.g. Beginner → Elementary → … */
+  levels: CourseLevel[]
   /** Usual monthly fee for a new group of this course (UZS). */
   defaultFee?: number
 }
@@ -39,14 +54,20 @@ export interface Branch {
 }
 
 /**
- * Who someone is in the app. The owner sees every branch; an administrator,
- * receptionist or accountant works at one branch (each with different
- * sections, see app/permissions.ts); a teacher works with their own groups.
+ * Who someone is in the app. There is one owner, who sees every branch. Each
+ * branch has one administrator (who also runs the front desk) and one
+ * accountant (see app/permissions.ts); teachers work with their own groups.
  */
-export const ROLES = ['owner', 'admin', 'reception', 'accountant', 'teacher'] as const
+export const ROLES = ['owner', 'admin', 'accountant', 'teacher'] as const
 export type Role = (typeof ROLES)[number]
-/** Roles that work at one branch's front office. */
-export const BRANCH_STAFF_ROLES: readonly Role[] = ['admin', 'reception', 'accountant']
+/** Roles that work at one branch's front office. Each branch has exactly one active account of each. */
+export const BRANCH_STAFF_ROLES: readonly Role[] = ['admin', 'accountant']
+
+/** The active account that already holds this branch role, if any (each branch has one administrator and one accountant). */
+export function branchSeatHolder(users: readonly User[], role: Role, branchId: string | null, exceptId?: string): User | undefined {
+  if (!BRANCH_STAFF_ROLES.includes(role) || !branchId) return undefined
+  return users.find((u) => u.id !== exceptId && u.role === role && u.branchId === branchId && u.active !== false)
+}
 
 /** A person who can sign in. Never holds a password: demo sign-in lives in lib/auth.ts. */
 export interface User {
@@ -128,14 +149,19 @@ export type SalaryKind = 'percent' | 'fixed' | 'mixed'
 export type GroupStatus = 'active' | 'paused' | 'completed'
 export interface Group {
   id: string
+  /** The centre's own label for the class, e.g. "INT-01". Not its classification. */
   name: string
+  /** What the group teaches: Course → Level (see lib/courses.ts). */
+  courseId: string
+  levelId: string
+  /** Copy of the course name, kept in step automatically. */
   subject: Subject
   teacherId: string
   /** Always the assigned teacher's branch. */
   branchId: string
   /** Room name at the group's branch (see `SchoolData.rooms`). */
   room: string
-  /** Course level, e.g. "Pre-Intermediate" (from the course's levels). */
+  /** Copy of the level name, kept in step automatically. */
   level?: string
   days: DayPattern
   startTime: string // "HH:mm"
@@ -419,9 +445,31 @@ export interface StudentNote {
 
 // ---------------------------------------------------------------- admissions
 
-/** The admissions pipeline, in order. "lost" can happen at any stage. */
+/**
+ * The built-in admissions stages. The app's automatic steps move enquiries
+ * into them (new enquiry → "new", booking a trial → "trial_scheduled",
+ * recording its result → "trial_done", enrolling → "enrolled", marking lost →
+ * "lost"), so they can be renamed, recoloured and reordered but not deleted.
+ */
 export const LEAD_STAGES = ['new', 'contacted', 'trial_scheduled', 'trial_done', 'enrolled', 'lost'] as const
-export type LeadStage = (typeof LEAD_STAGES)[number]
+export type SystemLeadStage = (typeof LEAD_STAGES)[number]
+/** A stage id: one of LEAD_STAGES, or one the owner added (e.g. "stage_9f2c…"). */
+export type LeadStage = string
+
+export const LEAD_STAGE_COLORS = ['neutral', 'brand', 'accent', 'info', 'success', 'warning', 'danger'] as const
+export type LeadStageColor = (typeof LEAD_STAGE_COLORS)[number]
+
+/**
+ * One column of the admissions board. The owner manages the list; it is
+ * shared by every branch so reports compare like with like. The list order is
+ * the board order; "enrolled" and "lost" are always kept last.
+ */
+export interface LeadStageDef {
+  id: LeadStage
+  /** The owner's name for it. Missing on a built-in stage = its default (translated) name. */
+  name?: string
+  color: LeadStageColor
+}
 
 export interface TrialLesson {
   date: ISODate
@@ -581,6 +629,8 @@ export interface SchoolData {
   enrollments: Enrollment[]
   studentEvents: StudentEvent[]
   leads: Lead[]
+  /** Admissions board columns, shared by all branches. Only the owner changes them. */
+  leadStages: LeadStageDef[]
   assessments: Assessment[]
   bonuses: Bonus[]
   catalogs: Catalogs

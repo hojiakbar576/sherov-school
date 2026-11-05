@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { Button, IconButton } from './Button'
+import { tr } from '../../i18n'
 
 interface DialogProps {
   open: boolean
@@ -63,7 +64,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
                 </p>
               )}
             </div>
-            <IconButton label="Close" onClick={onClose} className="-mt-1 -mr-2">
+            <IconButton label={tr("Close")} onClick={onClose} className="-mt-1 -mr-2">
               <X />
             </IconButton>
           </header>
@@ -95,7 +96,7 @@ export function ConfirmDialog({ open, title, children, confirmLabel, onConfirm, 
       footer={
         <>
           <Button onClick={onClose} autoFocus>
-            Cancel
+            {tr("Cancel")}
           </Button>
           <Button
             variant="danger"

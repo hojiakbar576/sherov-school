@@ -2,6 +2,7 @@ import type { Student } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { ConfirmDialog } from '../../components/ui/Dialog'
+import { tr } from '../../i18n'
 
 /** Confirms deleting a student and says exactly what else goes with them. */
 export function DeleteStudentDialog({ student, onClose, onDeleted }: { student: Student | null; onClose: () => void; onDeleted?: () => void }) {
@@ -13,21 +14,21 @@ export function DeleteStudentDialog({ student, onClose, onDeleted }: { student: 
   return (
     <ConfirmDialog
       open={student !== null}
-      title="Delete student?"
-      confirmLabel="Delete student"
+      title={tr("Delete student?")}
+      confirmLabel={tr("Delete student")}
       onClose={onClose}
       onConfirm={() => {
         if (!student) return
         actions.deleteStudent(student.id)
-        toast.show(`${student.fullName} was deleted.`)
+        toast.show(tr("{0} was deleted.", student.fullName))
         onDeleted?.()
       }}
     >
       <p>
-        <strong className="font-medium text-ink">{student?.fullName}</strong> will be removed along with {payments} {payments === 1 ? 'payment' : 'payments'} and{' '}
-        {marks} attendance {marks === 1 ? 'mark' : 'marks'}.
+        <strong className="font-medium text-ink">{student?.fullName}</strong>{' '}{tr("will be removed along with")}{' '}{payments} {payments === 1 ? tr("payment") : tr("payments")}{' '}{tr("and")}{' '}
+        {marks}{' '}{tr("attendance")}{' '}{marks === 1 ? tr("mark") : tr("marks")}.
       </p>
-      <p>If they have simply stopped attending, consider setting their status to “Left” instead, which keeps their history.</p>
+      <p>{tr("If they have simply stopped attending, consider setting their status to “Left” instead, which keeps their history.")}</p>
     </ConfirmDialog>
   )
 }

@@ -1,5 +1,6 @@
 import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 interface FieldProps {
   label: string
@@ -21,7 +22,7 @@ export function Field({ label, hint, error, optional, className, children }: Fie
     <div className={cn('min-w-0', className)}>
       <label htmlFor={id} className="mb-1.5 flex items-baseline justify-between gap-2 text-sm font-medium text-ink">
         {label}
-        {optional && <span className="text-xs font-normal text-ink-muted">Optional</span>}
+        {optional && <span className="text-xs font-normal text-ink-muted">{tr("Optional")}</span>}
       </label>
       {children({ id, 'aria-describedby': message ? messageId : undefined, 'aria-invalid': error ? true : undefined })}
       {message && (

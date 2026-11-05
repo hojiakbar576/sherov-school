@@ -6,11 +6,12 @@ import { axisProps, CHART_COLORS, tooltipStyle } from '../../components/charts/c
 import { useSchool } from '../../data/school-context'
 import { formatAxisAmount, formatUZS, formatUZSCompact } from '../../lib/format'
 import { revenueByMonth, revenueByWeek, type RevenuePoint } from '../../lib/metrics'
+import { tr } from '../../i18n'
 
 type Range = 'months' | 'weeks'
 const RANGES: { value: Range; label: string }[] = [
-  { value: 'months', label: '6 months' },
-  { value: 'weeks', label: '8 weeks' },
+  { value: 'months', label: tr("6 months") },
+  { value: 'weeks', label: tr("8 weeks") },
 ]
 
 export function RevenueOverview() {
@@ -22,9 +23,9 @@ export function RevenueOverview() {
   return (
     <Panel
       id="revenue-overview"
-      title="Revenue collected"
-      description={`${formatUZSCompact(total)} in the last ${range === 'months' ? '6 months' : '8 weeks'}`}
-      actions={<RangeToggle label="Revenue period" value={range} options={RANGES} onChange={setRange} />}
+      title={tr("Revenue collected")}
+      description={tr("{0} in the last {1}", formatUZSCompact(total), range === 'months' ? tr("6 months") : tr("8 weeks"))}
+      actions={<RangeToggle label={tr("Revenue period")} value={range} options={RANGES} onChange={setRange} />}
     >
       <div className="h-[17.5rem]" aria-hidden>
         <ResponsiveContainer width="100%" height="100%">
@@ -46,9 +47,9 @@ export function RevenueOverview() {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-2 text-xs text-ink-muted">Paid payments by payment date. The lighter bar is the current {range === 'months' ? 'month' : 'week'}, still in progress.</p>
+      <p className="mt-2 text-xs text-ink-muted">{tr("Paid payments by payment date. The lighter bar is the current")}{' '}{range === 'months' ? tr("month") : tr("week")}{tr(", still in progress.")}</p>
       <table className="sr-only">
-        <caption>Revenue collected by {range === 'months' ? 'month' : 'week'}</caption>
+        <caption>{tr("Revenue collected by")}{' '}{range === 'months' ? tr("month") : tr("week")}</caption>
         <tbody>
           {points.map((p) => (
             <tr key={p.key}>

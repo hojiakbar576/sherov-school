@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import type { DayPattern, Group, GroupStatus, Subject } from '../../types'
+import type { DayPattern, Group, GroupStatus } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Dialog } from '../../components/ui/Dialog'
@@ -10,6 +10,7 @@ import { enrolmentByGroup } from '../../lib/metrics'
 import { findScheduleConflicts } from '../../lib/schedule'
 import { timeToMinutes } from '../../lib/dates'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 interface Props {
   open: boolean
@@ -19,16 +20,17 @@ interface Props {
 
 export function GroupFormDialog(props: Props) {
   return (
-    <Dialog open={props.open} onClose={props.onClose} title={props.group ? 'Edit group' : 'Create group'} description={props.group?.name ?? 'Set up a class, its teacher and its timetable.'}>
+    <Dialog open={props.open} onClose={props.onClose} title={props.group ? tr("Edit group") : tr("Create group")} description={props.group?.name ?? tr("Set up a class, its teacher and its timetable.")}>
       {props.open && <GroupForm {...props} />}
     </Dialog>
   )
 }
 
 interface FormState {
+  branchId: string
   name: string
-  subject: Subject
-  level: string
+  courseId: string
+  levelId: string
   teacherId: string
   room: string
   days: DayPattern
@@ -41,17 +43,23 @@ interface FormState {
 type Errors = Partial<Record<keyof FormState, string>>
 
 function GroupForm({ onClose, group }: Props) {
-  const { data, actions } = useSchool()
+  const { data, actions, branch, user } = useSchool()
   const toast = useToast()
   const enrolled = group ? (enrolmentByGroup(data).get(group.id) ?? 0) : 0
   // Rooms are managed in Settings; an older group's room stays selectable.
   const allRooms = [...data.rooms].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-  const courses = data.courses.filter((c) => c.active || c.name === group?.subject)
+  // Course → Level → Group. Turned-off courses and levels stay selectable for the group that already uses them.
+  const courses = data.courses.filter((c) => c.active || c.id === group?.courseId)
 
+  // The owner picks the branch; an administrator always works in their own branch.
+  // An existing group stays in its branch (its students, rooms and payments belong there).
+  const canPickBranch = !group && user?.role === 'owner'
   const [form, setForm] = useState<FormState>(() => ({
+    branchId: group?.branchId ?? branch?.id ?? (user?.role === 'owner' ? '' : (user?.branchId ?? '')),
     name: group?.name ?? '',
-    subject: group?.subject ?? courses[0]?.name ?? '',
-    level: group?.level ?? '',
+    courseId: group?.courseId ?? courses[0]?.id ?? '',
+    // A new group must choose its level on purpose.
+    levelId: group?.levelId ?? '',
     teacherId: group?.teacherId ?? '',
     room: group?.room ?? '',
     days: group?.days ?? 'odd',
@@ -62,11 +70,10 @@ function GroupForm({ onClose, group }: Props) {
     status: group?.status ?? 'active',
   }))
   // A group meets at its teacher's branch, so only that branch's rooms are offered.
-  const groupBranch = data.teachers.find((t) => t.id === form.teacherId)?.branchId ?? group?.branchId
-  const rooms = groupBranch ? allRooms.filter((r) => r.branchId === groupBranch) : allRooms
+  const rooms = form.branchId ? allRooms.filter((r) => r.branchId === form.branchId) : []
   const [errors, setErrors] = useState<Errors>({})
-  const course = data.courses.find((c) => c.name === form.subject)
-  const levels = Array.from(new Set([...(course?.levels ?? []), ...(form.level ? [form.level] : [])]))
+  const course = data.courses.find((c) => c.id === form.courseId)
+  const levels = (course?.levels ?? []).filter((l) => l.active || l.id === group?.levelId)
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }))
@@ -75,28 +82,34 @@ function GroupForm({ onClose, group }: Props) {
 
   // Teachers who can take the group: teaching now, or already its teacher.
   const teachers = data.teachers
-    .filter((t) => t.status === 'active' || t.id === group?.teacherId)
-    .sort((a, b) => Number(b.subject === form.subject) - Number(a.subject === form.subject) || a.fullName.localeCompare(b.fullName))
+    .filter((t) => (t.status === 'active' && t.branchId === form.branchId) || t.id === group?.teacherId)
+    .sort((a, b) => Number(b.subject === course?.name) - Number(a.subject === course?.name) || a.fullName.localeCompare(b.fullName))
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
     const e: Errors = {}
     const capacity = Number(form.capacity)
     const fee = Number(form.monthlyFee)
-    if (form.name.trim().length < 3) e.name = 'Give the group a name, e.g. “English Intermediate”.'
-    else if (data.groups.some((g) => g.id !== group?.id && g.name.trim().toLowerCase() === form.name.trim().toLowerCase())) e.name = 'Another group already has this name.'
-    if (!form.teacherId) e.teacherId = 'Choose a teacher.'
-    if (!form.room.trim()) e.room = 'Enter a room.'
-    if (!/^\d{2}:\d{2}$/.test(form.startTime)) e.startTime = 'Choose a start time.'
-    else if (timeToMinutes(form.startTime) < 7 * 60 || timeToMinutes(form.startTime) + Number(form.durationMinutes) > 21 * 60) e.startTime = 'Classes must run between 07:00 and 21:00.'
-    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 40) e.capacity = 'Enter a capacity between 1 and 40.'
-    else if (capacity < enrolled) e.capacity = `${enrolled} students are already enrolled. Move some out first.`
-    if (!form.monthlyFee || !Number.isFinite(fee) || fee <= 0) e.monthlyFee = 'Enter the monthly fee in UZS.'
+    if (form.name.trim().length < 2) e.name = tr("Give the group a name, e.g. “INT-01”.")
+    else if (data.groups.some((g) => g.id !== group?.id && g.name.trim().toLowerCase() === form.name.trim().toLowerCase())) e.name = tr("Another group already has this name.")
+    if (!form.branchId) e.branchId = tr("Choose the branch for this group.")
+    if (!course) e.courseId = tr("Choose a course.")
+    if (!levels.some((l) => l.id === form.levelId)) e.levelId = levels.length ? tr("Choose a level.") : tr("This course has no levels yet. Add them in Settings → Courses.")
+    if (!form.teacherId) e.teacherId = tr("Choose a teacher.")
+    if (!form.room.trim()) e.room = tr("Enter a room.")
+    if (!/^\d{2}:\d{2}$/.test(form.startTime)) e.startTime = tr("Choose a start time.")
+    else if (timeToMinutes(form.startTime) < 7 * 60 || timeToMinutes(form.startTime) + Number(form.durationMinutes) > 21 * 60) e.startTime = tr("Classes must run between 07:00 and 21:00.")
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 40) e.capacity = tr("Enter a capacity between 1 and 40.")
+    else if (capacity < enrolled) e.capacity = tr("{0} students are already enrolled. Move some out first.", enrolled)
+    if (!form.monthlyFee || !Number.isFinite(fee) || fee <= 0) e.monthlyFee = tr("Enter the monthly fee in UZS.")
 
     const input = {
       name: form.name.trim(),
-      subject: form.subject,
-      level: form.level || undefined,
+      courseId: form.courseId,
+      levelId: form.levelId,
+      // The real names are copied on when the group is saved.
+      subject: course?.name ?? '',
+      level: levels.find((l) => l.id === form.levelId)?.name,
       teacherId: form.teacherId,
       room: form.room.trim(),
       days: form.days,
@@ -108,66 +121,93 @@ function GroupForm({ onClose, group }: Props) {
     }
     if (!e.teacherId && !e.room && !e.startTime && input.status === 'active') {
       const clash = findScheduleConflicts(
-        { ...input, id: group?.id ?? '', branchId: data.teachers.find((t) => t.id === input.teacherId)?.branchId ?? '' },
+        { ...input, id: group?.id ?? '', branchId: form.branchId },
         data.groups,
       )
-      if (clash.teacher) e.teacherId = `This teacher already has ${clash.teacher.name} at ${clash.teacher.startTime} on these days.`
-      if (clash.room) e.room = `${clash.room.name} is already in ${input.room} at ${clash.room.startTime} on these days.`
+      if (clash.teacher) e.teacherId = tr("This teacher already has {0} at {1} on these days.", clash.teacher.name, clash.teacher.startTime)
+      if (clash.room) e.room = tr("{0} is already in {1} at {2} on these days.", clash.room.name, input.room, clash.room.startTime)
     }
     setErrors(e)
     if (Object.keys(e).length) return
 
     if (group) {
       actions.updateGroup(group.id, input)
-      toast.show(`Saved changes to ${input.name}.`)
+      toast.show(tr("Saved changes to {0}.", input.name))
     } else {
       actions.addGroup(input)
-      toast.show(`${input.name} was created.`)
+      toast.show(tr("{0} was created.", input.name))
     }
     onClose()
   }
 
   return (
     <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
-      <Field label="Group name" error={errors.name} className="sm:col-span-2">
-        {(p) => <Input {...p} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. IELTS Foundation 5.5" autoFocus />}
+      <Field label={tr("Group name")} error={errors.name} className="sm:col-span-2">
+        {(p) => <Input {...p} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder={tr("e.g. INT-01 or IELTS Evening A")} autoFocus />}
       </Field>
-      <Field label="Course">
+      <Field label={tr("Course")} error={errors.courseId}>
         {(p) => (
           <Select
             {...p}
-            value={form.subject}
+            value={form.courseId}
             onChange={(e) => {
-              const next = data.courses.find((c) => c.name === e.target.value)
+              const next = data.courses.find((c) => c.id === e.target.value)
+              setErrors((x) => ({ ...x, courseId: undefined, levelId: undefined }))
               setForm((f) => ({
                 ...f,
-                subject: e.target.value as Subject,
-                level: next?.levels?.includes(f.level) ? f.level : '',
+                courseId: e.target.value,
+                levelId: '',
                 // A new group starts from the course's usual fee until someone types one.
                 monthlyFee: !group && next?.defaultFee && (!f.monthlyFee || f.monthlyFee === String(course?.defaultFee ?? '')) ? String(next.defaultFee) : f.monthlyFee,
               }))
             }}
           >
             {courses.map((c) => (
-              <option key={c.id}>{c.name}</option>
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
             ))}
           </Select>
         )}
       </Field>
-      <Field label="Level" optional hint={levels.length ? undefined : 'Add levels to this course in Settings.'}>
+      <Field label={tr("Level")} error={errors.levelId} hint={levels.length ? undefined : tr("Add levels to this course in Settings.")}>
         {(p) => (
-          <Select {...p} value={form.level} onChange={(e) => set('level', e.target.value)} disabled={!levels.length}>
-            <option value="">No level</option>
+          <Select {...p} value={form.levelId} onChange={(e) => set('levelId', e.target.value)} disabled={!levels.length}>
+            <option value="">{levels.length ? tr("Choose a level") : tr("No levels yet")}</option>
             {levels.map((l) => (
-              <option key={l}>{l}</option>
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
             ))}
           </Select>
         )}
       </Field>
-      <Field label="Teacher" error={errors.teacherId}>
+      <Field label={tr("Branch")} error={errors.branchId} hint={group ? tr("A group stays in its branch.") : undefined}>
         {(p) => (
-          <Select {...p} value={form.teacherId} onChange={(e) => set('teacherId', e.target.value)}>
-            <option value="">Choose a teacher</option>
+          <Select
+            {...p}
+            value={form.branchId}
+            disabled={!canPickBranch}
+            onChange={(e) => {
+              const next = e.target.value
+              setErrors((x) => ({ ...x, branchId: undefined }))
+              // Teachers and rooms belong to a branch, so a new branch starts them over.
+              setForm((f) => ({ ...f, branchId: next, teacherId: '', room: '' }))
+            }}
+          >
+            {!form.branchId && <option value="">{tr("Choose a branch")}</option>}
+            {data.branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Field>
+      <Field label={tr("Teacher")} error={errors.teacherId} hint={form.branchId ? undefined : tr("Choose a branch first.")}>
+        {(p) => (
+          <Select {...p} value={form.teacherId} disabled={!form.branchId} onChange={(e) => set('teacherId', e.target.value)}>
+            <option value="">{tr("Choose a teacher")}</option>
             {teachers.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.fullName} ({t.subject})
@@ -178,7 +218,7 @@ function GroupForm({ onClose, group }: Props) {
       </Field>
 
       <fieldset className="sm:col-span-2">
-        <legend className="mb-1.5 text-sm font-medium text-ink">Days</legend>
+        <legend className="mb-1.5 text-sm font-medium text-ink">{tr("Days")}</legend>
         <div className="grid grid-cols-2 gap-2">
           {(Object.keys(dayPatternLabel) as DayPattern[]).map((d) => (
             <label
@@ -190,7 +230,7 @@ function GroupForm({ onClose, group }: Props) {
             >
               <input type="radio" name="days" value={d} checked={form.days === d} onChange={() => set('days', d)} className="accent-brand" />
               <span>
-                <span className="block font-medium">{d === 'odd' ? 'Odd days' : 'Even days'}</span>
+                <span className="block font-medium">{d === 'odd' ? tr("Odd days") : tr("Even days")}</span>
                 <span className="block text-xs opacity-80">{dayPatternLabel[d]}</span>
               </span>
             </label>
@@ -198,20 +238,20 @@ function GroupForm({ onClose, group }: Props) {
         </div>
       </fieldset>
 
-      <Field label="Start time" error={errors.startTime}>
+      <Field label={tr("Start time")} error={errors.startTime}>
         {(p) => <Input {...p} type="time" step={900} value={form.startTime} onChange={(e) => set('startTime', e.target.value)} />}
       </Field>
-      <Field label="Length">
+      <Field label={tr("Length")}>
         {(p) => (
           <Select {...p} value={form.durationMinutes} onChange={(e) => set('durationMinutes', e.target.value)}>
-            <option value="60">60 minutes</option>
-            <option value="90">90 minutes</option>
-            <option value="120">120 minutes</option>
+            <option value="60">{tr("60 minutes")}</option>
+            <option value="90">{tr("90 minutes")}</option>
+            <option value="120">{tr("120 minutes")}</option>
           </Select>
         )}
       </Field>
       <Field
-        label="Room"
+        label={tr("Room")}
         error={errors.room}
         hint={(() => {
           const room = rooms.find((r) => r.name === form.room)
@@ -221,25 +261,25 @@ function GroupForm({ onClose, group }: Props) {
         })()}
       >
         {(p) => (
-          <Select {...p} value={form.room} onChange={(e) => set('room', e.target.value)}>
-            <option value="">Choose a room</option>
+          <Select {...p} value={form.room} disabled={!form.branchId} onChange={(e) => set('room', e.target.value)}>
+            <option value="">{tr("Choose a room")}</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.name}>
                 {r.name}
-                {r.capacity ? ` (${r.capacity} seats)` : ''}
+                {r.capacity ? tr(" ({0} seats)", r.capacity) : ''}
               </option>
             ))}
             {form.room && !rooms.some((r) => r.name === form.room) && <option value={form.room}>{form.room}</option>}
           </Select>
         )}
       </Field>
-      <Field label="Capacity" error={errors.capacity} hint={group ? `${enrolled} enrolled now` : undefined}>
+      <Field label={tr("Capacity")} error={errors.capacity} hint={group ? tr("{0} enrolled now", enrolled) : undefined}>
         {(p) => <Input {...p} type="number" inputMode="numeric" min={1} max={40} value={form.capacity} onChange={(e) => set('capacity', e.target.value)} />}
       </Field>
-      <Field label="Monthly fee (UZS)" error={errors.monthlyFee} hint={Number(form.monthlyFee) > 0 ? `${formatUZS(Number(form.monthlyFee))}. New students start with this fee.` : 'New students start with this fee.'}>
+      <Field label={tr("Monthly fee (UZS)")} error={errors.monthlyFee} hint={Number(form.monthlyFee) > 0 ? tr("{0}. New students start with this fee.", formatUZS(Number(form.monthlyFee))) : tr("New students start with this fee.")}>
         {(p) => <Input {...p} type="number" inputMode="numeric" min={0} step={10000} value={form.monthlyFee} onChange={(e) => set('monthlyFee', e.target.value)} placeholder="450000" />}
       </Field>
-      <Field label="Status" hint="Only running groups appear on the schedule.">
+      <Field label={tr("Status")} hint={tr("Only running groups appear on the schedule.")}>
         {(p) => (
           <Select {...p} value={form.status} onChange={(e) => set('status', e.target.value as GroupStatus)}>
             {(Object.keys(groupStatusLabel) as GroupStatus[]).map((s) => (
@@ -251,9 +291,9 @@ function GroupForm({ onClose, group }: Props) {
         )}
       </Field>
       <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4 sm:col-span-2">
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{tr("Cancel")}</Button>
         <Button type="submit" variant="primary">
-          {group ? 'Save changes' : 'Create group'}
+          {group ? tr("Save changes") : tr("Create group")}
         </Button>
       </div>
     </form>

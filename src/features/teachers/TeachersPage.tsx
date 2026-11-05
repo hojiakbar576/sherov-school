@@ -17,11 +17,14 @@ import { TeacherStatusBadge } from '../../components/StatusBadges'
 import { dayPatternShort, teacherStatusLabel } from '../../lib/format'
 import { enrolmentByGroup } from '../../lib/metrics'
 import { TeacherFormDialog } from './TeacherFormDialog'
+import { plural, tr } from '../../i18n'
 
 const FILTERS = ['q', 'subject', 'status'] as const
 
 export function TeachersPage() {
-  const { data, actions } = useSchool()
+  const { data, actions, user } = useSchool()
+  // Only the owner adds, edits or removes teachers; administrators can look.
+  const isOwner = user?.role === 'owner'
   const needsBranch = useBranchChoice()
   const toast = useToast()
   const { values, set, clear, active } = useListParams(FILTERS)
@@ -50,14 +53,14 @@ export function TeachersPage() {
   return (
     <>
       <PageHeader
-        title="Teachers"
-        description={`${data.teachers.length} teachers, ${data.teachers.filter((t) => t.status === 'active').length} currently teaching.`}
+        title={tr("Teachers")}
+        description={tr("{0} teachers, {1} currently teaching.", data.teachers.length, data.teachers.filter((t) => t.status === 'active').length)}
         actions={
           <>
             <Button
               onClick={() =>
                 downloadCSV(`sherov-school-teachers-${toISODate(new Date())}.csv`, [
-                  ['Teacher', 'Course', 'Phone', 'Email', 'Status', 'Running groups', 'Active students', 'Pay share %', 'Joined'],
+                  [tr("Teacher"), tr("Course"), tr("Phone"), tr("Email"), tr("Status"), tr("Running groups"), tr("Active students"), tr("Pay share %"), tr("Joined")],
                   ...filtered.map((t) => {
                     const groups = (groupsByTeacher.get(t.id) ?? []).filter((g) => g.status === 'active')
                     return [t.fullName, t.subject, t.phone, t.email, teacherStatusLabel[t.status], groups.map((g) => g.name).join('; '), groups.reduce((sum, g) => sum + (enrolment.get(g.id) ?? 0), 0), t.salaryPercent, t.joinedOn]
@@ -66,27 +69,29 @@ export function TeachersPage() {
               }
             >
               <Download aria-hidden />
-              Export CSV
+              {tr("Export CSV")}
             </Button>
-            <Button variant="primary" onClick={() => setEditing('new')} disabled={Boolean(needsBranch)} title={needsBranch ?? undefined}>
-              <Plus aria-hidden />
-              Add teacher
-            </Button>
+            {isOwner && (
+              <Button variant="primary" onClick={() => setEditing('new')} disabled={Boolean(needsBranch)} title={needsBranch ?? undefined}>
+                <Plus aria-hidden />
+                {tr("Add teacher")}
+              </Button>
+            )}
           </>
         }
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <SearchInput label="Search teachers" value={values.q} onChange={(v) => set('q', v)} placeholder="Name or email" />
+        <SearchInput label={tr("Search teachers")} value={values.q} onChange={(v) => set('q', v)} placeholder={tr("Name or email")} />
         <div className="grid grid-cols-2 gap-3 sm:flex">
-          <Select aria-label="Filter by subject" value={values.subject} onChange={(e) => set('subject', e.target.value)} className="sm:w-48">
-            <option value="">All subjects</option>
+          <Select aria-label={tr("Filter by subject")} value={values.subject} onChange={(e) => set('subject', e.target.value)} className="sm:w-48">
+            <option value="">{tr("All subjects")}</option>
             {data.courses.map((c) => c.name).map((s) => (
               <option key={s}>{s}</option>
             ))}
           </Select>
-          <Select aria-label="Filter by status" value={values.status} onChange={(e) => set('status', e.target.value)} className="sm:w-36">
-            <option value="">All statuses</option>
+          <Select aria-label={tr("Filter by status")} value={values.status} onChange={(e) => set('status', e.target.value)} className="sm:w-36">
+            <option value="">{tr("All statuses")}</option>
             {Object.entries(teacherStatusLabel).map(([v, label]) => (
               <option key={v} value={v}>
                 {label}
@@ -96,15 +101,15 @@ export function TeachersPage() {
         </div>
         {active && (
           <Button variant="ghost" size="sm" onClick={clear}>
-            Clear filters
+            {tr("Clear filters")}
           </Button>
         )}
       </div>
 
       {filtered.length === 0 ? (
         <div className="rounded-panel border border-line bg-surface">
-          <EmptyState icon={GraduationCap} title="No teachers match" action={<Button onClick={clear}>Clear filters</Button>}>
-            Try another name or subject.
+          <EmptyState icon={GraduationCap} title={tr("No teachers match")} action={<Button onClick={clear}>{tr("Clear filters")}</Button>}>
+            {tr("Try another name or subject.")}
           </EmptyState>
         </div>
       ) : (
@@ -129,7 +134,7 @@ export function TeachersPage() {
                 <dl className="space-y-1.5 px-5 text-sm">
                   <div className="flex items-center gap-2 text-ink-muted">
                     <dt>
-                      <Phone aria-label="Phone" className="size-4 text-ink-faint" />
+                      <Phone aria-label={tr("Phone")} className="size-4 text-ink-faint" />
                     </dt>
                     <dd>
                       <a href={`tel:${t.phone.replace(/\s/g, '')}`} className="num hover:text-brand hover:underline">
@@ -139,7 +144,7 @@ export function TeachersPage() {
                   </div>
                   <div className="flex items-center gap-2 text-ink-muted">
                     <dt>
-                      <Mail aria-label="Email" className="size-4 text-ink-faint" />
+                      <Mail aria-label={tr("Email")} className="size-4 text-ink-faint" />
                     </dt>
                     <dd className="min-w-0 truncate">
                       <a href={`mailto:${t.email}`} className="hover:text-brand hover:underline">
@@ -150,7 +155,7 @@ export function TeachersPage() {
                 </dl>
                 <div className="mt-4 flex-1 border-t border-line px-5 py-3">
                   <p className="mb-1.5 text-xs font-medium text-ink-muted">
-                    {groups.length ? `${groups.length} ${groups.length === 1 ? 'group' : 'groups'}, ${students} students` : 'No running groups'}
+                    {groups.length ? tr("{0} {1}, {2} students", groups.length, plural(groups.length, 'group', 'groups'), students) : tr("No running groups")}
                   </p>
                   <ul className="space-y-1 text-sm">
                     {groups.map((g) => (
@@ -163,14 +168,16 @@ export function TeachersPage() {
                     ))}
                   </ul>
                 </div>
-                <div className="flex justify-end gap-1 border-t border-line px-3 py-2">
-                  <IconButton label={`Edit ${t.fullName}`} onClick={() => setEditing(t)}>
-                    <Pencil />
-                  </IconButton>
-                  <IconButton label={`Delete ${t.fullName}`} onClick={() => setDeleting(t)} className="hover:bg-danger-soft hover:text-danger">
-                    <Trash2 />
-                  </IconButton>
-                </div>
+                {isOwner && (
+                  <div className="flex justify-end gap-1 border-t border-line px-3 py-2">
+                    <IconButton label={tr("Edit {0}", t.fullName)} onClick={() => setEditing(t)}>
+                      <Pencil />
+                    </IconButton>
+                    <IconButton label={tr("Delete {0}", t.fullName)} onClick={() => setDeleting(t)} className="hover:bg-danger-soft hover:text-danger">
+                      <Trash2 />
+                    </IconButton>
+                  </div>
+                )}
               </li>
             )
           })}
@@ -183,25 +190,24 @@ export function TeachersPage() {
       <Dialog
         open={deleting !== null && deletingGroups.length > 0}
         onClose={() => setDeleting(null)}
-        title="Reassign groups first"
+        title={tr("Reassign groups first")}
         size="sm"
-        footer={<Button onClick={() => setDeleting(null)}>OK</Button>}
+        footer={<Button onClick={() => setDeleting(null)}>{tr("OK")}</Button>}
       >
         <p className="text-sm text-ink-muted">
-          {deleting?.fullName} still teaches {deletingGroups.map((g) => g.name).join(', ')}. Give these groups another teacher on the Groups page, then try again. To keep
-          their record, set their status to “On leave” instead.
+          {deleting?.fullName}{' '}{tr("still teaches")}{' '}{deletingGroups.map((g) => g.name).join(', ')}{tr(". Give these groups another teacher on the Groups page, then try again. To keep their record, set their status to “On leave” instead.")}
         </p>
       </Dialog>
       <ConfirmDialog
         open={deleting !== null && deletingGroups.length === 0}
-        title="Delete teacher?"
-        confirmLabel="Delete teacher"
+        title={tr("Delete teacher?")}
+        confirmLabel={tr("Delete teacher")}
         onClose={() => setDeleting(null)}
         onConfirm={() => {
-          if (deleting && actions.deleteTeacher(deleting.id)) toast.show(`${deleting.fullName} was deleted.`)
+          if (deleting && actions.deleteTeacher(deleting.id)) toast.show(tr("{0} was deleted.", deleting.fullName))
         }}
       >
-        <p>{deleting?.fullName} will be removed from the demo data. They have no groups.</p>
+        <p>{deleting?.fullName}{' '}{tr("will be removed from the demo data. They have no groups.")}</p>
       </ConfirmDialog>
     </>
   )

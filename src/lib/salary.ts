@@ -8,15 +8,16 @@
 
 import type { MonthKey, SchoolData, Teacher } from '../types'
 import { formatUZS } from './format'
+import { addMonths } from './dates'
+import { tr } from '../i18n'
 
 /** How a teacher's pay is worked out, in words. */
 export function salaryRuleText(t: Teacher): string {
   const kind = t.salaryKind ?? 'percent'
-  if (kind === 'fixed') return `Fixed ${formatUZS(t.fixedSalary ?? 0)} a month`
-  if (kind === 'mixed') return `${formatUZS(t.fixedSalary ?? 0)} + ${t.salaryPercent}% of paid tuition`
-  return `${t.salaryPercent}% of paid tuition`
+  if (kind === 'fixed') return tr("Fixed {0} a month", formatUZS(t.fixedSalary ?? 0))
+  if (kind === 'mixed') return tr("{0} + {1}% of paid tuition", formatUZS(t.fixedSalary ?? 0), t.salaryPercent)
+  return tr("{0}% of paid tuition", t.salaryPercent)
 }
-import { addMonths } from './dates'
 
 export interface SalaryLine {
   studentId: string

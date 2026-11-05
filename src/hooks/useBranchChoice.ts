@@ -1,4 +1,5 @@
 import { useSchool } from '../data/school-context'
+import { tr } from '../i18n'
 
 /**
  * When the owner is looking at all branches, things that belong to one branch
@@ -7,5 +8,5 @@ import { useSchool } from '../data/school-context'
  */
 export function useBranchChoice(): string | null {
   const { owner } = useSchool()
-  return owner && !owner.branchId ? 'Choose a branch at the top of the page first.' : null
+  return owner && !owner.branchId ? tr("Choose a branch at the top of the page first.") : null
 }

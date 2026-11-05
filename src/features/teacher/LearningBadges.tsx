@@ -4,6 +4,7 @@ import { Badge, type Tone } from '../../components/ui/Badge'
 import { guardianRelationshipLabel, telHref } from '../../lib/format'
 import { performanceLabelText, resultStatusLabel, type PerformanceLabel, type ResultStatus } from '../../lib/performance'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 const resultTone: Record<ResultStatus, Tone> = {
   not_submitted: 'neutral',
@@ -14,7 +15,7 @@ const resultTone: Record<ResultStatus, Tone> = {
 
 /** Not handed in after the deadline reads as missing; before it, as still to come. */
 export function ResultStatusBadge({ status, overdue }: { status: ResultStatus; overdue?: boolean }) {
-  if (status === 'not_submitted' && overdue) return <Badge tone="danger">Missing</Badge>
+  if (status === 'not_submitted' && overdue) return <Badge tone="danger">{tr("Missing")}</Badge>
   return <Badge tone={resultTone[status]}>{resultStatusLabel[status]}</Badge>
 }
 
@@ -25,7 +26,7 @@ const labelTone: Record<PerformanceLabel, Tone> = {
 }
 
 export function PerformanceBadge({ label }: { label: PerformanceLabel | null }) {
-  if (!label) return <span className="text-sm text-ink-faint">Not enough scores yet</span>
+  if (!label) return <span className="text-sm text-ink-faint">{tr("Not enough scores yet")}</span>
   return <Badge tone={labelTone[label]}>{performanceLabelText[label]}</Badge>
 }
 
@@ -35,10 +36,10 @@ export function PerformanceBadge({ label }: { label: PerformanceLabel | null }) 
  */
 export function GuardianContacts({ guardians, ownPhone, compact }: { guardians: Guardian[]; ownPhone?: string; compact?: boolean }) {
   if (guardians.length === 0) {
-    if (!ownPhone) return <span className="text-sm text-ink-faint">Not provided</span>
+    if (!ownPhone) return <span className="text-sm text-ink-faint">{tr("Not provided")}</span>
     return (
       <span className="text-sm leading-snug">
-        <span className="text-ink-muted">Student’s own phone</span>
+        <span className="text-ink-muted">{tr("Student’s own phone")}</span>
         <a href={telHref(ownPhone)} className="num flex items-center gap-1 whitespace-nowrap text-ink-muted hover:text-ink hover:underline">
           <Phone aria-hidden className="size-3 shrink-0" />
           {ownPhone}

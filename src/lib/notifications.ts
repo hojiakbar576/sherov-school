@@ -6,6 +6,7 @@ import type { NotificationKind, SchoolData } from '../types'
 import { addDays, atTime, toISODate } from './dates'
 import { formatDayShort } from './format'
 import { sessionsOn } from './metrics'
+import { tr } from '../i18n'
 
 export interface PortalNotification {
   id: string
@@ -17,10 +18,10 @@ export interface PortalNotification {
 }
 
 export const notificationKindLabel: Record<NotificationKind, string> = {
-  schedule: 'Schedule change',
-  announcement: 'Announcement',
-  homework: 'Homework deadline',
-  admin: 'From the administration',
+  schedule: tr("Schedule change"),
+  announcement: tr("Announcement"),
+  homework: tr("Homework deadline"),
+  admin: tr("From the administration"),
 }
 
 export const notificationIcon: Record<NotificationKind, LucideIcon> = {
@@ -43,8 +44,8 @@ export function teacherNotifications(data: SchoolData, now: Date): PortalNotific
     items.push({
       id: `hw-due:${hw.id}:${hw.dueDate}`,
       kind: 'homework',
-      title: `“${hw.title}” is due ${hw.dueDate === today ? 'today' : 'tomorrow'}`,
-      body: `${groupName.get(hw.groupId) ?? 'Your group'}. Remind students in class.`,
+      title: tr("“{0}” is due {1}", hw.title, hw.dueDate === today ? 'today' : 'tomorrow'),
+      body: tr("{0}. Remind students in class.", groupName.get(hw.groupId) ?? 'Your group'),
       createdAt: notBefore(atTime(today, '07:00')),
       link: `/teacher/homework?group=${hw.groupId}`,
     })
@@ -58,8 +59,8 @@ export function teacherNotifications(data: SchoolData, now: Date): PortalNotific
       items.push({
         id: `att-missing:${session.group.id}:${date}`,
         kind: 'admin',
-        title: 'Attendance not recorded',
-        body: `${session.group.name}, ${formatDayShort(atTime(date, session.start))} at ${session.start}. Please record it.`,
+        title: tr("Attendance not recorded"),
+        body: tr("{0}, {1} at {2}. Please record it.", session.group.name, formatDayShort(atTime(date, session.start)), session.start),
         createdAt: notBefore(atTime(date, session.end)),
         link: `/teacher/attendance?group=${session.group.id}&date=${date}`,
       })

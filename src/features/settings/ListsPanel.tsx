@@ -8,14 +8,15 @@ import { Button, IconButton } from '../../components/ui/Button'
 import { Field, Input } from '../../components/ui/Field'
 import { Badge } from '../../components/ui/Badge'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 const LISTS: { key: CatalogName; title: string; hint: string; placeholder: string }[] = [
-  { key: 'paymentMethods', title: 'Payment methods', hint: 'Offered when recording a payment, an expense or a salary.', placeholder: 'e.g. Uzum' },
-  { key: 'expenseCategories', title: 'Expense categories', hint: 'Used to group expenses in reports.', placeholder: 'e.g. Internet' },
-  { key: 'studentTags', title: 'Student tags', hint: 'Short labels you can put on students and filter by.', placeholder: 'e.g. Olympiad' },
-  { key: 'pauseReasons', title: 'Freeze reasons', hint: 'Offered when a student is paused.', placeholder: 'e.g. Summer holiday' },
-  { key: 'leaveReasons', title: 'Leaving reasons', hint: 'Offered when a student leaves. Used in the retention report.', placeholder: 'e.g. Moved abroad' },
-  { key: 'leadSources', title: 'Enquiry sources', hint: 'Where new enquiries came from.', placeholder: 'e.g. YouTube' },
+  { key: 'paymentMethods', title: tr("Payment methods"), hint: tr("Offered when recording a payment, an expense or a salary."), placeholder: tr("e.g. Uzum") },
+  { key: 'expenseCategories', title: tr("Expense categories"), hint: tr("Used to group expenses in reports."), placeholder: tr("e.g. Internet") },
+  { key: 'studentTags', title: tr("Student tags"), hint: tr("Short labels you can put on students and filter by."), placeholder: tr("e.g. Olympiad") },
+  { key: 'pauseReasons', title: tr("Freeze reasons"), hint: tr("Offered when a student is paused."), placeholder: tr("e.g. Summer holiday") },
+  { key: 'leaveReasons', title: tr("Leaving reasons"), hint: tr("Offered when a student leaves. Used in the retention report."), placeholder: tr("e.g. Moved abroad") },
+  { key: 'leadSources', title: tr("Enquiry sources"), hint: tr("Where new enquiries came from."), placeholder: tr("e.g. YouTube") },
 ]
 
 /**
@@ -38,13 +39,13 @@ export function ListsPanel() {
     if (clean.length < 2) return setError('Enter a name.')
     if (items.some((i) => i.name.toLowerCase() === clean.toLowerCase())) return setError('That’s already on the list.')
     actions.addListItem(active, clean)
-    toast.show(`“${clean}” added to ${list.title.toLowerCase()}.`)
+    toast.show(tr("“{0}” added to {1}.", clean, list.title.toLowerCase()))
     setName('')
   }
 
   return (
-    <Panel id="lists" title="Lists" description="Shared by every branch. Change them here instead of in the code." flush>
-      <div role="tablist" aria-label="Which list" className="flex flex-wrap gap-1 border-t border-line px-4 pt-3">
+    <Panel id="lists" title={tr("Lists")} description={tr("Shared by every branch. Change them here instead of in the code.")} flush>
+      <div role="tablist" aria-label={tr("Which list")} className="flex flex-wrap gap-1 border-t border-line px-4 pt-3">
         {LISTS.map((l) => (
           <button
             key={l.key}
@@ -77,23 +78,23 @@ export function ListsPanel() {
                     setRenaming(null)
                   }}
                 >
-                  <Input aria-label={`New name for ${i.name}`} autoFocus value={renaming.name} onChange={(e) => setRenaming({ id: i.id, name: e.target.value })} className="h-8 flex-1" />
-                  <IconButton label="Save name" type="submit">
+                  <Input aria-label={tr("New name for {0}", i.name)} autoFocus value={renaming.name} onChange={(e) => setRenaming({ id: i.id, name: e.target.value })} className="h-8 flex-1" />
+                  <IconButton label={tr("Save name")} type="submit">
                     <Check />
                   </IconButton>
-                  <IconButton label="Cancel" onClick={() => setRenaming(null)}>
+                  <IconButton label={tr("Cancel")} onClick={() => setRenaming(null)}>
                     <X />
                   </IconButton>
                 </form>
               ) : (
                 <>
                   <span className={cn('flex-1', i.active ? 'text-ink' : 'text-ink-faint line-through')}>{i.name}</span>
-                  {!i.active && <Badge>Off</Badge>}
-                  <IconButton label={`Rename ${i.name}`} onClick={() => setRenaming({ id: i.id, name: i.name })}>
+                  {!i.active && <Badge>{tr("Off")}</Badge>}
+                  <IconButton label={tr("Rename {0}", i.name)} onClick={() => setRenaming({ id: i.id, name: i.name })}>
                     <Pencil />
                   </IconButton>
-                  <Button size="sm" variant="ghost" onClick={() => actions.setListItemActive(active, i.id, !i.active)} aria-label={`${i.active ? 'Turn off' : 'Turn on'} ${i.name}`}>
-                    {i.active ? 'Turn off' : 'Turn on'}
+                  <Button size="sm" variant="ghost" onClick={() => actions.setListItemActive(active, i.id, !i.active)} aria-label={`${i.active ? tr('Turn off') : tr('Turn on')} ${i.name}`}>
+                    {i.active ? tr("Turn off") : tr("Turn on")}
                   </Button>
                 </>
               )}
@@ -101,7 +102,7 @@ export function ListsPanel() {
           ))}
         </ul>
         <form onSubmit={add} noValidate className="flex items-start gap-2 px-5 py-4">
-          <Field label={`Add to ${list.title.toLowerCase()}`} error={error || undefined} className="flex-1">
+          <Field label={tr("Add to {0}", list.title.toLowerCase())} error={error || undefined} className="flex-1">
             {(p) => (
               <Input
                 {...p}
@@ -116,7 +117,7 @@ export function ListsPanel() {
             )}
           </Field>
           <Button type="submit" className="mt-[1.6rem]">
-            Add
+            {tr("Add")}
           </Button>
         </form>
       </div>

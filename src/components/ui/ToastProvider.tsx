@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { CircleAlert, CircleCheck, Info, X } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { ToastContext, type ToastApi, type ToastTone } from './toast-context'
+import { tr } from '../../i18n'
 
 interface Toast {
   id: number
@@ -51,7 +52,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => dismiss(toast.id)}
-                aria-label="Dismiss notification"
+                aria-label={tr("Dismiss notification")}
                 className="-m-1 rounded p-1 text-ink-muted hover:text-ink"
               >
                 <X className="size-4" />

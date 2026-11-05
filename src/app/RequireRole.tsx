@@ -20,7 +20,7 @@ export function RequireRole({ roles, children }: { roles: readonly Role[]; child
     return <Navigate to={loginPath} replace state={{ from }} />
   }
   if (!roles.includes(user.role)) return <Navigate to={ROLE_HOME[user.role]} replace />
-  // Receptionists and accountants only open their own sections.
+  // Accountants only open their own sections.
   if (!canOpen(user.role, location.pathname)) return <Navigate to={ROLE_HOME[user.role]} replace />
   return children
 }

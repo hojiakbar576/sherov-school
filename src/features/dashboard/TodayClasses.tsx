@@ -7,6 +7,7 @@ import { SessionStatusBadge } from '../../components/StatusBadges'
 import { minutesSinceMidnight, timeToMinutes } from '../../lib/dates'
 import type { Session, SessionStatus } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 const DAY_START = 8 * 60
 const DAY_END = 20 * 60 + 30
@@ -88,10 +89,10 @@ function DayRibbon({ sessions, now }: { sessions: Session[]; now: Date }) {
 }
 
 const RIBBON_LEGEND: [SessionStatus, string][] = [
-  ['recorded', 'Attendance taken'],
-  ['in_progress', 'In progress'],
-  ['upcoming', 'Upcoming'],
-  ['not_recorded', 'Attendance missing'],
+  ['recorded', tr("Attendance taken")],
+  ['in_progress', tr("In progress")],
+  ['upcoming', tr("Upcoming")],
+  ['not_recorded', tr("Attendance missing")],
 ]
 
 export function TodayClasses({ sessions, now }: { sessions: Session[]; now: Date }) {
@@ -99,29 +100,29 @@ export function TodayClasses({ sessions, now }: { sessions: Session[]; now: Date
   return (
     <Panel
       id="today-classes"
-      title="Today’s classes"
-      description={sessions.length ? `${sessions.length} classes, ${recorded} with attendance taken` : undefined}
-      actions={<ButtonLink to="/schedule" size="sm">Full schedule</ButtonLink>}
+      title={tr("Today’s classes")}
+      description={sessions.length ? tr("{0} classes, {1} with attendance taken", sessions.length, recorded) : undefined}
+      actions={<ButtonLink to="/schedule" size="sm">{tr("Full schedule")}</ButtonLink>}
       flush
     >
       {sessions.length === 0 ? (
-        <EmptyState icon={CalendarOff} title="No classes today">
-          Groups meet Monday to Saturday. Enjoy the quiet day.
+        <EmptyState icon={CalendarOff} title={tr("No classes today")}>
+          {tr("Groups meet Monday to Saturday. Enjoy the quiet day.")}
         </EmptyState>
       ) : (
         <>
           <DayRibbon sessions={sessions} now={now} />
           <TableScroll>
             <table className="w-full min-w-[640px] text-sm">
-              <caption className="sr-only">Classes today with time, group, teacher, room and attendance status</caption>
+              <caption className="sr-only">{tr("Classes today with time, group, teacher, room and attendance status")}</caption>
               <thead className="border-y border-line bg-canvas">
                 <tr>
-                  <th scope="col" className={th}>Time</th>
-                  <th scope="col" className={th}>Group</th>
-                  <th scope="col" className={th}>Teacher</th>
-                  <th scope="col" className={th}>Room</th>
-                  <th scope="col" className={th}>Status</th>
-                  <th scope="col" className={th}><span className="sr-only">Action</span></th>
+                  <th scope="col" className={th}>{tr("Time")}</th>
+                  <th scope="col" className={th}>{tr("Group")}</th>
+                  <th scope="col" className={th}>{tr("Teacher")}</th>
+                  <th scope="col" className={th}>{tr("Room")}</th>
+                  <th scope="col" className={th}>{tr("Status")}</th>
+                  <th scope="col" className={th}><span className="sr-only">{tr("Action")}</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -135,7 +136,7 @@ export function TodayClasses({ sessions, now }: { sessions: Session[]; now: Date
                       <p className="font-medium text-ink">{s.group.name}</p>
                       <p className="text-xs text-ink-muted">{s.group.subject}</p>
                     </td>
-                    <td className={cn(td, 'text-ink-muted')}>{s.teacher?.fullName ?? 'Unassigned'}</td>
+                    <td className={cn(td, 'text-ink-muted')}>{s.teacher?.fullName ?? tr("Unassigned")}</td>
                     <td className={cn(td, 'whitespace-nowrap text-ink-muted')}>{s.group.room}</td>
                     <td className={td}>
                       <SessionStatusBadge status={s.status} />
@@ -143,8 +144,8 @@ export function TodayClasses({ sessions, now }: { sessions: Session[]; now: Date
                     <td className={cn(td, 'text-right')}>
                       {s.status !== 'upcoming' && (
                         <Link to={`/attendance?group=${s.group.id}&date=${s.date}`} className="text-sm font-medium whitespace-nowrap text-brand hover:underline">
-                          {s.status === 'recorded' ? 'View' : 'Take attendance'}
-                          <span className="sr-only"> for {s.group.name}</span>
+                          {s.status === 'recorded' ? tr("View") : tr("Take attendance")}
+                          <span className="sr-only">{' '}{tr("for")}{' '}{s.group.name}</span>
                         </Link>
                       )}
                     </td>

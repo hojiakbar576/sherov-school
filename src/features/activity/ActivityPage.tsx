@@ -11,25 +11,26 @@ import { toISODate } from '../../lib/dates'
 import { formatRelative } from '../../lib/format'
 import { roleLabel } from '../../lib/auth'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 const TYPE_LABEL: Record<ActivityType, string> = {
-  student_added: 'Student added',
-  student_updated: 'Student changed',
-  student_removed: 'Student deleted',
-  payment_recorded: 'Payment',
-  attendance_saved: 'Attendance',
-  group_changed: 'Group or transfer',
-  teacher_changed: 'Teacher',
-  settings_changed: 'Settings and lists',
-  homework_changed: 'Homework',
-  lead_changed: 'Admissions',
-  assessment_changed: 'Assessment',
-  owner_changed: 'Owner',
-  expense_changed: 'Expense',
-  salary_changed: 'Salary',
-  user_changed: 'Accounts',
-  contact_logged: 'Call or message',
-  staff_attendance: 'Staff attendance',
+  student_added: tr("Student added"),
+  student_updated: tr("Student changed"),
+  student_removed: tr("Student deleted"),
+  payment_recorded: tr("Payment"),
+  attendance_saved: tr("Attendance"),
+  group_changed: tr("Group or transfer"),
+  teacher_changed: tr("Teacher"),
+  settings_changed: tr("Settings and lists"),
+  homework_changed: tr("Homework"),
+  lead_changed: tr("Admissions"),
+  assessment_changed: tr("Assessment"),
+  owner_changed: tr("Owner"),
+  expense_changed: tr("Expense"),
+  salary_changed: tr("Salary"),
+  user_changed: tr("Accounts"),
+  contact_logged: tr("Call or message"),
+  staff_attendance: tr("Staff attendance"),
 }
 
 const FILTERS = ['q', 'type', 'who'] as const
@@ -56,52 +57,52 @@ export function ActivityPage() {
   return (
     <>
       <PageHeader
-        title="Activity history"
-        description="Every change recorded in the app, newest first, and who made it. Use it to check what happened and when."
+        title={tr("Activity history")}
+        description={tr("Every change recorded in the app, newest first, and who made it. Use it to check what happened and when.")}
         actions={
           <ExportButtons
             name="activity"
             date={toISODate(now)}
             disabled={rows.length === 0}
             rows={() => [
-              ['When', 'What', 'Details', 'Who', 'Branch'],
+              [tr("When"), tr("What"), tr("Details"), tr("Who"), tr("Branch")],
               ...rows.map((a) => [a.at.replace('T', ' ').slice(0, 16), a.title, a.detail, a.byUserId ? (userById.get(a.byUserId)?.fullName ?? a.byUserId) : 'Sample data', a.branchId ? branchName.get(a.branchId) : 'Whole school']),
             ]}
           />
         }
       />
-      <section aria-label="Activity" className="rounded-panel border border-line bg-surface">
+      <section aria-label={tr("Activity")} className="rounded-panel border border-line bg-surface">
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:flex-wrap sm:items-center">
-          <SearchInput label="Search activity" value={values.q} onChange={(v) => set('q', v)} placeholder="Name, amount or word" />
-          <Select aria-label="Kind of change" value={values.type} onChange={(e) => set('type', e.target.value)} className="sm:w-52">
-            <option value="">Every kind of change</option>
+          <SearchInput label={tr("Search activity")} value={values.q} onChange={(v) => set('q', v)} placeholder={tr("Name, amount or word")} />
+          <Select aria-label={tr("Kind of change")} value={values.type} onChange={(e) => set('type', e.target.value)} className="sm:w-52">
+            <option value="">{tr("Every kind of change")}</option>
             {(Object.keys(TYPE_LABEL) as ActivityType[]).map((t) => (
               <option key={t} value={t}>
                 {TYPE_LABEL[t]}
               </option>
             ))}
           </Select>
-          <Select aria-label="Who" value={values.who} onChange={(e) => set('who', e.target.value)} className="sm:w-52">
-            <option value="">Anyone</option>
+          <Select aria-label={tr("Who")} value={values.who} onChange={(e) => set('who', e.target.value)} className="sm:w-52">
+            <option value="">{tr("Anyone")}</option>
             {people.map((id) => (
               <option key={id} value={id}>
                 {userById.get(id)?.fullName ?? id}
               </option>
             ))}
           </Select>
-          <p className="num text-sm text-ink-muted sm:ml-auto">{rows.length} changes</p>
+          <p className="num text-sm text-ink-muted sm:ml-auto">{rows.length}{' '}{tr("changes")}</p>
         </div>
         {rows.length === 0 ? (
-          <EmptyState icon={History} title="Nothing matches" />
+          <EmptyState icon={History} title={tr("Nothing matches")} />
         ) : (
           <TableScroll>
             <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-canvas">
                 <tr className="border-b border-line">
-                  <th scope="col" className={th}>When</th>
-                  <th scope="col" className={th}>What happened</th>
-                  <th scope="col" className={th}>Who</th>
-                  {owner && <th scope="col" className={th}>Branch</th>}
+                  <th scope="col" className={th}>{tr("When")}</th>
+                  <th scope="col" className={th}>{tr("What happened")}</th>
+                  <th scope="col" className={th}>{tr("Who")}</th>
+                  {owner && <th scope="col" className={th}>{tr("Branch")}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -123,10 +124,10 @@ export function ActivityPage() {
                             <span className="block text-xs text-ink-muted">{roleLabel[who.role]}</span>
                           </>
                         ) : (
-                          <span className="text-ink-faint">Sample data</span>
+                          <span className="text-ink-faint">{tr("Sample data")}</span>
                         )}
                       </td>
-                      {owner && <td className={cn(td, 'text-ink-muted')}>{a.branchId ? branchName.get(a.branchId) : 'Whole school'}</td>}
+                      {owner && <td className={cn(td, 'text-ink-muted')}>{a.branchId ? branchName.get(a.branchId) : tr("Whole school")}</td>}
                     </tr>
                   )
                 })}

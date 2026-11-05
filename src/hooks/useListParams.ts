@@ -22,8 +22,24 @@ export function useListParams<K extends string>(keys: readonly K[]) {
     )
   }
 
+  /** Changes several filters at once (separate `set` calls in one event would overwrite each other). */
+  const setMany = (patch: Partial<Record<K, string>>) => {
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [k, v] of Object.entries(patch) as [string, string | undefined][]) {
+          if (v) next.set(k, v)
+          else next.delete(k)
+        }
+        next.delete('page')
+        return next
+      },
+      { replace: true },
+    )
+  }
+
   const clear = () => setParams(new URLSearchParams(), { replace: true })
   const active = keys.some((k) => values[k])
 
-  return { values, page, set, setPage: (p: number) => set('page', p > 1 ? String(p) : ''), clear, active }
+  return { values, page, set, setMany, setPage: (p: number) => set('page', p > 1 ? String(p) : ''), clear, active }
 }

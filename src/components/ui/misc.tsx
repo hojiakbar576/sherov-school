@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { initials } from '../../lib/format'
+import { tr } from '../../i18n'
 
 export function EmptyState({ icon: Icon, title, children, action }: { icon: LucideIcon; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
@@ -56,19 +57,19 @@ export function Pagination({ page, pageSize, total, onPage, noun }: PaginationPr
   const to = Math.min(total, page * pageSize)
   const navButton = 'inline-flex size-8 items-center justify-center rounded-control border border-line-strong bg-surface text-ink hover:bg-subtle disabled:opacity-40 disabled:pointer-events-none'
   return (
-    <nav aria-label={`${noun} pages`} className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-sm text-ink-muted">
+    <nav aria-label={tr("{0} pages", noun)} className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-sm text-ink-muted">
       <p className="num">
-        {from}–{to} of {total} {noun}
+        {from}–{to}{' '}{tr("of")}{' '}{total} {noun}
       </p>
       {pages > 1 && (
         <div className="flex items-center gap-2">
-          <button type="button" className={navButton} onClick={() => onPage(page - 1)} disabled={page === 1} aria-label="Previous page">
+          <button type="button" className={navButton} onClick={() => onPage(page - 1)} disabled={page === 1} aria-label={tr("Previous page")}>
             <ChevronLeft className="size-4" />
           </button>
           <span className="num min-w-16 text-center">
-            Page {page} of {pages}
+            {tr("Page")}{' '}{page}{' '}{tr("of")}{' '}{pages}
           </span>
-          <button type="button" className={navButton} onClick={() => onPage(page + 1)} disabled={page === pages} aria-label="Next page">
+          <button type="button" className={navButton} onClick={() => onPage(page + 1)} disabled={page === pages} aria-label={tr("Next page")}>
             <ChevronRight className="size-4" />
           </button>
         </div>

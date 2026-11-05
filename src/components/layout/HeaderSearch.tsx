@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { GraduationCap, Search, UserRoundPlus, Users, UsersRound, type LucideIcon } from 'lucide-react'
 import { useSchool } from '../../data/school-context'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 interface Result {
   id: string
@@ -19,7 +20,7 @@ const MAX_RESULTS = 8
 export function HeaderSearch({ className, autoFocus }: { className?: string; autoFocus?: boolean }) {
   const { data, user } = useSchool()
   const isTeacher = user?.role === 'teacher'
-  const what = isTeacher ? 'your students and groups' : 'students, teachers and groups'
+  const what = isTeacher ? tr("your students and groups") : tr("students, teachers and groups")
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -52,7 +53,7 @@ export function HeaderSearch({ className, autoFocus }: { className?: string; aut
       const phoneMatch = (p: string | undefined) => Boolean(p) && digits.length >= 3 && p!.replace(/\D/g, '').includes(digits)
       const parent = s.guardians.find((g) => g.fullName.toLowerCase().includes(q) || phoneMatch(g.phone) || phoneMatch(g.altPhone))
       if (s.fullName.toLowerCase().includes(q) || phoneMatch(s.phone) || parent) {
-        const detail = parent && !s.fullName.toLowerCase().includes(q) ? `Parent: ${parent.fullName}, ${parent.phone}` : `${groupName.get(s.groupId ?? '') ?? 'No group'}, ${s.phone}`
+        const detail = parent && !s.fullName.toLowerCase().includes(q) ? tr("Parent: {0}, {1}", parent.fullName, parent.phone) : `${groupName.get(s.groupId ?? '') ?? 'No group'}, ${s.phone}`
         found.push({ id: s.id, kind: 'Student', icon: Users, title: s.fullName, detail, to: isTeacher ? `/teacher/students/${s.id}` : `/students/${s.id}` })
       }
     }
@@ -70,7 +71,7 @@ export function HeaderSearch({ className, autoFocus }: { className?: string; aut
     }
     for (const g of data.groups) {
       if (g.name.toLowerCase().includes(q) || g.room.toLowerCase().includes(q)) {
-        found.push({ id: g.id, kind: 'Group', icon: UsersRound, title: g.name, detail: `${teacherName.get(g.teacherId) ?? ''}, ${g.room}`, to: isTeacher ? `/teacher/groups/${g.id}` : `/groups?q=${encodeURIComponent(g.name)}` })
+        found.push({ id: g.id, kind: 'Group', icon: UsersRound, title: g.name, detail: `${teacherName.get(g.teacherId) ?? ''}, ${g.room}`, to: isTeacher ? `/teacher/groups/${g.id}` : `/groups/${g.id}` })
       }
     }
     return found.slice(0, MAX_RESULTS)
@@ -92,14 +93,14 @@ export function HeaderSearch({ className, autoFocus }: { className?: string; aut
         ref={inputRef}
         type="search"
         role="combobox"
-        aria-label={`Search ${what}`}
+        aria-label={tr("Search {0}", what)}
         aria-expanded={showList}
         aria-controls={listId}
         aria-activedescendant={showList && results[active] ? `${listId}-${active}` : undefined}
         aria-autocomplete="list"
         autoFocus={autoFocus}
         value={query}
-        placeholder={isTeacher ? 'Search your students and groups' : 'Search students, parents, teachers, groups'}
+        placeholder={isTeacher ? tr("Search your students and groups") : tr("Search students, parents, teachers, groups")}
         onChange={(event) => {
           setQuery(event.target.value)
           setActive(0)
@@ -129,9 +130,9 @@ export function HeaderSearch({ className, autoFocus }: { className?: string; aut
       {showList && (
         <div className="absolute top-full right-0 left-0 z-40 mt-2 overflow-hidden rounded-panel border border-line bg-surface shadow-pop">
           {results.length === 0 ? (
-            <p className="px-4 py-3 text-sm text-ink-muted">Nothing in {what} matches “{query.trim()}”.</p>
+            <p className="px-4 py-3 text-sm text-ink-muted">{tr("Nothing in")}{' '}{what}{' '}{tr("matches “")}{query.trim()}”.</p>
           ) : (
-            <ul id={listId} role="listbox" aria-label="Search results" className="max-h-96 overflow-y-auto py-1">
+            <ul id={listId} role="listbox" aria-label={tr("Search results")} className="max-h-96 overflow-y-auto py-1">
               {results.map((result, index) => {
                 const Icon = result.icon
                 return (

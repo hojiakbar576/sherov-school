@@ -3,7 +3,8 @@
 // Nothing sensitive (passwords, tokens) is ever stored here.
 
 import type { SchoolData } from '../types'
-import { ASSESSMENT_KINDS, LEAD_STAGES, ROLES } from '../types'
+import { ASSESSMENT_KINDS, LEAD_STAGE_COLORS, ROLES } from '../types'
+import { leadStagesProblem } from '../lib/lead-stages'
 import { isValidISODate } from '../lib/dates'
 import { createDemoData, DATA_VERSION } from './seed'
 import { migrate } from './migrate'
@@ -48,7 +49,7 @@ const validators: Record<string, (v: Obj) => boolean> = {
     isStr(t.id) && isStr(t.fullName) && isStr(t.branchId) && isStr(t.subject) && oneOf(t.status, ['active', 'on_leave']) &&
     isNum(t.salaryPercent) && t.salaryPercent >= 0 && t.salaryPercent <= 100,
   groups: (g) =>
-    isStr(g.id) && isStr(g.name) && isStr(g.teacherId) && isStr(g.branchId) && oneOf(g.days, ['odd', 'even']) &&
+    isStr(g.id) && isStr(g.name) && isStr(g.courseId) && isStr(g.levelId) && isStr(g.teacherId) && isStr(g.branchId) && oneOf(g.days, ['odd', 'even']) &&
     isStr(g.startTime) && isNum(g.capacity) && isNum(g.monthlyFee) && isNum(g.durationMinutes),
   students: (s) =>
     isStr(s.id) && isStr(s.fullName) && isStr(s.branchId) && Array.isArray(s.guardians) && (s.groupId === null || isStr(s.groupId)) &&
@@ -68,12 +69,15 @@ const validators: Record<string, (v: Obj) => boolean> = {
     (r.evaluation === undefined || (isObj(r.evaluation) && isNum(r.evaluation.score) && r.evaluation.score >= 0 && r.evaluation.score <= 100)),
   studentNotes: (n) => isStr(n.id) && isStr(n.studentId) && isStr(n.text) && isStr(n.createdAt),
   notifications: (n) => isStr(n.id) && isStr(n.title) && isStr(n.body) && isStr(n.createdAt) && isObj(n.audience),
-  courses: (c) => isStr(c.id) && isStr(c.name) && typeof c.active === 'boolean',
+  courses: (c) =>
+    isStr(c.id) && isStr(c.name) && typeof c.active === 'boolean' &&
+    Array.isArray(c.levels) && c.levels.every((l) => isObj(l) && isStr(l.id) && isStr(l.name) && typeof l.active === 'boolean'),
   rooms: (r) => isStr(r.id) && isStr(r.branchId) && isStr(r.name),
   enrollments: (e) =>
     isStr(e.id) && isStr(e.studentId) && isStr(e.groupId) && isValidISODate(e.startedOn) && (e.endedOn === undefined || isValidISODate(e.endedOn)),
   studentEvents: (e) => isStr(e.id) && isStr(e.studentId) && isStr(e.type) && isValidISODate(e.on) && isStr(e.title),
-  leads: (l) => isStr(l.id) && isStr(l.branchId) && isStr(l.studentName) && isStr(l.phone) && isStr(l.course) && oneOf(l.stage, LEAD_STAGES),
+  leads: (l) => isStr(l.id) && isStr(l.branchId) && isStr(l.studentName) && isStr(l.phone) && isStr(l.course) && isStr(l.stage),
+  leadStages: (s) => isStr(s.id) && (s.name === undefined || isStr(s.name)) && oneOf(s.color, LEAD_STAGE_COLORS),
   assessments: (a) =>
     isStr(a.id) && isStr(a.groupId) && isStr(a.title) && oneOf(a.kind, ASSESSMENT_KINDS) && isValidISODate(a.date) &&
     isNum(a.maxScore) && a.maxScore > 0 && Array.isArray(a.results) &&
@@ -97,7 +101,15 @@ export function validateSchoolData(value: unknown): string | null {
     const bad = list.findIndex((item) => !isObj(item) || !check(item))
     if (bad !== -1) return `"${key}" item ${bad + 1} is malformed`
   }
+  {
+    // Course → Level → Group: every group must point at a real course and one of its levels.
+    const courses = value.courses as { id: string; levels: { id: string }[] }[]
+    const bad = (value.groups as { courseId: string; levelId: string }[]).findIndex((g) => !courses.find((c) => c.id === g.courseId)?.levels.some((l) => l.id === g.levelId))
+    if (bad !== -1) return `group ${bad + 1} is not linked to a course and level`
+  }
   if (!isObj(value.settings) || !isStr(value.settings.centerName)) return 'settings are missing'
+  const stages = leadStagesProblem(value.leadStages as never, value.leads as never)
+  if (stages) return stages
   if (!isObj(value.catalogs) || !['paymentMethods', 'expenseCategories', 'studentTags', 'pauseReasons', 'leaveReasons', 'leadSources'].every((k) => Array.isArray((value.catalogs as Obj)[k]))) {
     return 'lists (payment methods, categories, tags) are missing'
   }

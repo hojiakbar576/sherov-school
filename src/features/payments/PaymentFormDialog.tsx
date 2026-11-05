@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/Field'
 import { monthKey, toISODate } from '../../lib/dates'
 import { formatMonth, formatUZS, methodName, paymentStatusLabel } from '../../lib/format'
+import { tr } from '../../i18n'
 
 interface PaymentFormDialogProps {
   open: boolean
@@ -22,8 +23,8 @@ export function PaymentFormDialog(props: PaymentFormDialogProps) {
     <Dialog
       open={props.open}
       onClose={props.onClose}
-      title={props.payment ? 'Edit payment' : 'Record payment'}
-      description="Log money the centre has already received."
+      title={props.payment ? tr("Edit payment") : tr("Record payment")}
+      description={tr("Log money the centre has already received.")}
     >
       {props.open && <PaymentForm {...props} />}
     </Dialog>
@@ -86,13 +87,13 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
   const submit = (event: FormEvent) => {
     event.preventDefault()
     const e: Errors = {}
-    if (!selected) e.studentId = 'Choose who paid.'
+    if (!selected) e.studentId = tr("Choose who paid.")
     const amount = Number(form.amount)
-    if (!form.amount || !Number.isFinite(amount) || amount <= 0) e.amount = 'Enter the amount received in UZS.'
-    else if (amount > 100_000_000) e.amount = 'That amount looks too large. Check the number of zeros.'
-    if (!form.date) e.date = 'Choose the payment date.'
-    else if (form.date > today) e.date = 'Payment date can’t be in the future.'
-    if (!/^\d{4}-\d{2}$/.test(form.period)) e.period = 'Choose the tuition month this payment covers.'
+    if (!form.amount || !Number.isFinite(amount) || amount <= 0) e.amount = tr("Enter the amount received in UZS.")
+    else if (amount > 100_000_000) e.amount = tr("That amount looks too large. Check the number of zeros.")
+    if (!form.date) e.date = tr("Choose the payment date.")
+    else if (form.date > today) e.date = tr("Payment date can’t be in the future.")
+    if (!/^\d{4}-\d{2}$/.test(form.period)) e.period = tr("Choose the tuition month this payment covers.")
     setErrors(e)
     if (Object.keys(e).length) return
 
@@ -107,10 +108,10 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
     }
     if (payment) {
       actions.updatePayment(payment.id, input)
-      toast.show('Payment updated.')
+      toast.show(tr("Payment updated."))
     } else {
       actions.addPayment(input)
-      toast.show(`Payment of ${formatUZS(input.amount)} recorded for ${selected!.fullName}.`)
+      toast.show(tr("Payment of {0} recorded for {1}.", formatUZS(input.amount), selected!.fullName))
     }
     onClose()
   }
@@ -119,24 +120,20 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
     <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
       <div className="flex gap-2.5 rounded-control bg-info-soft px-3 py-2.5 text-sm text-info sm:col-span-2">
         <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
-        <p>This only records a payment for the demo. No money is charged or transferred. Sherov School has no payment processing.</p>
+        <p>{tr("This only records a payment for the demo. No money is charged or transferred. Sherov School has no payment processing.")}</p>
       </div>
 
       {!payment && !studentId && (
-        <Field label="Find student" hint={`${students.length} students match`} className="sm:col-span-2">
-          {(p) => <Input {...p} type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Type a name to narrow the list" autoFocus />}
+        <Field label={tr("Find student")} hint={tr("{0} students match", students.length)} className="sm:col-span-2">
+          {(p) => <Input {...p} type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={tr("Type a name to narrow the list")} autoFocus />}
         </Field>
       )}
       <Field
-        label="Student"
+        label={tr("Student")}
         error={errors.studentId}
         className="sm:col-span-2"
         hint={
-          balance && balance.owed > 0
-            ? `Owes ${formatUZS(balance.owed)} for ${balance.unpaidMonths.map(formatMonth).join(', ')}.`
-            : balance?.status === 'paid'
-              ? 'No tuition owed right now.'
-              : undefined
+          balance && balance.owed > 0 ? tr("Owes {0} for {1}.", formatUZS(balance.owed), balance.unpaidMonths.map(formatMonth).join(', ')) : balance?.status === 'paid' ? tr("No tuition owed right now.") : undefined
         }
       >
         {(p) => (
@@ -152,7 +149,7 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
               }
             }}
           >
-            <option value="">Choose a student</option>
+            <option value="">{tr("Choose a student")}</option>
             {students.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.fullName}
@@ -162,16 +159,16 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
           </Select>
         )}
       </Field>
-      <Field label="Amount (UZS)" error={errors.amount} hint={Number(form.amount) > 0 ? formatUZS(Number(form.amount)) : undefined}>
+      <Field label={tr("Amount (UZS)")} error={errors.amount} hint={Number(form.amount) > 0 ? formatUZS(Number(form.amount)) : undefined}>
         {(p) => <Input {...p} type="number" inputMode="numeric" min={0} step={10000} value={form.amount} onChange={(e) => set('amount', e.target.value)} />}
       </Field>
-      <Field label="For tuition month" error={errors.period}>
+      <Field label={tr("For tuition month")} error={errors.period}>
         {(p) => <Input {...p} type="month" value={form.period} onChange={(e) => set('period', e.target.value)} />}
       </Field>
-      <Field label="Payment date" error={errors.date}>
+      <Field label={tr("Payment date")} error={errors.date}>
         {(p) => <Input {...p} type="date" max={today} value={form.date} onChange={(e) => set('date', e.target.value)} />}
       </Field>
-      <Field label="Method">
+      <Field label={tr("Method")}>
         {(p) => (
           <Select {...p} value={form.method} onChange={(e) => set('method', e.target.value as PaymentMethod)}>
             {data.catalogs.paymentMethods.filter((pm) => pm.active || pm.id === form.method).map((pm) => pm.id).map((m) => (
@@ -182,7 +179,7 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
           </Select>
         )}
       </Field>
-      <Field label="Status" hint="Only paid payments count towards revenue and balances.">
+      <Field label={tr("Status")} hint={tr("Only paid payments count towards revenue and balances.")}>
         {(p) => (
           <Select {...p} value={form.status} onChange={(e) => set('status', e.target.value as PaymentStatus)}>
             {(Object.keys(paymentStatusLabel) as PaymentStatus[]).map((s) => (
@@ -193,13 +190,13 @@ function PaymentForm({ onClose, payment, studentId }: PaymentFormDialogProps) {
           </Select>
         )}
       </Field>
-      <Field label="Note" optional>
-        {(p) => <Input {...p} value={form.note} onChange={(e) => set('note', e.target.value)} placeholder="e.g. Receipt #1042" />}
+      <Field label={tr("Note")} optional>
+        {(p) => <Input {...p} value={form.note} onChange={(e) => set('note', e.target.value)} placeholder={tr("e.g. Receipt #1042")} />}
       </Field>
       <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4 sm:col-span-2">
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{tr("Cancel")}</Button>
         <Button type="submit" variant="primary">
-          {payment ? 'Save changes' : 'Record payment'}
+          {payment ? tr("Save changes") : tr("Record payment")}
         </Button>
       </div>
     </form>

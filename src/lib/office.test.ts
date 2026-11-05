@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AttendanceRecord, SchoolData } from '../types'
+import { branchSeatHolder, type AttendanceRecord, type SchoolData } from '../types'
 import { createDemoData, DATA_VERSION } from '../data/seed'
 import { migrate } from '../data/migrate'
 import { validateSchoolData } from '../data/storage'
@@ -25,14 +25,14 @@ describe('version 7 data', () => {
     expect(data.catalogs.paymentMethods.map((m) => m.id)).toEqual(['cash', 'card', 'click', 'payme', 'transfer'])
     expect(data.expenses.length).toBeGreaterThan(0)
     expect(data.salaryPayments.length).toBeGreaterThan(0)
-    expect(data.users.some((u) => u.role === 'reception')).toBe(true)
+    expect(data.users.some((u) => (u.role as string) === 'reception')).toBe(false)
     expect(data.users.some((u) => u.role === 'accountant')).toBe(true)
   })
 
   it('upgrades version 6 data without losing anything', () => {
     const v6 = JSON.parse(JSON.stringify({ ...data, version: 6 })) as Record<string, unknown>
     for (const key of ['catalogs', 'extraLessons', 'expenses', 'salaryPayments', 'staffAttendance', 'contactLogs']) delete v6[key]
-    v6.users = data.users.filter((u) => u.role !== 'reception' && u.role !== 'accountant')
+    v6.users = data.users.filter((u) => u.role !== 'accountant')
     v6.payments = data.payments.map(({ receiptNo: _r, ...p }) => p)
     const up = migrate(v6, DATA_VERSION, NOW) as unknown as SchoolData
     expect(validateSchoolData(up)).toBeNull()
@@ -49,23 +49,48 @@ describe('version 7 data', () => {
 })
 
 describe('roles', () => {
-  it('reception and accountant see only their sections', () => {
-    expect(can('reception', 'leads')).toBe(true)
-    expect(can('reception', 'expenses')).toBe(false)
-    expect(can('reception', 'reports')).toBe(false)
+  it('the administrator runs the front desk; the accountant sees only money sections', () => {
+    expect(can('admin', 'leads')).toBe(true)
+    expect(can('admin', 'staffAttendance')).toBe(true)
     expect(can('accountant', 'expenses')).toBe(true)
     expect(can('accountant', 'leads')).toBe(false)
     expect(canOpen('accountant', '/payments/pay_1/receipt')).toBe(true)
-    expect(canOpen('reception', '/salaries')).toBe(false)
+    expect(canOpen('accountant', '/attendance')).toBe(false)
     expect(sectionForPath('/staff-attendance')).toBe('staffAttendance')
     expect(sectionForPath('/students/stu_001')).toBe('students')
   })
 
   it('a turned-off account cannot sign in', () => {
-    const reception = data.users.find((u) => u.role === 'reception')!
-    expect(demoSignIn(data.users, reception.username, DEMO_PASSWORD)?.id).toBe(reception.id)
-    const users = data.users.map((u) => (u.id === reception.id ? { ...u, active: false } : u))
-    expect(demoSignIn(users, reception.username, DEMO_PASSWORD)).toBeNull()
+    const accountant = data.users.find((u) => u.role === 'accountant')!
+    expect(demoSignIn(data.users, accountant.username, DEMO_PASSWORD)?.id).toBe(accountant.id)
+    const users = data.users.map((u) => (u.id === accountant.id ? { ...u, active: false } : u))
+    expect(demoSignIn(users, accountant.username, DEMO_PASSWORD)).toBeNull()
+  })
+
+  it('has one owner, and one administrator and one accountant per branch', () => {
+    expect(data.users.filter((u) => u.role === 'owner')).toHaveLength(1)
+    for (const b of data.branches) {
+      expect(data.users.filter((u) => u.role === 'admin' && u.branchId === b.id && u.active !== false)).toHaveLength(1)
+      expect(data.users.filter((u) => u.role === 'accountant' && u.branchId === b.id && u.active !== false)).toHaveLength(1)
+    }
+    const admin = data.users.find((u) => u.role === 'admin')!
+    expect(branchSeatHolder(data.users, 'admin', admin.branchId)?.id).toBe(admin.id)
+    expect(branchSeatHolder(data.users, 'admin', admin.branchId, admin.id)).toBeUndefined()
+    expect(branchSeatHolder(data.users, 'teacher', admin.branchId)).toBeUndefined()
+  })
+
+  it('upgrades version 8 data: receptionists go, their records move to the branch administrator', () => {
+    const v8 = JSON.parse(JSON.stringify({ ...data, version: 8 })) as SchoolData & { version: number }
+    const rec = { id: 'usr_reception_bashlik', role: 'reception', fullName: 'Shahnoza Rasulova', username: 'reception.bashlik', branchId: 'br_bashlik', active: true }
+    ;(v8.users as unknown[]).push(rec)
+    v8.staffAttendance = v8.staffAttendance.map((r, i) => (i === 0 ? { ...r, recordedBy: rec.id } : r))
+    v8.notificationReads = { ...v8.notificationReads, [rec.id]: ['n_x'] }
+    const up = migrate(v8 as unknown as Record<string, unknown>, DATA_VERSION, NOW) as unknown as SchoolData
+    expect(validateSchoolData(up)).toBeNull()
+    expect(up.users.some((u) => u.id === rec.id)).toBe(false)
+    expect(up.staffAttendance[0].recordedBy).toBe('usr_admin_bashlik')
+    expect(up.notificationReads['usr_admin_bashlik']).toContain('n_x')
+    expect(up.students).toHaveLength(data.students.length)
   })
 
   it('front-office staff only see their own branch', () => {

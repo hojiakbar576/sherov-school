@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/misc'
 import { attentionLabel, attentionLink } from '../../hooks/useAttention'
 import type { AttentionItem, AttentionKind } from '../../lib/metrics'
+import { tr } from '../../i18n'
 
 const ORDER: { kind: AttentionKind; limit: number; icon: LucideIcon; tint: string }[] = [
   { kind: 'attendance_missing', limit: 3, icon: CalendarX2, tint: 'bg-danger-soft text-danger' },
@@ -14,14 +15,14 @@ const ORDER: { kind: AttentionKind; limit: number; icon: LucideIcon; tint: strin
 ]
 
 const actionLabel: Record<AttentionKind, string> = {
-  overdue: 'Record payment',
-  absences: 'View student',
-  capacity: 'View group',
-  attendance_missing: 'Take attendance',
-  teacher_away: 'View group',
-  trial_today: 'Open enquiry',
-  trial_result: 'Record result',
-  lead_new: 'Open enquiry',
+  overdue: tr("Record payment"),
+  absences: tr("View student"),
+  capacity: tr("View group"),
+  attendance_missing: tr("Take attendance"),
+  teacher_away: tr("View group"),
+  trial_today: tr("Open enquiry"),
+  trial_result: tr("Record result"),
+  lead_new: tr("Open enquiry"),
 }
 
 interface NeedsAttentionProps {
@@ -34,10 +35,10 @@ export function NeedsAttention({ items, onRecordPayment }: NeedsAttentionProps) 
   const overdueCount = items.filter((i) => i.kind === 'overdue').length
 
   return (
-    <Panel id="needs-attention" title="Needs attention" description={items.length ? 'The most important items first' : undefined} flush>
+    <Panel id="needs-attention" title={tr("Needs attention")} description={items.length ? tr("The most important items first") : undefined} flush>
       {items.length === 0 ? (
-        <EmptyState icon={CircleCheck} title="All clear">
-          No overdue tuition, repeated absences, full groups or missing attendance.
+        <EmptyState icon={CircleCheck} title={tr("All clear")}>
+          {tr("No overdue tuition, repeated absences, full groups or missing attendance.")}
         </EmptyState>
       ) : (
         <div className="divide-y divide-line border-t border-line">
@@ -63,7 +64,7 @@ export function NeedsAttention({ items, onRecordPayment }: NeedsAttentionProps) 
                       {kind === 'overdue' ? (
                         <Button size="sm" onClick={() => onRecordPayment(item.studentId!)}>
                           {actionLabel[kind]}
-                          <span className="sr-only"> for {item.title}</span>
+                          <span className="sr-only">{' '}{tr("for")}{' '}{item.title}</span>
                         </Button>
                       ) : (
                         <Link to={attentionLink(item)} className="shrink-0 text-sm font-medium text-brand hover:underline">
@@ -76,7 +77,7 @@ export function NeedsAttention({ items, onRecordPayment }: NeedsAttentionProps) 
                 </ul>
                 {kind === 'overdue' && overdueCount > limit && (
                   <Link to="/students?tuition=overdue" className="mt-1 inline-block text-sm font-medium text-brand hover:underline">
-                    See all {overdueCount} students with overdue tuition
+                    {tr("See all")}{' '}{overdueCount}{' '}{tr("students with overdue tuition")}
                   </Link>
                 )}
               </div>

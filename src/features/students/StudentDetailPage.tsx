@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Archive, ArrowLeft, ArrowRightLeft, Banknote, ClipboardCheck, History, NotebookPen, Pencil, RefreshCcw, Trash2, UserPlus, UserRoundX, Wallet } from 'lucide-react'
 import type { AttendanceMark } from '../../types'
 import { useSchool } from '../../data/school-context'
@@ -37,6 +37,7 @@ import { TagChips } from './StudentTags'
 import { ExtraLessonsPanel } from './ExtraLessonsPanel'
 import { ContactLogPanel } from '../contacts/ContactLogPanel'
 import { PaymentFormDialog } from '../payments/PaymentFormDialog'
+import { tr } from '../../i18n'
 
 /** One label and value on a line. */
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -48,7 +49,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-const missing = <span className="text-ink-faint">Not added</span>
+const missing = <span className="text-ink-faint">{tr("Not added")}</span>
 
 function Stat({ label, value, detail, tone }: { label: string; value: ReactNode; detail?: ReactNode; tone?: 'danger' | 'warning' }) {
   return (
@@ -68,9 +69,42 @@ const markText: Record<AttendanceMark, string> = { present: 'text-success', late
  * who to call, what they study, whether tuition is paid, attendance, and
  * homework progress.
  */
+const TABS = ['groups', 'payments', 'attendance', 'progress', 'contact', 'notes', 'history'] as const
+type Tab = (typeof TABS)[number]
+/** Old links pointed at a section with #name; they open the matching tab. */
+const HASH_TAB: Record<string, Tab> = { '#tuition': 'payments', '#attendance': 'attendance', '#assessments': 'progress', '#progress': 'progress', '#history': 'history' }
+
+/** One fact in the summary card. */
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className="mt-0.5 truncate text-ink">{children}</dd>
+    </div>
+  )
+}
+
+/**
+ * One student: a summary card with what staff need at a glance, then the rest
+ * in tabs (?tab=payments opens the money side straight away).
+ */
 export function StudentDetailPage() {
   const { studentId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [params, setParams] = useSearchParams()
+  const tabParam = params.get('tab') as Tab | null
+  const tab: Tab = tabParam && TABS.includes(tabParam) ? tabParam : (HASH_TAB[location.hash] ?? 'groups')
+  const setTab = (t: Tab) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (t === 'groups') next.delete('tab')
+        else next.set('tab', t)
+        return next
+      },
+      { replace: true },
+    )
   const { data, now, balances } = useSchool()
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -93,8 +127,8 @@ export function StudentDetailPage() {
   if (!student || !attendance || !performance) {
     return (
       <div className="rounded-panel border border-line bg-surface">
-        <EmptyState icon={UserRoundX} title="Student not found" action={<ButtonLink to="/students">Back to students</ButtonLink>}>
-          This student may have been deleted, or the demo data was reset.
+        <EmptyState icon={UserRoundX} title={tr("Student not found")} action={<ButtonLink to="/students">{tr("Back to students")}</ButtonLink>}>
+          {tr("This student may have been deleted, or the demo data was reset.")}
         </EmptyState>
       </div>
     )
@@ -128,225 +162,255 @@ export function StudentDetailPage() {
   const archived = isArchived(student.status)
   const lastStatusEvent = [...data.studentEvents].reverse().find((e) => e.studentId === student.id && e.type === 'status_changed')
   const userName = new Map(data.users.map((u) => [u.id, u.fullName]))
+  const mainGuardian = student.guardians[0]
+  const owes = Boolean(balance && balance.owed > 0 && (balance.status === 'due' || balance.status === 'overdue'))
+  const tabLabel: Record<Tab, string> = {
+    groups: tr("Groups"),
+    payments: tr("Payments"),
+    attendance: tr("Attendance"),
+    progress: tr("Assessments"),
+    contact: tr("Parents and calls"),
+    notes: tr("Notes"),
+    history: tr("History"),
+  }
 
   return (
     <>
       <Link to="/students" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
         <ArrowLeft aria-hidden className="size-4" />
-        All students
+        {tr("All students")}
       </Link>
 
-      {/* ---- Header: who, and the two statuses that matter most */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <span className="[&>span]:size-14 [&>span]:text-base">
-            <Avatar name={student.fullName} />
-          </span>
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-[-0.015em]">{student.fullName}</h1>
-            <p className="mt-0.5 text-sm text-ink-muted">
-              {group ? `${group.name}${teacher ? ` · ${teacher.fullName}` : ''}` : 'Not in a group'}
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <StudentStatusBadge status={student.status} />
-              <TuitionBadge balance={balance} />
-              <TagChips tags={student.tags} />
+      {/* ---- Summary card: the details staff need at a glance */}
+      <section aria-labelledby="student-name" className="mb-6 rounded-panel border border-line bg-surface p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <span className="[&>span]:size-14 [&>span]:text-base">
+              <Avatar name={student.fullName} />
+            </span>
+            <div className="min-w-0">
+              <h1 id="student-name" className="text-2xl font-semibold tracking-[-0.015em]">
+                {student.fullName}
+              </h1>
+              <p className="num mt-0.5 text-xs text-ink-muted">ID: {student.id.replace(/^stu_/, '').toUpperCase()}</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <StudentStatusBadge status={student.status} />
+                <TuitionBadge balance={balance} />
+                <TagChips tags={student.tags} />
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="ghost" onClick={() => setChangingStatus(true)}>
-            <RefreshCcw aria-hidden />
-            Change status
-          </Button>
-          {!archived && (
-            <Button onClick={() => setTransferring(true)}>
-              <ArrowRightLeft aria-hidden />
-              {student.groupId ? 'Transfer' : 'Add to group'}
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => setChangingStatus(true)}>
+              <RefreshCcw aria-hidden />
+              {tr("Change status")}
             </Button>
-          )}
-          <Button onClick={() => setEditing(true)}>
-            <Pencil aria-hidden />
-            Edit
-          </Button>
-          <Button variant="primary" onClick={() => setPaying(true)}>
-            <Wallet aria-hidden />
-            Record payment
-          </Button>
+            {!archived && (
+              <Button onClick={() => setTransferring(true)}>
+                <ArrowRightLeft aria-hidden />
+                {student.groupId ? tr("Transfer") : tr("Add to group")}
+              </Button>
+            )}
+            <Button onClick={() => setEditing(true)}>
+              <Pencil aria-hidden />
+              {tr("Edit")}
+            </Button>
+            <Button variant="primary" onClick={() => setPaying(true)}>
+              <Wallet aria-hidden />
+              {tr("Record payment")}
+            </Button>
+          </div>
         </div>
-      </div>
+
+        <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-line pt-4 text-sm xl:grid-cols-4">
+          <Fact label={tr("Balance")}>
+            {owes ? (
+              <button type="button" onClick={() => setTab('payments')} className="num font-semibold text-danger hover:underline">
+                {tr("Owes {0}", formatUZS(balance!.owed))}
+              </button>
+            ) : (
+              <span className="text-ink">{tr("Nothing owed")}</span>
+            )}
+          </Fact>
+          <Fact label={tr("Phone")}>{student.phone ? <PhoneLine phone={student.phone} /> : missing}</Fact>
+          <Fact label={mainGuardian ? guardianRelationshipLabel[mainGuardian.relationship] : tr("Parent / guardian")}>
+            {mainGuardian ? (
+              <span>
+                {mainGuardian.fullName} <PhoneLine phone={mainGuardian.phone} className="text-ink-muted" />
+              </span>
+            ) : (
+              missing
+            )}
+          </Fact>
+          <Fact label={tr("Enrolled")}>
+            <span className="num">{formatDate(student.enrolledOn)}</span>
+            {branch && <span className="text-ink-muted"> · {branch.name}</span>}
+          </Fact>
+          <Fact label={tr("Group")}>
+            {group ? (
+              <Link to={`/groups/${group.id}`} className="font-medium text-brand hover:underline">
+                {group.name}
+              </Link>
+            ) : (
+              <span className="text-ink-faint">{tr("Not in a group")}</span>
+            )}
+          </Fact>
+          <Fact label={tr("Course and level")}>{group ? `${group.subject}${group.level ? ` → ${group.level}` : ''}` : missing}</Fact>
+          <Fact label={tr("Teacher")}>
+            {teacher ? (
+              <Link to={`/teachers/${teacher.id}`} className="hover:text-brand hover:underline">
+                {teacher.fullName}
+              </Link>
+            ) : (
+              missing
+            )}
+          </Fact>
+          <Fact label={tr("Classes")}>
+            {group ? (
+              <span className="num">
+                {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)}
+              </span>
+            ) : (
+              missing
+            )}
+          </Fact>
+        </dl>
+      </section>
 
       {archived && (
         <div role="note" className="mb-6 flex flex-wrap items-center gap-3 rounded-panel border border-line bg-subtle px-4 py-3 text-sm">
           <Archive aria-hidden className="size-4 text-ink-muted" />
           <p className="flex-1 text-ink">
-            <span className="font-medium">In the archive.</span> {lastStatusEvent ? `${lastStatusEvent.title} on ${formatDate(lastStatusEvent.on)}${lastStatusEvent.detail ? `: ${lastStatusEvent.detail}` : ''}.` : ''} Their history is kept below.
+            <span className="font-medium">{tr("In the archive.")}</span> {lastStatusEvent ? tr("{0} on {1}{2}.", lastStatusEvent.title, formatDate(lastStatusEvent.on), lastStatusEvent.detail ? `: ${lastStatusEvent.detail}` : '') : ''}{' '}{tr("Their history is kept in the tabs below.")}
           </p>
           <Button size="sm" onClick={() => setChangingStatus(true)}>
-            Bring back
+            {tr("Bring back")}
           </Button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        {/* ---- Left: contact and study details */}
-        <div className="min-w-0 space-y-6 lg:col-span-4">
-          <Panel title="Parent / guardian" actions={student.guardians.length === 0 ? undefined : <span className="text-xs text-ink-muted">Main contact first</span>}>
-            {student.guardians.length === 0 ? (
-              <div className="text-sm">
-                <p className="text-ink-muted">No parent or guardian added.</p>
-                <Button size="sm" className="mt-3" onClick={() => setEditing(true)}>
-                  <UserPlus aria-hidden />
-                  Add parent
-                </Button>
-              </div>
-            ) : (
-              <ul className="space-y-4">
-                {student.guardians.map((g) => (
-                  <li key={g.id} className="text-sm">
-                    <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">{guardianRelationshipLabel[g.relationship]}</p>
-                    <p className="font-medium text-ink">{g.fullName}</p>
-                    <PhoneLine phone={g.phone} className="text-ink" />
-                    {g.altPhone && (
-                      <p className="flex items-center gap-1 text-ink-muted">
-                        <span className="text-xs">Other:</span>
-                        <PhoneLine phone={g.altPhone} />
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
+      {/* ---- Everything else, one tab at a time */}
+      <div role="tablist" aria-label={tr("Student sections")} className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            id={`tab-${t}`}
+            role="tab"
+            type="button"
+            aria-selected={tab === t}
+            aria-controls="student-tabpanel"
+            onClick={() => setTab(t)}
+            className={cn(
+              '-mb-px shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors',
+              tab === t ? 'border-brand text-brand' : 'border-transparent text-ink-muted hover:text-ink',
             )}
-          </Panel>
+          >
+            {tabLabel[t]}
+            {t === 'payments' && owes && <span aria-label={tr("owes money")} className="ml-1.5 inline-block size-2 rounded-full bg-danger-mark align-middle" />}
+            {t === 'notes' && notes.length > 0 && <span className="num ml-1.5 text-xs text-ink-faint">{notes.length}</span>}
+          </button>
+        ))}
+      </div>
 
-          <Panel title="Personal details">
-            <dl className="divide-y divide-line text-sm">
-              <Row label="Phone">
-                <PhoneLine phone={student.phone} />
-              </Row>
-              <Row label="Date of birth">
-                {student.dateOfBirth ? (
-                  <span className="num">
-                    {formatDate(student.dateOfBirth)} <span className="text-ink-muted">({ageOn(student.dateOfBirth, now)} y)</span>
-                  </span>
-                ) : (
-                  missing
-                )}
-              </Row>
-              <Row label="Gender">{student.gender ? genderLabel[student.gender] : missing}</Row>
-              <Row label="Address">{student.address ?? missing}</Row>
-              <Row label="Email">
-                {student.email ? (
-                  <a href={`mailto:${student.email}`} className="break-all hover:text-brand hover:underline">
-                    {student.email}
-                  </a>
-                ) : (
-                  missing
-                )}
-              </Row>
-            </dl>
-          </Panel>
-
-          <Panel title="Study">
-            <dl className="divide-y divide-line text-sm">
-              <Row label="Group">
-                {group ? (
-                  <Link to={`/groups?q=${encodeURIComponent(group.name)}`} className="hover:text-brand hover:underline">
-                    {group.name}
-                  </Link>
-                ) : (
-                  <span className="text-ink-faint">No group</span>
-                )}
-              </Row>
-              <Row label="Course">{group?.subject ?? <span className="text-ink-faint">—</span>}</Row>
-              <Row label="Teacher">{teacher?.fullName ?? <span className="text-ink-faint">None</span>}</Row>
-              {group && (
-                <Row label="Classes">
-                  <span className="num">
-                    {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)}
-                    <span className="block text-xs text-ink-muted">{group.room}</span>
-                  </span>
+      <div id="student-tabpanel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="min-w-0">
+        {tab === 'groups' && (
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+            <Panel title={tr("Study")}>
+              <dl className="divide-y divide-line text-sm">
+                <Row label={tr("Group")}>
+                  {group ? (
+                    <Link to={`/groups/${group.id}`} className="hover:text-brand hover:underline">
+                      {group.name}
+                    </Link>
+                  ) : (
+                    <span className="text-ink-faint">{tr("No group")}</span>
+                  )}
                 </Row>
-              )}
-              <Row label="Branch">{branch?.name ?? '—'}</Row>
-              <Row label="Enrolled">
-                <span className="num">{formatDate(student.enrolledOn)}</span>
-              </Row>
-              <Row label="Status">
-                <StudentStatusBadge status={student.status} />
-              </Row>
-            </dl>
-            {groups.length > 0 && (
-              <div className="mt-4 border-t border-line pt-3">
-                <p className="mb-2 text-xs font-medium text-ink-muted">Group history</p>
-                <ol className="space-y-2 text-sm">
-                  {groups.map((e) => (
-                    <li key={e.id} className="flex gap-2.5">
-                      <span aria-hidden className={cn('mt-1.5 size-2 shrink-0 rounded-full', e.endedOn ? 'bg-line-strong' : 'bg-brand')} />
-                      <span className="min-w-0">
-                        <span className="block text-ink">{groupName.get(e.groupId) ?? 'A deleted group'}</span>
-                        <span className="num block text-xs text-ink-muted">
-                          {formatDate(e.startedOn)} – {e.endedOn ? formatDate(e.endedOn) : 'now'}
+                <Row label={tr("Course")}>{group?.subject ?? <span className="text-ink-faint">—</span>}</Row>
+                <Row label={tr("Teacher")}>{teacher?.fullName ?? <span className="text-ink-faint">{tr("None")}</span>}</Row>
+                {group && (
+                  <Row label={tr("Classes")}>
+                    <span className="num">
+                      {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)}
+                      <span className="block text-xs text-ink-muted">{group.room}</span>
+                    </span>
+                  </Row>
+                )}
+                <Row label={tr("Branch")}>{branch?.name ?? '—'}</Row>
+                <Row label={tr("Enrolled")}>
+                  <span className="num">{formatDate(student.enrolledOn)}</span>
+                </Row>
+                <Row label={tr("Status")}>
+                  <StudentStatusBadge status={student.status} />
+                </Row>
+              </dl>
+              {groups.length > 0 && (
+                <div className="mt-4 border-t border-line pt-3">
+                  <p className="mb-2 text-xs font-medium text-ink-muted">{tr("Group history")}</p>
+                  <ol className="space-y-2 text-sm">
+                    {groups.map((e) => (
+                      <li key={e.id} className="flex gap-2.5">
+                        <span aria-hidden className={cn('mt-1.5 size-2 shrink-0 rounded-full', e.endedOn ? 'bg-line-strong' : 'bg-brand')} />
+                        <span className="min-w-0">
+                          <span className="block text-ink">{groupName.get(e.groupId) ?? tr("A deleted group")}</span>
+                          <span className="num block text-xs text-ink-muted">
+                            {formatDate(e.startedOn)} – {e.endedOn ? formatDate(e.endedOn) : tr("now")}
+                          </span>
+                          {e.endReason && <span className="block text-xs text-ink-muted">{e.endReason}</span>}
                         </span>
-                        {e.endReason && <span className="block text-xs text-ink-muted">{e.endReason}</span>}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-          </Panel>
-        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </Panel>
+            <ExtraLessonsPanel student={student} />
+          </div>
+        )}
 
-        {/* ---- Right: money, attendance, progress */}
-        <div className="min-w-0 space-y-6 lg:col-span-8">
+        {tab === 'payments' && (
           <Panel
-            id="tuition"
-            title="Tuition"
+            title={tr("Tuition")}
             actions={
               <Button size="sm" onClick={() => setPaying(true)}>
                 <Wallet aria-hidden />
-                Record payment
+                {tr("Record payment")}
               </Button>
             }
             flush
           >
             <div className="grid grid-cols-2 gap-4 px-5 pb-4 sm:grid-cols-4">
               <Stat
-                label="Monthly tuition"
+                label={tr("Monthly tuition")}
                 value={formatUZS(student.monthlyTuition)}
                 detail={
-                  student.tuitionAdjustment
-                    ? `${tuitionAdjustmentLabel[student.tuitionAdjustment.kind]}: ${student.tuitionAdjustment.reason}${group ? `. Standard fee ${formatUZS(group.monthlyFee)}` : ''}`
-                    : group && group.monthlyFee === student.monthlyTuition
-                      ? 'The group’s standard fee'
-                      : undefined
+                  student.tuitionAdjustment ? `${tuitionAdjustmentLabel[student.tuitionAdjustment.kind]}: ${student.tuitionAdjustment.reason}${group ? `. Standard fee ${formatUZS(group.monthlyFee)}` : ''}` : group && group.monthlyFee === student.monthlyTuition ? tr("The group’s standard fee") : undefined
                 }
               />
               <Stat
-                label="Owed now"
+                label={tr("Owed now")}
                 value={formatUZS(balance?.owed ?? 0)}
                 tone={balance && balance.owed > 0 ? (balance.status === 'overdue' ? 'danger' : 'warning') : undefined}
-                detail={balance?.unpaidMonths.length ? `For ${balance.unpaidMonths.map(formatMonth).join(', ')}` : balance?.status === 'inactive' ? 'Not billed while not active' : 'Nothing owed'}
+                detail={balance?.unpaidMonths.length ? tr("For {0}", balance.unpaidMonths.map(formatMonth).join(', ')) : balance?.status === 'inactive' ? tr("Not billed while not active") : tr("Nothing owed")}
               />
-              <Stat label="Overdue" value={formatUZS(overdueAmount)} tone={overdueAmount > 0 ? 'danger' : undefined} detail={`Due by the ${data.settings.tuitionDueDay}th of each month`} />
-              <Stat label="Paid for this month" value={formatUZS(balance?.paidThisMonth ?? 0)}  />
+              <Stat label={tr("Overdue")} value={formatUZS(overdueAmount)} tone={overdueAmount > 0 ? 'danger' : undefined} detail={tr("Due by the {0}th of each month", data.settings.tuitionDueDay)} />
+              <Stat label={tr("Paid for this month")} value={formatUZS(balance?.paidThisMonth ?? 0)}  />
             </div>
             {payments.length === 0 ? (
-              <EmptyState icon={Banknote} title="No payments yet" />
+              <EmptyState icon={Banknote} title={tr("No payments yet")} />
             ) : (
               <>
                 <TableScroll>
                   <table className="w-full min-w-[520px] text-sm">
-                    <caption className="sr-only">Payments, newest first</caption>
+                    <caption className="sr-only">{tr("Payments, newest first")}</caption>
                     <thead className="border-y border-line bg-canvas">
                       <tr>
-                        <th scope="col" className={th}>Paid on</th>
-                        <th scope="col" className={th}>For month</th>
-                        <th scope="col" className={cn(th, 'text-right')}>Amount</th>
-                        <th scope="col" className={th}>Method</th>
-                        <th scope="col" className={cn(th, 'hidden sm:table-cell')}>Recorded by</th>
-                        <th scope="col" className={th}>Status</th>
+                        <th scope="col" className={th}>{tr("Paid on")}</th>
+                        <th scope="col" className={th}>{tr("For month")}</th>
+                        <th scope="col" className={cn(th, 'text-right')}>{tr("Amount")}</th>
+                        <th scope="col" className={th}>{tr("Method")}</th>
+                        <th scope="col" className={cn(th, 'hidden sm:table-cell')}>{tr("Recorded by")}</th>
+                        <th scope="col" className={th}>{tr("Status")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
@@ -368,33 +432,35 @@ export function StudentDetailPage() {
                 {payments.length > 4 && (
                   <div className="border-t border-line px-5 py-2.5">
                     <Button size="sm" variant="ghost" onClick={() => setAllPayments((v) => !v)}>
-                      {allPayments ? 'Show fewer' : `Show all ${payments.length} payments`}
+                      {allPayments ? tr("Show fewer") : tr("Show all {0} payments", payments.length)}
                     </Button>
                   </div>
                 )}
               </>
             )}
           </Panel>
+        )}
 
-          <Panel id="attendance" title="Attendance" flush>
+        {tab === 'attendance' && (
+          <Panel title={tr("Attendance")} flush>
             {attendance.history.length === 0 ? (
-              <EmptyState icon={ClipboardCheck} title="No attendance recorded yet" />
+              <EmptyState icon={ClipboardCheck} title={tr("No attendance recorded yet")} />
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-4 px-5 pb-4 sm:grid-cols-4">
                   <Stat
-                    label="Attendance"
+                    label={tr("Attendance")}
                     value={attendance.rate === null ? '—' : formatPercent(attendance.rate)}
                     tone={attendance.rate !== null && attendance.rate < 0.75 ? 'warning' : undefined}
-                    detail={`${attendance.history.length} classes recorded`}
+                    detail={tr("{0} classes recorded", attendance.history.length)}
                   />
-                  <Stat label="Present" value={counts.present} />
-                  <Stat label="Late" value={counts.late} />
-                  <Stat label="Absent" value={counts.absent} tone={counts.absent > 0 ? 'danger' : undefined} />
+                  <Stat label={tr("Present")} value={counts.present} />
+                  <Stat label={tr("Late")} value={counts.late} />
+                  <Stat label={tr("Absent")} value={counts.absent} tone={counts.absent > 0 ? 'danger' : undefined} />
                 </div>
                 <div className="px-5 pb-4">
-                  <p className="mb-2 text-xs text-ink-muted">Last {Math.min(30, attendance.history.length)} classes, oldest to newest</p>
-                  <ol className="flex flex-wrap gap-1" aria-label="Recent classes">
+                  <p className="mb-2 text-xs text-ink-muted">{tr("Last")}{' '}{Math.min(30, attendance.history.length)}{' '}{tr("classes, oldest to newest")}</p>
+                  <ol className="flex flex-wrap gap-1" aria-label={tr("Recent classes")}>
                     {attendance.history
                       .slice(0, 30)
                       .reverse()
@@ -414,14 +480,14 @@ export function StudentDetailPage() {
                 {allAttendance && (
                   <TableScroll>
                     <table className="w-full min-w-[520px] text-sm">
-                      <caption className="sr-only">Attendance history, newest first</caption>
+                      <caption className="sr-only">{tr("Attendance history, newest first")}</caption>
                       <thead className="border-y border-line bg-canvas">
                         <tr>
-                          <th scope="col" className={th}>Date</th>
-                          <th scope="col" className={th}>Group</th>
-                          <th scope="col" className={th}>Mark</th>
-                          <th scope="col" className={th}>Grade</th>
-                          <th scope="col" className={th}>Note</th>
+                          <th scope="col" className={th}>{tr("Date")}</th>
+                          <th scope="col" className={th}>{tr("Group")}</th>
+                          <th scope="col" className={th}>{tr("Mark")}</th>
+                          <th scope="col" className={th}>{tr("Grade")}</th>
+                          <th scope="col" className={th}>{tr("Note")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-line">
@@ -444,150 +510,218 @@ export function StudentDetailPage() {
                 )}
                 <div className="border-t border-line px-5 py-2.5">
                   <Button size="sm" variant="ghost" onClick={() => setAllAttendance((v) => !v)}>
-                    {allAttendance ? 'Hide history' : 'Show full attendance history'}
+                    {allAttendance ? tr("Hide history") : tr("Show full attendance history")}
                   </Button>
                 </div>
               </>
             )}
           </Panel>
+        )}
 
-          <Panel
-            id="progress"
-            title="Homework and progress"
-            description="Each number stands on its own. An overall score or ranking will come once its formula is agreed."
-            flush
-          >
-            <div className="grid grid-cols-2 gap-4 px-5 pb-4 sm:grid-cols-3 xl:grid-cols-5">
-              <Stat
-                label="Homework done"
-                value={performance.completionRate === null ? '—' : formatPercent(performance.completionRate)}
-                tone={performance.completionRate !== null && performance.completionRate < 0.7 ? 'warning' : undefined}
-                detail={performance.pastDeadline ? `${performance.pastDeadline - performance.missing} of ${performance.pastDeadline} past the deadline` : 'No deadlines yet'}
-              />
-              <Stat label="Homework grade" value={formatScoreAsGrade(performance.averageScore)} detail={performance.evaluated ? `Average of ${performance.evaluated}, out of 5` : 'Nothing graded yet'} />
-              <Stat label="Lesson grade" value={formatAverage(avgLessonGrade)} detail={lessonGrades.length ? `Average of ${lessonGrades.length}, out of 5` : 'No lesson grades yet'} />
-              <Stat label="Attendance" value={attendance.rate === null ? '—' : formatPercent(attendance.rate)} />
-              <div className="min-w-0">
-                <p className="text-sm text-ink-muted">Teacher assessment</p>
-                <div className="mt-1.5">
-                  <PerformanceBadge label={performance.label} />
+        {tab === 'progress' && (
+          <div className="space-y-6">
+            <Panel
+              title={tr("Homework and progress")}
+              description={tr("Each number stands on its own. An overall score or ranking will come once its formula is agreed.")}
+              flush
+            >
+              <div className="grid grid-cols-2 gap-4 px-5 pb-4 sm:grid-cols-3 xl:grid-cols-5">
+                <Stat
+                  label={tr("Homework done")}
+                  value={performance.completionRate === null ? '—' : formatPercent(performance.completionRate)}
+                  tone={performance.completionRate !== null && performance.completionRate < 0.7 ? 'warning' : undefined}
+                  detail={performance.pastDeadline ? tr("{0} of {1} past the deadline", performance.pastDeadline - performance.missing, performance.pastDeadline) : tr("No deadlines yet")}
+                />
+                <Stat label={tr("Homework grade")} value={formatScoreAsGrade(performance.averageScore)} detail={performance.evaluated ? tr("Average of {0}, out of 5", performance.evaluated) : tr("Nothing graded yet")} />
+                <Stat label={tr("Lesson grade")} value={formatAverage(avgLessonGrade)} detail={lessonGrades.length ? tr("Average of {0}, out of 5", lessonGrades.length) : tr("No lesson grades yet")} />
+                <Stat label={tr("Attendance")} value={attendance.rate === null ? '—' : formatPercent(attendance.rate)} />
+                <div className="min-w-0">
+                  <p className="text-sm text-ink-muted">{tr("Teacher assessment")}</p>
+                  <div className="mt-1.5">
+                    <PerformanceBadge label={performance.label} />
+                  </div>
                 </div>
               </div>
-            </div>
-            {homework.length === 0 ? (
-              <EmptyState icon={NotebookPen} title="No homework set yet" />
-            ) : (
-              <ul className="divide-y divide-line border-t border-line">
-                {homework.slice(0, 5).map((l) => (
-                  <li key={l.homework.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">{l.homework.title}</p>
-                      <p className="num text-xs text-ink-muted">
-                        {groupName.get(l.homework.groupId)} · due {formatDate(l.homework.dueDate)}
-                      </p>
-                      {l.result?.evaluation?.feedback && <p className="mt-0.5 text-xs text-ink">“{l.result.evaluation.feedback}”</p>}
-                    </div>
-                    <ResultStatusBadge status={l.status} overdue={l.due} />
-                    {l.result?.evaluation ? <GradeChip grade={scoreToGrade(l.result.evaluation.score)} size="sm" /> : <span className="w-6" />}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-
-          {notes.length > 0 && (
-            <Panel title="Teacher notes" description="For staff only. Parents never see these." flush>
-              <ul className="divide-y divide-line border-t border-line">
-                {notes.slice(0, 5).map((n) => (
-                  <li key={n.id} className="px-5 py-3 text-sm">
-                    <p className={cn('text-ink', n.important && 'font-medium')}>
-                      {n.important && <span className="mr-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-2xs font-semibold text-warning">Important</span>}
-                      {n.text}
-                    </p>
-                    <p className="num mt-0.5 text-xs text-ink-muted">
-                      {n.authorName} · {formatDate(n.createdAt.slice(0, 10))}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <Panel id="assessments" title="Assessments" description="Tests and exams, newest first." className="lg:col-span-7" flush>
-          {assessments.length === 0 ? (
-            <EmptyState icon={ClipboardCheck} title="No assessment results yet" />
-          ) : (
-            <ul className="divide-y divide-line border-t border-line">
-              {assessments.map(({ assessment, result, percent }) => (
-                <li key={assessment.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 text-sm">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-ink">{assessment.title}</p>
-                    <p className="num text-xs text-ink-muted">
-                      {groupName.get(assessment.groupId)} · {formatDate(assessment.date)}
-                    </p>
-                    {result.comment && <p className="mt-0.5 text-xs text-ink">“{result.comment}”</p>}
-                  </div>
-                  {result.score === null ? (
-                    <span className="text-ink-faint">Absent</span>
-                  ) : (
-                    <span className="num text-right">
-                      <span className="font-semibold text-ink">
-                        {result.score}/{assessment.maxScore}
-                      </span>
-                      <span className={cn('block text-xs', percent !== null && percent < 0.6 ? 'text-danger' : 'text-ink-muted')}>{percent === null ? '' : formatPercent(percent)}</span>
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel id="history" title="History" description="Enrolment, group moves, status and price changes, and payments." className="lg:col-span-5" flush>
-          {timeline.length === 0 ? (
-            <EmptyState icon={History} title="Nothing recorded yet" />
-          ) : (
-            <>
-              <ol className="space-y-3 border-t border-line px-5 py-4">
-                {(allHistory ? timeline : timeline.slice(0, 8)).map((item) => (
-                  <li key={item.id} className="flex gap-3 text-sm">
-                    <span className="num w-20 shrink-0 text-xs text-ink-muted">{formatDate(item.on)}</span>
-                    <span className="min-w-0">
-                      <span className={cn('block', item.kind === 'payment' ? 'text-ink-muted' : 'font-medium text-ink')}>{item.title}</span>
-                      {item.detail && <span className="block text-xs text-ink-muted">{item.detail}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              {timeline.length > 8 && (
-                <div className="border-t border-line px-5 py-2.5">
-                  <Button size="sm" variant="ghost" onClick={() => setAllHistory((v) => !v)}>
-                    {allHistory ? 'Show less' : `Show all ${timeline.length} events`}
-                  </Button>
-                </div>
+              {homework.length === 0 ? (
+                <EmptyState icon={NotebookPen} title={tr("No homework set yet")} />
+              ) : (
+                <ul className="divide-y divide-line border-t border-line">
+                  {homework.slice(0, 5).map((l) => (
+                    <li key={l.homework.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{l.homework.title}</p>
+                        <p className="num text-xs text-ink-muted">
+                          {groupName.get(l.homework.groupId)}{' '}{tr("· due")}{' '}{formatDate(l.homework.dueDate)}
+                        </p>
+                        {l.result?.evaluation?.feedback && <p className="mt-0.5 text-xs text-ink">“{l.result.evaluation.feedback}”</p>}
+                      </div>
+                      <ResultStatusBadge status={l.status} overdue={l.due} />
+                      {l.result?.evaluation ? <GradeChip grade={scoreToGrade(l.result.evaluation.score)} size="sm" /> : <span className="w-6" />}
+                    </li>
+                  ))}
+                </ul>
               )}
-            </>
-          )}
-        </Panel>
-      </div>
+            </Panel>
+            <Panel title={tr("Assessments")} description={tr("Tests and exams, newest first.")} flush>
+              {assessments.length === 0 ? (
+                <EmptyState icon={ClipboardCheck} title={tr("No assessment results yet")} />
+              ) : (
+                <ul className="divide-y divide-line border-t border-line">
+                  {assessments.map(({ assessment, result, percent }) => (
+                    <li key={assessment.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 text-sm">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-ink">{assessment.title}</p>
+                        <p className="num text-xs text-ink-muted">
+                          {groupName.get(assessment.groupId)} · {formatDate(assessment.date)}
+                        </p>
+                        {result.comment && <p className="mt-0.5 text-xs text-ink">“{result.comment}”</p>}
+                      </div>
+                      {result.score === null ? (
+                        <span className="text-ink-faint">{tr("Absent")}</span>
+                      ) : (
+                        <span className="num text-right">
+                          <span className="font-semibold text-ink">
+                            {result.score}/{assessment.maxScore}
+                          </span>
+                          <span className={cn('block text-xs', percent !== null && percent < 0.6 ? 'text-danger' : 'text-ink-muted')}>{percent === null ? '' : formatPercent(percent)}</span>
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          </div>
+        )}
 
-      <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-        <ContactLogPanel
-          subject={{ type: 'student', id: student.id }}
-          contacts={[...student.guardians.map((g) => `${g.fullName} (${guardianRelationshipLabel[g.relationship].toLowerCase()})`), student.fullName]}
-        />
-        <ExtraLessonsPanel student={student} />
-      </div>
+        {tab === 'contact' && (
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+            <div className="space-y-6">
+              <Panel title={tr("Parent / guardian")} actions={student.guardians.length === 0 ? undefined : <span className="text-xs text-ink-muted">{tr("Main contact first")}</span>}>
+                {student.guardians.length === 0 ? (
+                  <div className="text-sm">
+                    <p className="text-ink-muted">{tr("No parent or guardian added.")}</p>
+                    <Button size="sm" className="mt-3" onClick={() => setEditing(true)}>
+                      <UserPlus aria-hidden />
+                      {tr("Add parent")}
+                    </Button>
+                  </div>
+                ) : (
+                  <ul className="space-y-4">
+                    {student.guardians.map((g) => (
+                      <li key={g.id} className="text-sm">
+                        <p className="text-xs font-medium tracking-wide text-ink-muted uppercase">{guardianRelationshipLabel[g.relationship]}</p>
+                        <p className="font-medium text-ink">{g.fullName}</p>
+                        <PhoneLine phone={g.phone} className="text-ink" />
+                        {g.altPhone && (
+                          <p className="flex items-center gap-1 text-ink-muted">
+                            <span className="text-xs">{tr("Other:")}</span>
+                            <PhoneLine phone={g.altPhone} />
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+              <Panel title={tr("Personal details")}>
+                <dl className="divide-y divide-line text-sm">
+                  <Row label={tr("Phone")}>
+                    <PhoneLine phone={student.phone} />
+                  </Row>
+                  <Row label={tr("Date of birth")}>
+                    {student.dateOfBirth ? (
+                      <span className="num">
+                        {formatDate(student.dateOfBirth)} <span className="text-ink-muted">({ageOn(student.dateOfBirth, now)}{' '}{tr("y)")}</span>
+                      </span>
+                    ) : (
+                      missing
+                    )}
+                  </Row>
+                  <Row label={tr("Gender")}>{student.gender ? genderLabel[student.gender] : missing}</Row>
+                  <Row label={tr("Address")}>{student.address ?? missing}</Row>
+                  <Row label={tr("Email")}>
+                    {student.email ? (
+                      <a href={`mailto:${student.email}`} className="break-all hover:text-brand hover:underline">
+                        {student.email}
+                      </a>
+                    ) : (
+                      missing
+                    )}
+                  </Row>
+                </dl>
+              </Panel>
+            </div>
+            <ContactLogPanel
+              subject={{ type: 'student', id: student.id }}
+              contacts={[...student.guardians.map((g) => `${g.fullName} (${guardianRelationshipLabel[g.relationship].toLowerCase()})`), student.fullName]}
+            />
+          </div>
+        )}
 
-      <div className="mt-8 border-t border-line pt-4">
-        <Button variant="ghost" size="sm" onClick={() => setDeleting(true)} className="text-ink-muted hover:bg-danger-soft hover:text-danger">
-          <Trash2 aria-hidden />
-          Delete record
-        </Button>
-        <span className="ml-2 text-xs text-ink-muted">Only for records added by mistake. To keep the history, use Change status instead.</span>
+        {tab === 'notes' && (
+          <>
+                      {notes.length === 0 ? (
+              <div className="rounded-panel border border-line bg-surface">
+                <EmptyState icon={NotebookPen} title={tr("No teacher notes yet")}>{tr("Teachers add notes from their portal. Parents never see them.")}</EmptyState>
+              </div>
+            ) : (
+                        <Panel title={tr("Teacher notes")} description={tr("For staff only. Parents never see these.")} flush>
+                          <ul className="divide-y divide-line border-t border-line">
+                            {notes.map((n) => (
+                              <li key={n.id} className="px-5 py-3 text-sm">
+                                <p className={cn('text-ink', n.important && 'font-medium')}>
+                                  {n.important && <span className="mr-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-2xs font-semibold text-warning">{tr("Important")}</span>}
+                                  {n.text}
+                                </p>
+                                <p className="num mt-0.5 text-xs text-ink-muted">
+                                  {n.authorName} · {formatDate(n.createdAt.slice(0, 10))}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        </Panel>
+                      )}
+          </>
+        )}
+
+        {tab === 'history' && (
+          <>
+            <Panel title={tr("History")} description={tr("Enrolment, group moves, status and price changes, and payments.")} flush>
+              {timeline.length === 0 ? (
+                <EmptyState icon={History} title={tr("Nothing recorded yet")} />
+              ) : (
+                <>
+                  <ol className="space-y-3 border-t border-line px-5 py-4">
+                    {(allHistory ? timeline : timeline.slice(0, 8)).map((item) => (
+                      <li key={item.id} className="flex gap-3 text-sm">
+                        <span className="num w-20 shrink-0 text-xs text-ink-muted">{formatDate(item.on)}</span>
+                        <span className="min-w-0">
+                          <span className={cn('block', item.kind === 'payment' ? 'text-ink-muted' : 'font-medium text-ink')}>{item.title}</span>
+                          {item.detail && <span className="block text-xs text-ink-muted">{item.detail}</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                  {timeline.length > 8 && (
+                    <div className="border-t border-line px-5 py-2.5">
+                      <Button size="sm" variant="ghost" onClick={() => setAllHistory((v) => !v)}>
+                        {allHistory ? tr("Show less") : tr("Show all {0} events", timeline.length)}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </Panel>
+            <div className="mt-6 border-t border-line pt-4">
+              <Button variant="ghost" size="sm" onClick={() => setDeleting(true)} className="text-ink-muted hover:bg-danger-soft hover:text-danger">
+                <Trash2 aria-hidden />
+                {tr("Delete record")}
+              </Button>
+              <span className="ml-2 text-xs text-ink-muted">{tr("Only for records added by mistake. To keep the history, use Change status instead.")}</span>
+            </div>
+          </>
+        )}
       </div>
 
       <TransferDialog open={transferring} student={student} onClose={() => setTransferring(false)} />

@@ -25,7 +25,7 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
   const branchId = userBranchId(data, user)
   const notifications = data.notifications.filter((n) => notificationIsFor(n, user, branchId))
 
-  // Administrators, receptionists and accountants see their whole branch.
+  // Administrators and accountants see their whole branch.
   if (BRANCH_STAFF_ROLES.includes(user.role)) {
     const groups = data.groups.filter((g) => g.branchId === branchId)
     const groupIds = new Set(groups.map((g) => g.id))

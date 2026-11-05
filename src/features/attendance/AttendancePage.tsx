@@ -15,6 +15,7 @@ import { attendanceMarkLabel, formatDate, formatLongDate, formatMonth, formatPer
 import { findRecord, groupRoster, sessionsOn, summarizeMarks, type Session } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
 import { downloadCSV } from '../../lib/csv'
+import { plural, tr } from '../../i18n'
 
 const MARKS: AttendanceMark[] = ['present', 'late', 'absent', 'excused']
 const markStyle: Record<AttendanceMark, string> = {
@@ -56,11 +57,9 @@ export function AttendancePage() {
   return (
     <>
       <PageHeader
-        title="Attendance"
+        title={tr("Attendance")}
         description={
-          isTeacher
-            ? 'Choose one of your classes, mark each student, add a note if needed, then save.'
-            : 'Choose a class, mark each student, then save. Saved attendance updates the dashboard straight away.'
+          isTeacher ? tr("Choose one of your classes, mark each student, add a note if needed, then save.") : tr("Choose a class, mark each student, then save. Saved attendance updates the dashboard straight away.")
         }
         actions={
           isTeacher ? undefined : (
@@ -72,7 +71,7 @@ export function AttendancePage() {
                 const teacher = new Map(data.teachers.map((t) => [t.id, t.fullName]))
                 const records = data.attendance.filter((r) => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
                 downloadCSV(`sherov-school-attendance-${month}.csv`, [
-                  ['Date', 'Time', 'Group', 'Teacher', 'Student', 'Mark', 'Grade', 'Note'],
+                  [tr("Date"), tr("Time"), tr("Group"), tr("Teacher"), tr("Student"), tr("Mark"), tr("Grade"), tr("Note")],
                   ...records.flatMap((r) =>
                     Object.entries(r.marks).map(([id, mark]) => [r.date, r.startTime, group.get(r.groupId) ?? '', teacher.get(r.teacherId) ?? '', student.get(id) ?? '', attendanceMarkLabel[mark], r.grades?.[id] ?? '', r.comments?.[id] ?? '']),
                   ),
@@ -80,21 +79,21 @@ export function AttendancePage() {
               }}
             >
               <Download aria-hidden />
-              Export {formatMonth(date.slice(0, 7))}
+              {tr("Export")}{' '}{formatMonth(date.slice(0, 7))}
             </Button>
           )
         }
       />
 
       <div className="grid items-start gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <Panel title="Classes" description={formatLongDate(parseISODate(date))} flush>
+        <Panel title={tr("Classes")} description={formatLongDate(parseISODate(date))} flush>
           <div className="flex items-center gap-2 px-5 pb-4">
-            <IconButton label="Previous day" onClick={() => go({ date: toISODate(addDays(parseISODate(date), -1)) })} className="border border-line-strong">
+            <IconButton label={tr("Previous day")} onClick={() => go({ date: toISODate(addDays(parseISODate(date), -1)) })} className="border border-line-strong">
               <ChevronLeft />
             </IconButton>
-            <Input type="date" aria-label="Date" value={date} max={today} onChange={(e) => isValidISODate(e.target.value) && go({ date: e.target.value })} />
+            <Input type="date" aria-label={tr("Date")} value={date} max={today} onChange={(e) => isValidISODate(e.target.value) && go({ date: e.target.value })} />
             <IconButton
-              label="Next day"
+              label={tr("Next day")}
               onClick={() => go({ date: toISODate(addDays(parseISODate(date), 1)) })}
               disabled={date >= today}
               className="border border-line-strong disabled:opacity-40"
@@ -105,16 +104,16 @@ export function AttendancePage() {
           {date !== today && (
             <div className="px-5 pb-3">
               <Button size="sm" variant="ghost" onClick={() => go({ date: today })}>
-                Back to today
+                {tr("Back to today")}
               </Button>
             </div>
           )}
           {sessions.length === 0 ? (
-            <EmptyState icon={CalendarOff} title="No classes on this day">
-              Groups meet Monday to Saturday.
+            <EmptyState icon={CalendarOff} title={tr("No classes on this day")}>
+              {tr("Groups meet Monday to Saturday.")}
             </EmptyState>
           ) : (
-            <ul className="divide-y divide-line border-t border-line" aria-label="Classes on this day">
+            <ul className="divide-y divide-line border-t border-line" aria-label={tr("Classes on this day")}>
               {sessions.map((s) => {
                 const current = s.group.id === selected?.group.id
                 return (
@@ -142,10 +141,8 @@ export function AttendancePage() {
 
         {notAllowed ? (
           <div className="rounded-panel border border-line bg-surface">
-            <EmptyState icon={Lock} title="This class isn’t yours">
-              {isTeacher
-                ? 'You can only see and record attendance for groups you teach. Pick one of your classes from the list.'
-                : 'This group belongs to another branch. Pick one of your branch’s classes from the list.'}
+            <EmptyState icon={Lock} title={tr("This class isn’t yours")}>
+              {isTeacher ? tr("You can only see and record attendance for groups you teach. Pick one of your classes from the list.") : tr("This group belongs to another branch. Pick one of your branch’s classes from the list.")}
             </EmptyState>
           </div>
         ) : selected ? (
@@ -156,8 +153,8 @@ export function AttendancePage() {
           </div>
         ) : (
           <div className="rounded-panel border border-line bg-surface">
-            <EmptyState icon={ClipboardCheck} title="Pick a day with classes">
-              Use the date picker to find a class to mark.
+            <EmptyState icon={ClipboardCheck} title={tr("Pick a day with classes")}>
+              {tr("Use the date picker to find a class to mark.")}
             </EmptyState>
           </div>
         )}
@@ -201,12 +198,12 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
   const save = () => {
     const toSave = Object.fromEntries(students.map((s) => [s.id, marks[s.id] ?? 'present']))
     if (!actions.saveAttendance(session.group.id, date, toSave, comments)) {
-      toast.show('Attendance wasn’t saved: you can only record attendance for your own groups.', 'error')
+      toast.show(tr("Attendance wasn’t saved: you can only record attendance for your own groups."), 'error')
       return
     }
     setDirty(false)
     const attended = Object.values(toSave).filter((m) => m === 'present' || m === 'late').length
-    toast.show(`Attendance saved for ${session.group.name}: ${attended} of ${students.length} attended.`)
+    toast.show(tr("Attendance saved for {0}: {1} of {2} attended.", session.group.name, attended, students.length))
   }
 
   return (
@@ -224,30 +221,24 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
             }}
           >
             <Check aria-hidden />
-            Mark all present
+            {tr("Mark all present")}
           </Button>
         ) : undefined
       }
       flush
     >
       {students.length === 0 ? (
-        <EmptyState icon={Users} title="No students in this group yet">
-          {user?.role === 'teacher'
-            ? 'Your branch administrator adds students to groups.'
-            : `Add students to ${session.group.name} from the Students page.`}
+        <EmptyState icon={Users} title={tr("No students in this group yet")}>
+          {user?.role === 'teacher' ? tr("Your branch administrator adds students to groups.") : tr("Add students to {0} from the Students page.", session.group.name)}
         </EmptyState>
       ) : isFuture ? (
-        <EmptyState icon={CalendarOff} title="This class hasn’t started yet">
-          Attendance can be taken once the class begins at {session.start}.
+        <EmptyState icon={CalendarOff} title={tr("This class hasn’t started yet")}>
+          {tr("Attendance can be taken once the class begins at")}{' '}{session.start}.
         </EmptyState>
       ) : (
         <>
           <div className={cn('mx-5 mb-3 rounded-control px-3 py-2 text-sm', record && !dirty ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning')} role="status">
-            {record && !dirty
-              ? `Last saved ${formatRelative(record.savedAt, now).replace(/^(Today|Yesterday|Just now)/, (w) => w.toLowerCase())}. Change any mark and save again to update it.`
-              : record
-                ? 'You have unsaved changes.'
-                : 'Not saved yet. Everyone starts as present; change anyone who is late or absent.'}
+            {record && !dirty ? tr("Last saved {0}. Change any mark and save again to update it.", formatRelative(record.savedAt, now).replace(/^(Today|Yesterday|Just now)/, (w) => w.toLowerCase())) : record ? tr("You have unsaved changes.") : tr("Not saved yet. Everyone starts as present; change anyone who is late or absent.")}
           </div>
           <ul className="divide-y divide-line border-t border-line">
             {students.map((s) => {
@@ -260,11 +251,11 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
                     <Avatar name={s.fullName} size="sm" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink">{s.fullName}</p>
-                      {!inGroup && <p className="text-xs text-ink-muted">No longer in this group</p>}
+                      {!inGroup && <p className="text-xs text-ink-muted">{tr("No longer in this group")}</p>}
                     </div>
                   </div>
                   <fieldset className="flex shrink-0 gap-1.5">
-                    <legend className="sr-only">Attendance for {s.fullName}</legend>
+                    <legend className="sr-only">{tr("Attendance for")}{' '}{s.fullName}</legend>
                     {MARKS.map((m) => (
                       <label key={m} className="relative">
                         <input
@@ -287,7 +278,7 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
                       </label>
                     ))}
                     <IconButton
-                      label={`Add a note for ${s.fullName}`}
+                      label={tr("Add a note for {0}", s.fullName)}
                       onClick={() => setNoteOpen((o) => ({ ...o, [s.id]: true }))}
                       disabled={showNote}
                       className="size-8 disabled:opacity-40"
@@ -298,11 +289,11 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
                   {showNote && (
                     <div className="w-full sm:pl-11">
                       <Input
-                        aria-label={`Note for ${s.fullName}`}
+                        aria-label={tr("Note for {0}", s.fullName)}
                         value={comment}
                         maxLength={200}
                         autoFocus={noteOpen[s.id] && comment === ''}
-                        placeholder="Optional note, e.g. “Arrived 15 minutes late”"
+                        placeholder={tr("Optional note, e.g. “Arrived 15 minutes late”")}
                         onChange={(e) => setComment(s.id, e.target.value)}
                         className="h-8 text-sm"
                       />
@@ -322,7 +313,7 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
               ))}
             </p>
             <Button variant="primary" onClick={save} disabled={Boolean(record) && !dirty}>
-              {record ? 'Update attendance' : 'Save attendance'}
+              {record ? tr("Update attendance") : tr("Save attendance")}
             </Button>
           </div>
         </>
@@ -342,17 +333,15 @@ function RecentRecords({ group, current, onOpen }: { group: Group; current: stri
 
   return (
     <Panel
-      title="Recorded attendance"
+      title={tr("Recorded attendance")}
       description={
-        overall.rate === null
-          ? `No attendance saved for ${group.name} yet.`
-          : `${formatPercent(overall.rate)} attended across ${all.length} saved ${all.length === 1 ? 'class' : 'classes'}. Showing the latest ${Math.min(all.length, 8)}.`
+        overall.rate === null ? tr("No attendance saved for {0} yet.", group.name) : tr("{0} attended across {1} saved {2}. Showing the latest {3}.", formatPercent(overall.rate), all.length, plural(all.length, 'class', 'classes'), Math.min(all.length, 8))
       }
       flush
     >
       {all.length === 0 ? (
-        <EmptyState icon={History} title="Nothing recorded yet">
-          Saved classes appear here.
+        <EmptyState icon={History} title={tr("Nothing recorded yet")}>
+          {tr("Saved classes appear here.")}
         </EmptyState>
       ) : (
         <ul className="divide-y divide-line border-t border-line">
@@ -375,8 +364,8 @@ function RecentRecords({ group, current, onOpen }: { group: Group; current: stri
                     {formatDate(r.date)}, {r.startTime}
                   </span>
                   <span className="num min-w-0 flex-1 text-ink-muted">
-                    {summary.present} present, {summary.late} late, {summary.absent} absent
-                    {notes > 0 && `, ${notes} ${notes === 1 ? 'note' : 'notes'}`}
+                    {summary.present}{' '}{tr("present,")}{' '}{summary.late}{' '}{tr("late,")}{' '}{summary.absent}{' '}{tr("absent")}
+                    {notes > 0 && `, ${notes} ${plural(notes, 'note', 'notes')}`}
                   </span>
                   <span className="num text-xs font-medium text-ink">{summary.rate === null ? '' : formatPercent(summary.rate)}</span>
                 </button>

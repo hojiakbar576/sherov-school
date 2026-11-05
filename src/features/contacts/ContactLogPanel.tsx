@@ -10,13 +10,14 @@ import { Field, Input, Select, Textarea } from '../../components/ui/Field'
 import { toISODate } from '../../lib/dates'
 import { formatDate, formatRelative } from '../../lib/format'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 const CHANNELS: { value: ContactChannel; label: string; icon: typeof Phone }[] = [
-  { value: 'call', label: 'Phone call', icon: Phone },
-  { value: 'sms', label: 'SMS', icon: MessageSquareText },
-  { value: 'telegram', label: 'Telegram', icon: Send },
-  { value: 'visit', label: 'Visit in person', icon: Users },
-  { value: 'note', label: 'Note', icon: StickyNote },
+  { value: 'call', label: tr("Phone call"), icon: Phone },
+  { value: 'sms', label: tr("SMS"), icon: MessageSquareText },
+  { value: 'telegram', label: tr("Telegram"), icon: Send },
+  { value: 'visit', label: tr("Visit in person"), icon: Users },
+  { value: 'note', label: tr("Note"), icon: StickyNote },
 ]
 const channelOf = (c: ContactChannel) => CHANNELS.find((x) => x.value === c)!
 
@@ -42,19 +43,19 @@ export function ContactLogPanel({ subject, contacts, className }: Props) {
 
   return (
     <Panel
-      title="Calls and messages"
-      description={due ? `${due} follow-up ${due === 1 ? 'is' : 'are'} due` : 'Logged by staff. SMS and Telegram are recorded here, not sent from the app yet.'}
+      title={tr("Calls and messages")}
+      description={due ? due === 1 ? tr("1 follow-up is due") : tr("{0} follow-ups are due", due) : tr("Logged by staff. SMS and Telegram are recorded here, not sent from the app yet.")}
       actions={
         <Button size="sm" onClick={() => setOpen(true)}>
           <MessageSquare aria-hidden />
-          Log a call or message
+          {tr("Log a call or message")}
         </Button>
       }
       className={className}
       flush
     >
       {logs.length === 0 ? (
-        <p className="border-t border-line px-5 py-4 text-sm text-ink-muted">Nothing logged yet. Log calls so anyone can see what was agreed.</p>
+        <p className="border-t border-line px-5 py-4 text-sm text-ink-muted">{tr("Nothing logged yet. Log calls so anyone can see what was agreed.")}</p>
       ) : (
         <>
           <ol className="divide-y divide-line border-t border-line">
@@ -68,19 +69,19 @@ export function ContactLogPanel({ subject, contacts, className }: Props) {
                     <p className="text-ink">{l.summary}</p>
                     <p className="mt-0.5 text-xs text-ink-muted">
                       {ch.label}
-                      {l.direction === 'incoming' ? ' (they contacted us)' : ''}
-                      {l.withWhom ? ` with ${l.withWhom}` : ''} · {formatRelative(l.at, now)}
+                      {l.direction === 'incoming' ? tr(" (they contacted us)") : ''}
+                      {l.withWhom ? tr(" with {0}", l.withWhom) : ''} · {formatRelative(l.at, now)}
                       {l.byUserId ? ` · ${userName.get(l.byUserId) ?? ''}` : ''}
                     </p>
                     {l.followUpOn && (
-                      <p className={cn('mt-0.5 text-xs font-medium', l.followUpOn <= toISODate(now) ? 'text-warning' : 'text-ink-muted')}>Follow up on {formatDate(l.followUpOn)}</p>
+                      <p className={cn('mt-0.5 text-xs font-medium', l.followUpOn <= toISODate(now) ? 'text-warning' : 'text-ink-muted')}>{tr("Follow up on")}{' '}{formatDate(l.followUpOn)}</p>
                     )}
                   </div>
                   <IconButton
-                    label="Delete this entry"
+                    label={tr("Delete this entry")}
                     onClick={() => {
                       actions.deleteContactLog(l.id)
-                      toast.show('Entry deleted.')
+                      toast.show(tr("Entry deleted."))
                     }}
                     className="size-7 hover:bg-danger-soft hover:text-danger"
                   >
@@ -93,13 +94,13 @@ export function ContactLogPanel({ subject, contacts, className }: Props) {
           {logs.length > 5 && (
             <div className="border-t border-line px-5 py-2.5">
               <Button size="sm" variant="ghost" onClick={() => setShowAll((v) => !v)}>
-                {showAll ? 'Show fewer' : `Show all ${logs.length}`}
+                {showAll ? tr("Show fewer") : tr("Show all {0}", logs.length)}
               </Button>
             </div>
           )}
         </>
       )}
-      <Dialog open={open} onClose={() => setOpen(false)} title="Log a call or message">
+      <Dialog open={open} onClose={() => setOpen(false)} title={tr("Log a call or message")}>
         {open && <LogForm subject={subject} contacts={contacts} onClose={() => setOpen(false)} />}
       </Dialog>
     </Panel>
@@ -119,12 +120,12 @@ function LogForm({ subject, contacts, onClose }: Props & { onClose: () => void }
     event.preventDefault()
     if (summary.trim().length < 3) return setError('Write what was said or agreed.')
     actions.addContactLog({ subject, channel, direction, withWhom: withWhom.trim() || undefined, summary: summary.trim(), followUpOn: followUpOn || undefined })
-    toast.show('Logged.')
+    toast.show(tr("Logged."))
     onClose()
   }
   return (
     <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
-      <Field label="How">
+      <Field label={tr("How")}>
         {(p) => (
           <Select {...p} value={channel} onChange={(e) => setChannel(e.target.value as ContactChannel)}>
             {CHANNELS.map((c) => (
@@ -135,15 +136,15 @@ function LogForm({ subject, contacts, onClose }: Props & { onClose: () => void }
           </Select>
         )}
       </Field>
-      <Field label="Who started it">
+      <Field label={tr("Who started it")}>
         {(p) => (
           <Select {...p} value={direction} onChange={(e) => setDirection(e.target.value as 'outgoing' | 'incoming')} disabled={channel === 'note'}>
-            <option value="outgoing">We contacted them</option>
-            <option value="incoming">They contacted us</option>
+            <option value="outgoing">{tr("We contacted them")}</option>
+            <option value="incoming">{tr("They contacted us")}</option>
           </Select>
         )}
       </Field>
-      <Field label="With" optional className="sm:col-span-2">
+      <Field label={tr("With")} optional className="sm:col-span-2">
         {(p) => (
           <>
             <Input {...p} list="contact-people" value={withWhom} maxLength={80} onChange={(e) => setWithWhom(e.target.value)} />
@@ -155,7 +156,7 @@ function LogForm({ subject, contacts, onClose }: Props & { onClose: () => void }
           </>
         )}
       </Field>
-      <Field label="What was said or agreed" error={error || undefined} className="sm:col-span-2">
+      <Field label={tr("What was said or agreed")} error={error || undefined} className="sm:col-span-2">
         {(p) => (
           <Textarea
             {...p}
@@ -167,17 +168,17 @@ function LogForm({ subject, contacts, onClose }: Props & { onClose: () => void }
               setSummary(e.target.value)
               setError('')
             }}
-            placeholder="e.g. Mother will pay on Friday"
+            placeholder={tr("e.g. Mother will pay on Friday")}
           />
         )}
       </Field>
-      <Field label="Follow up on" optional hint="Shows as due on this date.">
+      <Field label={tr("Follow up on")} optional hint={tr("Shows as due on this date.")}>
         {(p) => <Input {...p} type="date" min={toISODate(now)} value={followUpOn} onChange={(e) => setFollowUpOn(e.target.value)} />}
       </Field>
       <div className="flex justify-end gap-2 border-t border-line pt-4 sm:col-span-2">
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{tr("Cancel")}</Button>
         <Button type="submit" variant="primary">
-          Save
+          {tr("Save")}
         </Button>
       </div>
     </form>

@@ -4,11 +4,13 @@ import { ArrowRight, ShieldAlert } from 'lucide-react'
 import type { User } from '../types'
 import { useSchool } from '../data/school-context'
 import { Logo } from '../components/layout/Logo'
+import { LanguageSwitcher } from '../components/layout/LanguageSwitcher'
 import { Button } from '../components/ui/Button'
 import { Field, Input } from '../components/ui/Field'
 import { Avatar } from '../components/ui/misc'
 import { DEMO_PASSWORD, ROLE_HOME, roleLabel } from '../lib/auth'
 import { cn } from '../lib/cn'
+import { tr } from '../i18n'
 
 /** Sends someone back to the page they asked for, if it belongs to their portal. */
 function destination(user: User, from: unknown): string {
@@ -50,7 +52,7 @@ export function LoginPage() {
   const accountBranch = (u: User) => branchName.get((u.role === 'teacher' ? teacherBranch.get(u.teacherId ?? '') : u.branchId) ?? '') ?? ''
   const admins = demoAccounts.filter((u) => u.role === 'admin')
   const office = demoAccounts
-    .filter((u) => (u.role === 'reception' || u.role === 'accountant') && u.active !== false)
+    .filter((u) => u.role === 'accountant' && u.active !== false)
     .sort((a, b) => accountBranch(a).localeCompare(accountBranch(b)) || a.role.localeCompare(b.role))
   const teachers = demoAccounts
     .filter((u) => u.role === 'teacher')
@@ -60,23 +62,25 @@ export function LoginPage() {
     <div className="min-h-dvh bg-canvas px-4 py-8 sm:py-12">
       <main className="mx-auto grid w-full max-w-5xl gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start">
         <section aria-labelledby="sign-in-title" className="rounded-panel border border-line bg-surface p-6 sm:p-8">
-          <Logo />
+          <div className="flex items-center justify-between gap-4">
+            <Logo />
+            <LanguageSwitcher />
+          </div>
           <h1 id="sign-in-title" className="mt-8 text-2xl font-semibold tracking-[-0.015em] text-ink">
-            Sign in
+            {tr("Sign in")}
           </h1>
-          <p className="mt-1 text-ink-muted">Administrators, reception, accountants and teachers each see the pages for their job.</p>
+          <p className="mt-1 text-ink-muted">{tr("Administrators, accountants and teachers each see the pages for their job.")}</p>
 
           <div role="note" className="mt-6 flex gap-3 rounded-control border border-warning-mark/40 bg-warning-soft px-3.5 py-3 text-sm text-ink">
             <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
             <p>
-              <span className="font-semibold">Temporary demo sign-in.</span> Not secure: every account uses the password{' '}
-              <code className="rounded bg-surface px-1 font-mono text-[0.8125rem]">{DEMO_PASSWORD}</code>, nothing is checked by a server, and
-              data stays in this browser. Don’t enter real passwords.
+              <span className="font-semibold">{tr("Temporary demo sign-in.")}</span>{' '}{tr("Not secure: every account uses the password")}{' '}
+              <code className="rounded bg-surface px-1 font-mono text-[0.8125rem]">{DEMO_PASSWORD}</code>{tr(", nothing is checked by a server, and data stays in this browser. Don’t enter real passwords.")}
             </p>
           </div>
 
           <form onSubmit={submit} noValidate className="mt-6 space-y-4">
-            <Field label="Username">
+            <Field label={tr("Username")}>
               {(control) => (
                 <Input
                   {...control}
@@ -89,11 +93,11 @@ export function LoginPage() {
                     setUsername(e.target.value)
                     setError(null)
                   }}
-                  placeholder="e.g. admin.chilonzor"
+                  placeholder={tr("e.g. admin.chilonzor")}
                 />
               )}
             </Field>
-            <Field label="Password" error={error ?? undefined}>
+            <Field label={tr("Password")} error={error ?? undefined}>
               {(control) => (
                 <Input
                   {...control}
@@ -109,7 +113,7 @@ export function LoginPage() {
               )}
             </Field>
             <Button type="submit" variant="primary" className="w-full">
-              Sign in
+              {tr("Sign in")}
               <ArrowRight aria-hidden />
             </Button>
           </form>
@@ -118,17 +122,17 @@ export function LoginPage() {
         <section aria-labelledby="accounts-title" className="rounded-panel border border-line bg-surface">
           <div className="border-b border-line px-5 py-4">
             <h2 id="accounts-title" className="font-semibold text-ink">
-              Demo accounts
+              {tr("Demo accounts")}
             </h2>
-            <p className="mt-0.5 text-sm text-ink-muted">Choose one to fill in the form.</p>
+            <p className="mt-0.5 text-sm text-ink-muted">{tr("Choose one to fill in the form.")}</p>
           </div>
-          <AccountList title="Branch administrators" accounts={admins} branchOf={accountBranch} onPick={fill} selected={username} />
-          {office.length > 0 && <AccountList title="Reception and accountants" accounts={office} branchOf={accountBranch} onPick={fill} selected={username} />}
-          <AccountList title="Teachers" accounts={teachers} branchOf={accountBranch} onPick={fill} selected={username} />
+          <AccountList title={tr("Branch administrators")} accounts={admins} branchOf={accountBranch} onPick={fill} selected={username} />
+          {office.length > 0 && <AccountList title={tr("Branch accountants")} accounts={office} branchOf={accountBranch} onPick={fill} selected={username} />}
+          <AccountList title={tr("Teachers")} accounts={teachers} branchOf={accountBranch} onPick={fill} selected={username} />
           <p className="border-t border-line px-5 py-3 text-sm text-ink-muted">
-            Mr. Sherzod?{' '}
+            {tr("Mr. Sherzod?")}{' '}
             <Link to="/owner/login" className="font-medium text-brand hover:underline">
-              Owner sign-in
+              {tr("Owner sign-in")}
             </Link>
           </p>
         </section>

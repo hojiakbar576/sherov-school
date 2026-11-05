@@ -8,6 +8,7 @@ import type { Enrollment, ISODate, SchoolData, Student, StudentEvent, StudentSta
 import { ARCHIVED_STUDENT_STATUSES } from '../types'
 import { createId } from './id'
 import { formatUZS, studentStatusLabel } from './format'
+import { tr } from '../i18n'
 
 const statusTitle: Record<StudentStatus, string> = {
   active: 'Back to active',
@@ -96,7 +97,7 @@ export function studentTimeline(d: SchoolData, studentId: string): TimelineItem[
     .map((e) => ({ id: e.id, on: e.on, kind: e.type, title: e.title, detail: e.detail }))
   for (const p of d.payments) {
     if (p.studentId !== studentId) continue
-    items.push({ id: p.id, on: p.date, kind: 'payment', title: `Paid ${formatUZS(p.amount)}`, detail: p.status === 'paid' ? undefined : `Status: ${p.status}` })
+    items.push({ id: p.id, on: p.date, kind: 'payment', title: tr("Paid {0}", formatUZS(p.amount)), detail: p.status === 'paid' ? undefined : tr("Status: {0}", p.status) })
   }
   return items.sort((a, b) => b.on.localeCompare(a.on))
 }

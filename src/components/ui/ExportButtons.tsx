@@ -2,6 +2,7 @@ import { Download, FileSpreadsheet } from 'lucide-react'
 import { downloadCSV } from '../../lib/csv'
 import { downloadXlsx } from '../../lib/xlsx'
 import { Button } from './Button'
+import { tr } from '../../i18n'
 
 type Cell = string | number | null | undefined
 
@@ -16,11 +17,11 @@ export function ExportButtons({ name, date, rows, disabled, size = 'md' }: { nam
     <>
       <Button size={size} onClick={() => downloadXlsx(`${file}.xlsx`, rows(), name)} disabled={disabled}>
         <FileSpreadsheet aria-hidden />
-        Excel
+        {tr("Excel")}
       </Button>
       <Button size={size} variant="ghost" onClick={() => downloadCSV(`${file}.csv`, rows())} disabled={disabled}>
         <Download aria-hidden />
-        CSV
+        {tr("CSV")}
       </Button>
     </>
   )

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 /** Small button that copies a value (e.g. a phone number) and confirms with a tick. */
 export function CopyButton({ value, label, className }: { value: string; label: string; className?: string }) {
@@ -20,8 +21,8 @@ export function CopyButton({ value, label, className }: { value: string; label: 
     <button
       type="button"
       onClick={copy}
-      aria-label={copied ? 'Copied' : label}
-      title={copied ? 'Copied' : label}
+      aria-label={copied ? tr("Copied") : label}
+      title={copied ? tr("Copied") : label}
       className={cn(
         'inline-flex size-7 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-subtle hover:text-ink',
         copied && 'text-success hover:text-success',
@@ -40,7 +41,7 @@ export function PhoneLine({ phone, className }: { phone: string; className?: str
       <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="num whitespace-nowrap hover:text-brand hover:underline">
         {phone}
       </a>
-      <CopyButton value={phone} label={`Copy ${phone}`} />
+      <CopyButton value={phone} label={tr("Copy {0}", phone)} />
     </span>
   )
 }

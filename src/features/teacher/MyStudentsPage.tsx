@@ -13,6 +13,7 @@ import { studentAttendance } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
 import { rateTone } from './teacher-metrics'
 import { GuardianContacts } from './LearningBadges'
+import { tr } from '../../i18n'
 
 const FILTERS = ['q', 'group', 'status'] as const
 
@@ -44,59 +45,59 @@ export function MyStudentsPage() {
   return (
     <>
       <PageHeader
-        title="My students"
-        description={`${data.students.filter((s) => s.status === 'active').length} active students across your groups. Open a student to see their profile, attendance and homework.`}
+        title={tr("My students")}
+        description={tr("{0} active students across your groups. Open a student to see their profile, attendance and homework.", data.students.filter((s) => s.status === 'active').length)}
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <SearchInput label="Search students or parents" placeholder="Student, parent or phone" value={values.q} onChange={(v) => set('q', v)} />
+        <SearchInput label={tr("Search students or parents")} placeholder={tr("Student, parent or phone")} value={values.q} onChange={(v) => set('q', v)} />
         <div className="grid grid-cols-2 gap-3 sm:flex">
-          <Select aria-label="Filter by group" value={values.group} onChange={(e) => set('group', e.target.value)} className="sm:w-56">
-            <option value="">All my groups</option>
+          <Select aria-label={tr("Filter by group")} value={values.group} onChange={(e) => set('group', e.target.value)} className="sm:w-56">
+            <option value="">{tr("All my groups")}</option>
             {data.groups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
               </option>
             ))}
           </Select>
-          <Select aria-label="Filter by status" value={values.status} onChange={(e) => set('status', e.target.value)} className="sm:w-36">
-            <option value="">Any status</option>
-            <option value="active">Active</option>
-            <option value="paused">Paused</option>
+          <Select aria-label={tr("Filter by status")} value={values.status} onChange={(e) => set('status', e.target.value)} className="sm:w-36">
+            <option value="">{tr("Any status")}</option>
+            <option value="active">{tr("Active")}</option>
+            <option value="paused">{tr("Paused")}</option>
           </Select>
         </div>
         {active && (
           <Button variant="ghost" size="sm" onClick={clear}>
-            Clear filters
+            {tr("Clear filters")}
           </Button>
         )}
       </div>
 
       <div className="rounded-panel border border-line bg-surface">
         {rows.length === 0 ? (
-          <EmptyState icon={Users} title={active ? 'No students match' : 'No students yet'}>
-            {active ? 'Try a different name or group.' : 'Students appear here once they join one of your groups.'}
+          <EmptyState icon={Users} title={active ? tr("No students match") : tr("No students yet")}>
+            {active ? tr("Try a different name or group.") : tr("Students appear here once they join one of your groups.")}
           </EmptyState>
         ) : (
           <TableScroll>
             <table className="w-full min-w-[760px] text-sm">
-              <caption className="sr-only">Students in your groups</caption>
+              <caption className="sr-only">{tr("Students in your groups")}</caption>
               <thead className="border-b border-line bg-canvas">
                 <tr>
                   <th scope="col" className={th}>
-                    Student
+                    {tr("Student")}
                   </th>
                   <th scope="col" className={th}>
-                    Group
+                    {tr("Group")}
                   </th>
                   <th scope="col" className={cn(th, 'text-right')}>
-                    Attendance
+                    {tr("Attendance")}
                   </th>
                   <th scope="col" className={th}>
-                    Parent / guardian
+                    {tr("Parent / guardian")}
                   </th>
                   <th scope="col" className={th}>
-                    Status
+                    {tr("Status")}
                   </th>
                 </tr>
               </thead>

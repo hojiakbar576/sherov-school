@@ -6,15 +6,16 @@ import { BONUS_PLACES, RATING_PART_LABEL, RATING_PARTS, RATING_WEIGHTS, type Tea
 import { formatMonth, formatPercent } from '../../lib/format'
 import { cn } from '../../lib/cn'
 import { formatSum, myRating, useSalaryHidden } from './teacher-view'
+import { tr } from '../../i18n'
 
 export function Money({ amount, hidden, className }: { amount: number; hidden: boolean; className?: string }) {
   return hidden ? (
-    <span className={cn('tracking-[0.2em]', className)} aria-label="Hidden">
+    <span className={cn('tracking-[0.2em]', className)} aria-label={tr("Hidden")}>
       *****
     </span>
   ) : (
     <span className={cn('num', className)}>
-      {formatSum(amount)} <span className="text-[0.6em] font-medium text-ink-muted">so‘m</span>
+      {formatSum(amount)} <span className="text-[0.6em] font-medium text-ink-muted">{tr("so‘m")}</span>
     </span>
   )
 }
@@ -24,8 +25,8 @@ export function EyeToggle({ hidden, onToggle }: { hidden: boolean; onToggle: () 
     <button
       type="button"
       onClick={onToggle}
-      aria-label={hidden ? 'Show amounts' : 'Hide amounts'}
-      title={hidden ? 'Show amounts' : 'Hide amounts'}
+      aria-label={hidden ? tr("Show amounts") : tr("Hide amounts")}
+      title={hidden ? tr("Show amounts") : tr("Hide amounts")}
       className="inline-flex size-9 items-center justify-center rounded-xl text-ink-muted hover:bg-subtle hover:text-ink"
     >
       {hidden ? <Eye className="size-[18px]" /> : <EyeOff className="size-[18px]" />}
@@ -50,28 +51,28 @@ export function RatingCard({ view }: { view: TeacherView }) {
   return (
     <BigCard tint="bg-accent-soft text-accent" icon={<Trophy className="size-12" strokeWidth={1.6} />}>
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-ink-muted">Rating</h2>
+        <h2 className="text-ink-muted">{tr("Rating")}</h2>
         <span className="rounded-full bg-info-soft px-2 py-0.5 text-2xs font-semibold tracking-wide text-info uppercase">{formatMonth(month)}</span>
       </div>
       {mine ? (
         <>
           <p className="num mt-2 text-[2rem] leading-none font-semibold text-ink">
-            #{mine.rank} <span className="text-base font-medium text-ink-muted">of {total} teachers</span>
+            #{mine.rank} <span className="text-base font-medium text-ink-muted">{tr("of")}{' '}{total}{' '}{tr("teachers")}</span>
           </p>
           <p className="num mt-2 text-sm text-ink-muted">
-            Score {mine.score}/100
+            {tr("Score")}{' '}{mine.score}/100
             {bonus ? (
               <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent-ink">
-                <Medal aria-hidden className="size-3.5" /> Top {BONUS_PLACES}: bonus place
+                <Medal aria-hidden className="size-3.5" />{' '}{tr("Top")}{' '}{BONUS_PLACES}{tr(": bonus place")}
               </span>
             ) : null}
           </p>
         </>
       ) : (
-        <p className="mt-2 text-ink-muted">No rating yet this month.</p>
+        <p className="mt-2 text-ink-muted">{tr("No rating yet this month.")}</p>
       )}
       <Link to="/teacher/statistics#rating" className="mt-3 inline-block text-sm font-medium text-brand hover:underline">
-        How it’s counted
+        {tr("How it’s counted")}
       </Link>
     </BigCard>
   )
@@ -83,17 +84,17 @@ export function SalaryCard({ view }: { view: TeacherView }) {
   return (
     <BigCard tint="bg-brand-soft text-brand" icon={<Wallet className="size-12" strokeWidth={1.6} />}>
       <div className="flex items-center gap-1">
-        <h2 className="text-ink-muted">Salary · {formatMonth(current.month)}</h2>
+        <h2 className="text-ink-muted">{tr("Salary ·")}{' '}{formatMonth(current.month)}</h2>
         <EyeToggle hidden={hidden} onToggle={toggle} />
       </div>
       <p className="mt-1 text-[2rem] leading-none font-semibold text-ink">
         <Money amount={current.amount} hidden={hidden} />
       </p>
       <p className="num mt-2 text-sm text-ink-muted">
-        {current.percent}% of tuition paid so far · {current.lines.length} students paid
+        {current.percent}{tr("% of tuition paid so far ·")}{' '}{current.lines.length}{' '}{tr("students paid")}
       </p>
       <Link to="/teacher/statistics#salary" className="mt-3 inline-block text-sm font-medium text-brand hover:underline">
-        See the breakdown
+        {tr("See the breakdown")}
       </Link>
     </BigCard>
   )
@@ -109,9 +110,9 @@ export function ScoreBreakdown({ rating }: { rating: TeacherRating }) {
           <li key={part}>
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-sm font-medium text-ink">
-                {RATING_PART_LABEL[part].title} <span className="font-normal text-ink-faint">· {RATING_WEIGHTS[part]} pts</span>
+                {RATING_PART_LABEL[part].title} <span className="font-normal text-ink-faint">· {RATING_WEIGHTS[part]}{' '}{tr("pts")}</span>
               </p>
-              <p className="num text-sm font-semibold text-ink">{value === null ? 'Not counted' : formatPercent(value)}</p>
+              <p className="num text-sm font-semibold text-ink">{value === null ? tr("Not counted") : formatPercent(value)}</p>
             </div>
             <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-subtle" role="presentation">
               <div className={cn('h-full rounded-full', value !== null && value < 0.7 ? 'bg-warning-mark' : 'bg-brand')} style={{ width: `${Math.round((value ?? 0) * 100)}%` }} />
@@ -143,9 +144,9 @@ export function Leaderboard({ rows, meId }: { rows: TeacherRating[]; meId: strin
             </span>
             <span className={cn('min-w-0 flex-1 truncate text-sm', me ? 'font-semibold text-brand-ink' : 'text-ink')}>
               {r.teacherName}
-              {me && ' (you)'}
+              {me && tr(" (you)")}
             </span>
-            {top && <Medal aria-label="Bonus place" className="size-4 text-accent" />}
+            {top && <Medal aria-label={tr("Bonus place")} className="size-4 text-accent" />}
             <span className="num w-10 text-right font-semibold text-ink">{r.score}</span>
           </li>
         )

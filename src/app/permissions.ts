@@ -51,9 +51,8 @@ const ALL = [...SECTIONS]
  */
 export const ROLE_SECTIONS: Record<Role, readonly Section[]> = {
   owner: ALL,
+  // Runs the branch day to day, front desk included.
   admin: ALL,
-  // Front desk: new people, students, the timetable and taking payments.
-  reception: ['dashboard', 'leads', 'students', 'groups', 'schedule', 'attendance', 'payments', 'staffAttendance'],
   // Money: payments, debts, expenses, salaries and the reports that go with them.
   accountant: ['dashboard', 'students', 'payments', 'expenses', 'salaries', 'reports', 'activity'],
   teacher: [],
@@ -61,8 +60,7 @@ export const ROLE_SECTIONS: Record<Role, readonly Section[]> = {
 
 export const roleDescription: Record<Role, string> = {
   owner: 'Everything, in every branch.',
-  admin: 'Everything in one branch.',
-  reception: 'Admissions, students, groups, schedule, attendance and taking payments in one branch.',
+  admin: 'Runs one branch day to day, front desk included.',
   accountant: 'Payments, debts, expenses, salaries and reports in one branch.',
   teacher: 'Their own groups, students, attendance and homework (teacher portal).',
 }

@@ -1,6 +1,7 @@
 import type { AttendanceMark, Grade } from '../../../types'
 import { cn } from '../../../lib/cn'
 import { gradeTone } from './grade-style'
+import { tr } from '../../../i18n'
 
 export function GradeChip({ grade, size = 'md', className }: { grade: Grade; size?: 'sm' | 'md' | 'lg'; className?: string }) {
   return (
@@ -22,10 +23,10 @@ export function GradeChip({ grade, size = 'md', className }: { grade: Grade; siz
 /** Small mark for the month grid: ✓ came, L late, ✗ absent. */
 export function MarkChip({ mark }: { mark: AttendanceMark }) {
   const look = {
-    present: ['bg-success-soft text-success', '✓', 'Present'],
-    late: ['bg-warning-soft text-warning', 'L', 'Late'],
-    absent: ['bg-danger-soft text-danger', '✗', 'Absent'],
-    excused: ['bg-info-soft text-info', 'E', 'Excused'],
+    present: ['bg-success-soft text-success', '✓', tr('Present')],
+    late: ['bg-warning-soft text-warning', 'L', tr('Late')],
+    absent: ['bg-danger-soft text-danger', '✗', tr('Absent')],
+    excused: ['bg-info-soft text-info', 'E', tr('Excused')],
   }[mark]
   return (
     <span title={look[2]} className={cn('inline-flex size-7 items-center justify-center rounded-lg text-sm font-semibold', look[0])}>

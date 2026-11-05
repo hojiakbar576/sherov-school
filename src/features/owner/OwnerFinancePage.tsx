@@ -15,6 +15,7 @@ import { teacherSalary } from '../../lib/salary'
 import { downloadCSV } from '../../lib/csv'
 import { cn } from '../../lib/cn'
 import { BRANCH_COLORS } from './owner-ui'
+import { tr } from '../../i18n'
 
 /** Money across the organisation: what came in, what's owed, and what goes to teachers. */
 export function OwnerFinancePage() {
@@ -45,25 +46,25 @@ export function OwnerFinancePage() {
 
   const exportRevenue = () =>
     downloadCSV(`sherov-school-revenue-by-branch-${toISODate(now)}.csv`, [
-      ['Month', ...branches.map((b) => b.name), 'Total (UZS)'],
+      [tr("Month"), ...branches.map((b) => b.name), tr("Total (UZS)")],
       ...months.map((m) => [m.fullLabel, ...branches.map((b) => m.byBranch[b.id] ?? 0), m.total]),
     ])
 
   return (
     <>
       <PageHeader
-        title="Finance"
-        description="Tuition collected by branch, what is still owed, and teacher pay. Paid payments only; pending and refunded ones don’t count."
+        title={tr("Finance")}
+        description={tr("Tuition collected by branch, what is still owed, and teacher pay. Paid payments only; pending and refunded ones don’t count.")}
         actions={
           <Button onClick={exportRevenue}>
             <Download aria-hidden />
-            Export CSV
+            {tr("Export CSV")}
           </Button>
         }
       />
 
       <div className="space-y-6">
-        <Panel title="Collected by branch" description={`${formatUZSCompact(sixMonthTotal)} in the last 6 months. The current month is still in progress.`}>
+        <Panel title={tr("Collected by branch")} description={tr("{0} in the last 6 months. The current month is still in progress.", formatUZSCompact(sixMonthTotal))}>
           <div className="h-72" aria-hidden>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={months.map((m) => ({ ...m, ...m.byBranch }))} margin={{ top: 8, right: 0, bottom: 0, left: -8 }} barCategoryGap="28%">
@@ -81,7 +82,7 @@ export function OwnerFinancePage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-muted" aria-label="Branch colours">
+          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-muted" aria-label={tr("Branch colours")}>
             {branches.map((b, i) => (
               <li key={b.id} className="flex items-center gap-1.5">
                 <span aria-hidden className="size-2.5 rounded-sm" style={{ background: BRANCH_COLORS[i % BRANCH_COLORS.length] }} />
@@ -91,16 +92,16 @@ export function OwnerFinancePage() {
           </ul>
           <TableScroll>
             <table className="mt-4 w-full min-w-[560px] text-sm">
-              <caption className="sr-only">Tuition collected by branch and month</caption>
+              <caption className="sr-only">{tr("Tuition collected by branch and month")}</caption>
               <thead className="border-y border-line bg-canvas">
                 <tr>
-                  <th scope="col" className={th}>Month</th>
+                  <th scope="col" className={th}>{tr("Month")}</th>
                   {branches.map((b) => (
                     <th key={b.id} scope="col" className={cn(th, 'text-right')}>
                       {b.name}
                     </th>
                   ))}
-                  <th scope="col" className={cn(th, 'text-right')}>Total</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Total")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -108,7 +109,7 @@ export function OwnerFinancePage() {
                   <tr key={m.month}>
                     <th scope="row" className={cn(td, 'text-left font-normal text-ink')}>
                       {m.fullLabel}
-                      {m.month === month && <span className="ml-1.5 text-xs text-ink-muted">(so far)</span>}
+                      {m.month === month && <span className="ml-1.5 text-xs text-ink-muted">{tr("(so far)")}</span>}
                     </th>
                     {branches.map((b) => (
                       <td key={b.id} className={cn(td, 'num text-right')}>
@@ -124,13 +125,13 @@ export function OwnerFinancePage() {
         </Panel>
 
         <div className="grid items-start gap-6 xl:grid-cols-2">
-          <Panel title="Still owed" description="Tuition active students haven’t paid yet, by branch." flush>
+          <Panel title={tr("Still owed")} description={tr("Tuition active students haven’t paid yet, by branch.")} flush>
             <ul className="divide-y divide-line border-t border-line">
               {rows.map((r) => (
                 <li key={r.branch.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 text-sm">
                   <span className="w-24 shrink-0 font-medium text-ink">{r.branch.name}</span>
                   <span className="num min-w-0 flex-1 text-ink-muted">
-                    {formatUZS(r.owed)} owed · <span className={cn(r.overdue > 0 && 'text-danger')}>{formatUZS(r.overdue)} overdue</span> ({r.overdueStudents} students)
+                    {formatUZS(r.owed)}{' '}{tr("owed ·")}{' '}<span className={cn(r.overdue > 0 && 'text-danger')}>{formatUZS(r.overdue)}{' '}{tr("overdue")}</span> ({r.overdueStudents}{' '}{tr("students)")}
                   </span>
                   <Button
                     size="sm"
@@ -140,14 +141,14 @@ export function OwnerFinancePage() {
                       navigate('/payments?view=owing')
                     }}
                   >
-                    See debtors
+                    {tr("See debtors")}
                   </Button>
                 </li>
               ))}
             </ul>
           </Panel>
 
-          <Panel title={`How people paid in ${formatMonth(month)}`} flush>
+          <Panel title={tr("How people paid in {0}", formatMonth(month))} flush>
             <ul className="divide-y divide-line border-t border-line">
               {methods.map((m) => (
                 <li key={m.method} className="flex items-center gap-4 px-5 py-2.5 text-sm">
@@ -165,20 +166,20 @@ export function OwnerFinancePage() {
         </div>
 
         <Panel
-          title={`Teacher pay for ${formatMonth(month)}`}
-          description="So far: each teacher’s share of the tuition their students paid for this month, plus bonuses awarded for the month."
+          title={tr("Teacher pay for {0}", formatMonth(month))}
+          description={tr("So far: each teacher’s share of the tuition their students paid for this month, plus bonuses awarded for the month.")}
           flush
         >
           <TableScroll>
             <table className="w-full min-w-[640px] text-sm">
               <thead className="border-y border-line bg-canvas">
                 <tr>
-                  <th scope="col" className={th}>Teacher</th>
-                  <th scope="col" className={th}>Branch</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Tuition paid</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Share</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Pay</th>
-                  <th scope="col" className={cn(th, 'text-right')}>Bonus</th>
+                  <th scope="col" className={th}>{tr("Teacher")}</th>
+                  <th scope="col" className={th}>{tr("Branch")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Tuition paid")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Share")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Pay")}</th>
+                  <th scope="col" className={cn(th, 'text-right')}>{tr("Bonus")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -196,7 +197,7 @@ export function OwnerFinancePage() {
               <tfoot className="border-t border-line-strong font-medium">
                 <tr>
                   <th scope="row" colSpan={4} className={cn(td, 'text-left')}>
-                    Total
+                    {tr("Total")}
                   </th>
                   <td className={cn(td, 'num text-right')}>{formatUZS(pay.reduce((s, p) => s + p.salary.amount, 0))}</td>
                   <td className={cn(td, 'num text-right')}>{formatUZS(pay.reduce((s, p) => s + p.bonus, 0))}</td>

@@ -10,6 +10,7 @@ import { formatLongDate, formatNumber, formatPercent, formatUZSCompact, greeting
 import { branchSummaries, change, organisationTotals } from '../../lib/owner'
 import { cn } from '../../lib/cn'
 import { formatChange } from './owner-ui'
+import { plural, tr } from '../../i18n'
 
 /**
  * The owner's first screen: how the whole school is doing, how the three
@@ -33,29 +34,29 @@ export function OwnerOverviewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">{greeting(now)}, Mr. Sherzod</h1>
+        <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">{greeting(now)}{tr(", Mr. Sherzod")}</h1>
         <p className="mt-1 text-ink-muted">
-          {data.settings.centerName}: all {data.branches.length} branches, {formatLongDate(now)}.
+          {data.settings.centerName}{tr(": all")}{' '}{data.branches.length}{' '}{tr("branches,")}{' '}{formatLongDate(now)}.
         </p>
       </div>
 
       <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line lg:grid-cols-5">
-        <Kpi label="Active students" value={formatNumber(totals.activeStudents)} detail={`+${totals.newStudentsThisMonth} joined, ${totals.leftThisMonth} left this month`} />
+        <Kpi label={tr("Active students")} value={formatNumber(totals.activeStudents)} detail={tr("+{0} joined, {1} left this month", totals.newStudentsThisMonth, totals.leftThisMonth)} />
         <Kpi
-          label="Collected this month"
+          label={tr("Collected this month")}
           value={formatUZSCompact(totals.revenueThisMonth)}
-          detail={revenueChange === null ? 'Nothing collected by this date last month' : `${formatChange(revenueChange)} on the same point last month`}
+          detail={revenueChange === null ? tr("Nothing collected by this date last month") : tr("{0} on the same point last month", formatChange(revenueChange))}
         />
-        <Kpi label="Overdue tuition" value={formatUZSCompact(totals.overdue)} tone={totals.overdue > 0 ? 'danger' : undefined} detail={`${totals.overdueStudents} students past the due day`} />
-        <Kpi label="Attendance, 30 days" value={totals.attendanceRate === null ? '—' : formatPercent(totals.attendanceRate)} detail={`${totals.runningGroups} running groups, ${totals.fill === null ? '—' : formatPercent(totals.fill)} of seats filled`} />
-        <Kpi label="Open enquiries" value={formatNumber(totals.openLeads)} detail="Not yet enrolled or lost" className="col-span-2 lg:col-span-1" />
+        <Kpi label={tr("Overdue tuition")} value={formatUZSCompact(totals.overdue)} tone={totals.overdue > 0 ? 'danger' : undefined} detail={tr("{0} students past the due day", totals.overdueStudents)} />
+        <Kpi label={tr("Attendance, 30 days")} value={totals.attendanceRate === null ? '—' : formatPercent(totals.attendanceRate)} detail={tr("{0} running groups, {1} of seats filled", totals.runningGroups, totals.fill === null ? '—' : formatPercent(totals.fill))} />
+        <Kpi label={tr("Open enquiries")} value={formatNumber(totals.openLeads)} detail={tr("Not yet enrolled or lost")} className="col-span-2 lg:col-span-1" />
       </dl>
 
-      <Panel title="Branches side by side" description="This month so far. Click a branch to work in it." flush>
+      <Panel title={tr("Branches side by side")} description={tr("This month so far. Click a branch to work in it.")} flush>
         <BranchTable rows={rows} totals={totals} onOpen={(id) => openBranch(id)} />
       </Panel>
 
-      <Panel title="Where to look" description="The biggest open issues in each branch, from its administrator’s task list." flush>
+      <Panel title={tr("Where to look")} description={tr("The biggest open issues in each branch, from its administrator’s task list.")} flush>
         <WhereToLook rows={rows} onOpen={openBranch} />
       </Panel>
     </div>
@@ -88,18 +89,18 @@ function BranchTable({ rows, totals, onOpen }: { rows: BranchSummary[]; totals: 
   return (
     <TableScroll>
       <table className="w-full min-w-[900px] text-sm">
-        <caption className="sr-only">Branch comparison for this month</caption>
+        <caption className="sr-only">{tr("Branch comparison for this month")}</caption>
         <thead className="border-y border-line bg-canvas">
           <tr>
-            <th scope="col" className={th}>Branch</th>
-            <th scope="col" className={cn(th, 'text-right')}>Students</th>
-            <th scope="col" className={cn(th, 'text-right')}>Groups filled</th>
-            <th scope="col" className={cn(th, 'text-right')}>Collected</th>
-            <th scope="col" className={cn(th, 'text-right')}>Overdue</th>
-            <th scope="col" className={cn(th, 'text-right')}>Attendance</th>
-            <th scope="col" className={cn(th, 'text-right')}>Joined / left</th>
-            <th scope="col" className={cn(th, 'text-right')}>Enquiries</th>
-            <th scope="col" className={th}><span className="sr-only">Open</span></th>
+            <th scope="col" className={th}>{tr("Branch")}</th>
+            <th scope="col" className={cn(th, 'text-right')}>{tr("Students")}</th>
+            <th scope="col" className={cn(th, 'text-right')}>{tr("Groups filled")}</th>
+            <th scope="col" className={cn(th, 'text-right')}>{tr("Collected")}</th>
+            <th scope="col" className={cn(th, 'text-right')}>{tr("Overdue")}</th>
+            <th scope="col" className={cn(th, 'text-right')}>{tr("Attendance")}</th>
+            <th scope="col" className={cn(th, 'text-right')}>{tr("Joined / left")}</th>
+            <th scope="col" className={cn(th, 'text-right')}>{tr("Enquiries")}</th>
+            <th scope="col" className={th}><span className="sr-only">{tr("Open")}</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -107,31 +108,31 @@ function BranchTable({ rows, totals, onOpen }: { rows: BranchSummary[]; totals: 
             <tr key={r.branch.id} onClick={() => onOpen(r.branch.id)} className="cursor-pointer hover:bg-canvas/70">
               <th scope="row" className={cn(td, 'text-left font-normal')}>
                 <span className="block font-medium text-ink">{r.branch.name}</span>
-                <span className="block text-xs text-ink-muted">{r.adminName ?? 'No administrator'} · {r.activeTeachers} teachers</span>
+                <span className="block text-xs text-ink-muted">{r.adminName ?? tr("No administrator")} · {r.activeTeachers}{' '}{tr("teachers")}</span>
               </th>
               <td className={cn(td, 'num text-right')}>
                 {r.activeStudents}
-                {r.pausedStudents > 0 && <span className="block text-xs text-ink-muted">+{r.pausedStudents} paused</span>}
+                {r.pausedStudents > 0 && <span className="block text-xs text-ink-muted">+{r.pausedStudents}{' '}{tr("paused")}</span>}
               </td>
               <td className={cn(td, 'num text-right', r.fill === worstFill && 'text-warning')}>
                 {r.fill === null ? '—' : formatPercent(r.fill)}
-                <span className="block text-xs text-ink-muted">{r.runningGroups} groups</span>
+                <span className="block text-xs text-ink-muted">{r.runningGroups}{' '}{tr("groups")}</span>
               </td>
               <td className={cn(td, 'num text-right')}>
                 {formatUZSCompact(r.revenueThisMonth)}
-                <span className="block text-xs text-ink-muted">{formatChange(change(r.revenueThisMonth, r.revenueLastMonthToDate)) || '—'} vs same point last month</span>
+                <span className="block text-xs text-ink-muted">{formatChange(change(r.revenueThisMonth, r.revenueLastMonthToDate)) || '—'}{' '}{tr("vs same point last month")}</span>
               </td>
               <td className={cn(td, 'num text-right', r.overdue > 0 && r.overdue === worstOverdue && 'font-medium text-danger')}>
                 {formatUZSCompact(r.overdue)}
-                <span className="block text-xs text-ink-muted">{r.overdueStudents} students</span>
+                <span className="block text-xs text-ink-muted">{r.overdueStudents}{' '}{tr("students")}</span>
               </td>
               <td className={cn(td, 'num text-right', r.attendanceRate === worstAttendance && 'text-warning')}>{r.attendanceRate === null ? '—' : formatPercent(r.attendanceRate)}</td>
               <td className={cn(td, 'num text-right')}>
                 +{r.newStudentsThisMonth} / −{r.leftThisMonth}
               </td>
               <td className={cn(td, 'num text-right')}>
-                {r.openLeads} open
-                <span className="block text-xs text-ink-muted">{r.conversion === null ? 'No results yet' : `${formatPercent(r.conversion)} enrol`}</span>
+                {r.openLeads}{' '}{tr("open")}
+                <span className="block text-xs text-ink-muted">{r.conversion === null ? tr("No results yet") : tr("{0} enrol", formatPercent(r.conversion))}</span>
               </td>
               <td className={cn(td, 'text-right')}>
                 <ArrowRight aria-hidden className="ml-auto size-4 text-ink-faint" />
@@ -141,7 +142,7 @@ function BranchTable({ rows, totals, onOpen }: { rows: BranchSummary[]; totals: 
         </tbody>
         <tfoot className="border-t border-line-strong bg-canvas/60 font-medium">
           <tr>
-            <th scope="row" className={cn(td, 'text-left')}>All branches</th>
+            <th scope="row" className={cn(td, 'text-left')}>{tr("All branches")}</th>
             <td className={cn(td, 'num text-right')}>{totals.activeStudents}</td>
             <td className={cn(td, 'num text-right')}>{totals.fill === null ? '—' : formatPercent(totals.fill)}</td>
             <td className={cn(td, 'num text-right')}>{formatUZSCompact(totals.revenueThisMonth)}</td>
@@ -150,7 +151,7 @@ function BranchTable({ rows, totals, onOpen }: { rows: BranchSummary[]; totals: 
             <td className={cn(td, 'num text-right')}>
               +{totals.newStudentsThisMonth} / −{totals.leftThisMonth}
             </td>
-            <td className={cn(td, 'num text-right')}>{totals.openLeads} open</td>
+            <td className={cn(td, 'num text-right')}>{totals.openLeads}{' '}{tr("open")}</td>
             <td className={td} />
           </tr>
         </tfoot>
@@ -169,20 +170,20 @@ interface Issue {
   weight: number
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+const count = (n: number, one: string, many: string) => `${n} ${plural(n, one, many)}`
 
 function issuesFor(r: BranchSummary): Issue[] {
   const n = (k: keyof BranchSummary['tasks']) => r.tasks[k] ?? 0
   const base = { branchId: r.branch.id, branch: r.branch.name }
   const items: Issue[] = []
-  if (r.overdueStudents) items.push({ ...base, text: `${plural(r.overdueStudents, 'student', 'students')} with overdue tuition (${formatUZSCompact(r.overdue)})`, action: 'Debtors', path: '/payments?view=owing', weight: 50 + r.overdueStudents })
-  if (n('attendance_missing')) items.push({ ...base, text: `${plural(n('attendance_missing'), 'class', 'classes')} from the last week without attendance`, action: 'Attendance', path: '/', weight: 60 + n('attendance_missing') })
-  if (n('teacher_away')) items.push({ ...base, text: `${plural(n('teacher_away'), 'running group', 'running groups')} without an available teacher`, action: 'Groups', path: '/groups', weight: 80 })
+  if (r.overdueStudents) items.push({ ...base, text: tr("{0} with overdue tuition ({1})", count(r.overdueStudents, 'student', 'students'), formatUZSCompact(r.overdue)), action: tr("Debtors"), path: '/payments?view=owing', weight: 50 + r.overdueStudents })
+  if (n('attendance_missing')) items.push({ ...base, text: tr("{0} from the last week without attendance", count(n('attendance_missing'), 'class', 'classes')), action: tr("Attendance"), path: '/', weight: 60 + n('attendance_missing') })
+  if (n('teacher_away')) items.push({ ...base, text: tr("{0} without an available teacher", count(n('teacher_away'), 'running group', 'running groups')), action: tr("Groups"), path: '/groups', weight: 80 })
   if (n('trial_result') + n('lead_new')) {
-    const parts = [n('lead_new') && `${plural(n('lead_new'), 'enquiry', 'enquiries')} waiting for a call`, n('trial_result') && `${plural(n('trial_result'), 'trial result', 'trial results')} not recorded`].filter(Boolean)
-    items.push({ ...base, text: parts.join(', '), action: 'Admissions', path: '/leads', weight: 30 + n('lead_new') })
+    const parts = [n('lead_new') && tr('{0} waiting for a call', count(n('lead_new'), 'enquiry', 'enquiries')), n('trial_result') && tr('{0} not recorded', count(n('trial_result'), 'trial result', 'trial results'))].filter(Boolean)
+    items.push({ ...base, text: parts.join(', '), action: tr("Admissions"), path: '/leads', weight: 30 + n('lead_new') })
   }
-  if (n('absences')) items.push({ ...base, text: `${plural(n('absences'), 'student', 'students')} missed 3+ classes in two weeks`, action: 'Dashboard', path: '/', weight: 20 + n('absences') })
+  if (n('absences')) items.push({ ...base, text: tr("{0} missed 3+ classes in two weeks", count(n('absences'), 'student', 'students')), action: tr("Dashboard"), path: '/', weight: 20 + n('absences') })
   return items
 }
 
@@ -192,7 +193,7 @@ function WhereToLook({ rows, onOpen }: { rows: BranchSummary[]; onOpen: (branchI
     return (
       <p className="flex items-center gap-2 border-t border-line px-5 py-4 text-sm text-ink-muted">
         <CircleCheck aria-hidden className="size-4 text-success" />
-        Nothing stands out in any branch today.
+        {tr("Nothing stands out in any branch today.")}
       </p>
     )
   }

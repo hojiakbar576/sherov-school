@@ -15,12 +15,13 @@ import { averageGrade, lessonDates, unmarkedLessons } from '../teacher-metrics'
 import { LessonSheet } from './LessonSheet'
 import { MonthGrid } from './MonthGrid'
 import { formatAverage } from './grade-style'
+import { tr } from '../../../i18n'
 
 const TABS = [
-  { id: 'attendance', label: 'Attendance' },
-  { id: 'grades', label: 'Grades' },
-  { id: 'homework', label: 'Homework' },
-  { id: 'ranking', label: 'Ranking' },
+  { id: 'attendance', label: tr("Attendance") },
+  { id: 'grades', label: tr("Grades") },
+  { id: 'homework', label: tr("Homework") },
+  { id: 'ranking', label: tr("Ranking") },
 ] as const
 type Tab = (typeof TABS)[number]['id']
 
@@ -66,8 +67,8 @@ export function GroupPage() {
   if (!group) {
     return (
       <div className="rounded-2xl border border-line bg-surface">
-        <EmptyState icon={Lock} title="This group isn’t one of yours" action={<ButtonLink to="/teacher">Back to home</ButtonLink>}>
-          You can only open groups you teach. It may also have been deleted.
+        <EmptyState icon={Lock} title={tr("This group isn’t one of yours")} action={<ButtonLink to="/teacher">{tr("Back to home")}</ButtonLink>}>
+          {tr("You can only open groups you teach. It may also have been deleted.")}
         </EmptyState>
       </div>
     )
@@ -85,18 +86,18 @@ export function GroupPage() {
       <div>
         <Link to="/teacher" className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink">
           <ChevronLeft aria-hidden className="size-4" />
-          Home
+          {tr("Home")}
         </Link>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">{group.name}</h1>
             <p className="num mt-1 text-ink-muted">
-              {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)} · {group.room} · {activeCount} students
+              {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)} · {group.room} · {activeCount}{' '}{tr("students")}
             </p>
           </div>
           {todayLesson && (
             <Button variant="primary" onClick={() => setParam('lesson', today)} className="h-11 rounded-xl px-5">
-              {todaySaved ? 'Open today’s lesson' : 'Mark today’s lesson'}
+              {todaySaved ? tr("Open today’s lesson") : tr("Mark today’s lesson")}
             </Button>
           )}
         </div>
@@ -106,12 +107,12 @@ export function GroupPage() {
         <div role="status" className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-warning-mark/40 bg-warning-soft px-4 py-3 text-sm">
           <CircleAlert aria-hidden className="size-5 shrink-0 text-warning" />
           <p className="flex-1 text-ink">
-            {pending.length === 1 ? '1 lesson has' : `${pending.length} lessons have`} no attendance yet. Unmarked lessons lower your rating.
+            {pending.length === 1 ? tr("1 lesson has") : tr("{0} lessons have", pending.length)}{' '}{tr("no attendance yet. Unmarked lessons lower your rating.")}
           </p>
           <div className="flex flex-wrap gap-2">
             {pending.map((date) => (
               <Button key={date} size="sm" onClick={() => setParam('lesson', date)} className="rounded-lg">
-                Mark {formatDayMonth(parseISODate(date))}
+                {tr("Mark")}{' '}{formatDayMonth(parseISODate(date))}
               </Button>
             ))}
           </div>
@@ -119,7 +120,7 @@ export function GroupPage() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label="Group sections" className="inline-flex flex-wrap gap-1 rounded-2xl border border-line bg-surface p-1">
+        <div role="tablist" aria-label={tr("Group sections")} className="inline-flex flex-wrap gap-1 rounded-2xl border border-line bg-surface p-1">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -138,11 +139,11 @@ export function GroupPage() {
         </div>
         {(tab === 'attendance' || tab === 'grades' || tab === 'ranking') && (
           <div className="flex items-center gap-1 rounded-2xl border border-line bg-surface p-1">
-            <MonthButton label="Previous month" onClick={() => setParam('month', addMonths(month, -1))}>
+            <MonthButton label={tr("Previous month")} onClick={() => setParam('month', addMonths(month, -1))}>
               <ChevronLeft className="size-4" />
             </MonthButton>
             <span className="min-w-36 text-center text-sm font-medium text-ink">{formatMonth(month)}</span>
-            <MonthButton label="Next month" onClick={() => setParam('month', addMonths(month, 1))} disabled={month >= monthKey(now)}>
+            <MonthButton label={tr("Next month")} onClick={() => setParam('month', addMonths(month, 1))} disabled={month >= monthKey(now)}>
               <ChevronRight className="size-4" />
             </MonthButton>
           </div>
@@ -152,8 +153,8 @@ export function GroupPage() {
       {(tab === 'attendance' || tab === 'grades') &&
         (students.length === 0 ? (
           <div className="rounded-2xl border border-line bg-surface">
-            <EmptyState icon={Lock} title="No students in this group yet">
-              Your branch administrator adds students to groups.
+            <EmptyState icon={Lock} title={tr("No students in this group yet")}>
+              {tr("Your branch administrator adds students to groups.")}
             </EmptyState>
           </div>
         ) : (
@@ -168,9 +169,7 @@ export function GroupPage() {
               onOpenLesson={(date) => setParam('lesson', date)}
             />
             <p className="num text-sm text-ink-muted">
-              {tab === 'attendance'
-                ? `${formatMonth(month)}: ${monthRecords.length} lessons saved, ${monthSummary.rate === null ? 'no marks yet' : `${formatPercent(monthSummary.rate)} of students came`}. Click a day to mark it; a red dot means not marked yet.`
-                : 'Click a day to give grades: pick a grade, then tap every student who earned it.'}
+              {tab === 'attendance' ? tr("{0}: {1} lessons saved, {2}. Click a day to mark it; a red dot means not marked yet.", formatMonth(month), monthRecords.length, monthSummary.rate === null ? tr("no marks yet") : tr("{0} of students came", formatPercent(monthSummary.rate))) : tr("Click a day to give grades: pick a grade, then tap every student who earned it.")}
             </p>
           </>
         ))}
@@ -205,13 +204,13 @@ function HomeworkTab({ groupId }: { groupId: string }) {
   return (
     <section className="rounded-2xl border border-line bg-surface">
       <header className="flex items-center justify-between gap-3 px-5 py-4">
-        <h2 className="font-semibold text-ink">Homework</h2>
+        <h2 className="font-semibold text-ink">{tr("Homework")}</h2>
         <ButtonLink to={`/teacher/homework?group=${groupId}&new=1`} variant="primary" size="sm" className="rounded-lg">
-          <Plus aria-hidden /> New homework
+          <Plus aria-hidden />{' '}{tr("New homework")}
         </ButtonLink>
       </header>
       {items.length === 0 ? (
-        <EmptyState icon={NotebookPen} title="No homework set yet" />
+        <EmptyState icon={NotebookPen} title={tr("No homework set yet")} />
       ) : (
         <ul className="divide-y divide-line border-t border-line">
           {items.map((h) => {
@@ -222,14 +221,14 @@ function HomeworkTab({ groupId }: { groupId: string }) {
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium text-ink">{h.title}</span>
                     <span className="num text-xs text-ink-muted">
-                      {h.dueDate < today ? 'Was due' : 'Due'} {formatDate(h.dueDate)}
+                      {h.dueDate < today ? tr("Was due") : tr("Due")} {formatDate(h.dueDate)}
                     </span>
                   </span>
                   <span className="num text-sm text-ink-muted">
-                    {p.handedIn}/{p.assigned} handed in
+                    {p.handedIn}/{p.assigned}{' '}{tr("handed in")}
                   </span>
                   <span className={cn('num text-sm font-medium', p.toEvaluate ? 'text-warning' : 'text-ink-muted')}>
-                    {p.toEvaluate ? `${p.toEvaluate} to check` : `${p.evaluated} checked`}
+                    {p.toEvaluate ? tr("{0} to check", p.toEvaluate) : tr("{0} checked", p.evaluated)}
                   </span>
                 </Link>
               </li>
@@ -255,8 +254,8 @@ function RankingTab({ students, records, month }: { students: Student[]; records
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-surface">
       <header className="px-5 py-4">
-        <h2 className="font-semibold text-ink">Student ranking, {formatMonth(month)}</h2>
-        <p className="text-sm text-ink-muted">By average lesson grade; attendance decides ties.</p>
+        <h2 className="font-semibold text-ink">{tr("Student ranking,")}{' '}{formatMonth(month)}</h2>
+        <p className="text-sm text-ink-muted">{tr("By average lesson grade; attendance decides ties.")}</p>
       </header>
       <ol className="divide-y divide-line border-t border-line">
         {rows.map((row, i) => (
@@ -267,13 +266,13 @@ function RankingTab({ students, records, month }: { students: Student[]; records
                 i === 0 ? 'bg-accent text-white' : i < 3 ? 'bg-accent-soft text-accent-ink' : 'bg-subtle text-ink-muted',
               )}
             >
-              {i < 3 ? <Trophy aria-label={`Place ${i + 1}`} className="size-4" /> : i + 1}
+              {i < 3 ? <Trophy aria-label={tr("Place {0}", i + 1)} className="size-4" /> : i + 1}
             </span>
             <Link to={`/teacher/students/${row.student.id}`} className="flex min-w-0 flex-1 items-center gap-3 font-medium text-ink hover:underline">
               <Avatar name={row.student.fullName} size="sm" />
               <span className="truncate">{row.student.fullName}</span>
             </Link>
-            <span className="num w-20 text-right text-sm text-ink-muted">{row.grades} grades</span>
+            <span className="num w-20 text-right text-sm text-ink-muted">{row.grades}{' '}{tr("grades")}</span>
             <span className="num w-16 text-right text-sm text-ink-muted">{row.rate === null ? '—' : formatPercent(row.rate)}</span>
             <span className="num w-12 text-right text-lg font-semibold text-ink">{formatAverage(row.avg)}</span>
           </li>

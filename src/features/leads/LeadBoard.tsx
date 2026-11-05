@@ -3,29 +3,28 @@ import { useNavigate } from 'react-router'
 import { CalendarPlus, Check, ChevronRight, ClipboardCheck, Plus, UserCheck } from 'lucide-react'
 import type { Lead, LeadStage } from '../../types'
 import { useSchool } from '../../data/school-context'
-import { useToast } from '../../components/ui/toast-context'
 import { PhoneLine } from '../../components/ui/CopyButton'
-import { leadStageLabel, nextStep, PIPELINE } from '../../lib/admissions'
+import { toneDot } from '../../components/ui/tone'
+import { nextStep } from '../../lib/admissions'
+import { isSystemStage, orderedStages, stageColor, stageName } from '../../lib/lead-stages'
 import { addDays, toISODate } from '../../lib/dates'
 import { formatDate } from '../../lib/format'
 import { cn } from '../../lib/cn'
-import { StudentFormDialog } from '../students/StudentFormDialog'
-import { LostDialog, TrialDialog, TrialResultDialog } from './LeadDialogs'
+import { useLeadMove } from './useLeadMove'
+import { plural, tr } from '../../i18n'
 
-/** What each column is for, in plain words, and the one button that moves a card on. */
-const COLUMN: Record<LeadStage, { hint: string; action?: string; icon?: typeof Check }> = {
-  new: { hint: 'Call them back', action: 'Called', icon: Check },
-  contacted: { hint: 'Book a trial lesson', action: 'Book trial', icon: CalendarPlus },
-  trial_scheduled: { hint: 'After the lesson, record how it went', action: 'Record result', icon: ClipboardCheck },
-  trial_done: { hint: 'Put them in a group', action: 'Enroll', icon: UserCheck },
-  enrolled: { hint: 'Became students (last 30 days)' },
-  lost: { hint: 'Not coming, with the reason' },
+/** What each built-in column is for, in plain words, and the one button that moves a card on. */
+const COLUMN: Record<string, { hint: string; action?: string; icon?: typeof Check }> = {
+  new: { hint: tr("Call them back"), action: tr("Called"), icon: Check },
+  contacted: { hint: tr("Book a trial lesson"), action: tr("Book trial"), icon: CalendarPlus },
+  trial_scheduled: { hint: tr("After the lesson, record how it went"), action: tr("Record result"), icon: ClipboardCheck },
+  trial_done: { hint: tr("Put them in a group"), action: tr("Enroll"), icon: UserCheck },
+  enrolled: { hint: tr("Became students (last 30 days)") },
+  lost: { hint: tr("Not coming, with the reason") },
 }
 
 /** Enrolled cards older than this drop off the board (they're students now). */
 const ENROLLED_DAYS = 30
-
-type Dialog = { kind: 'trial' | 'result' | 'lost' | 'enroll'; lead: Lead } | null
 
 /** Oldest waiting first, except trials (soonest first) and enrolled (newest first). */
 function sortColumn(stage: LeadStage, items: Lead[]): Lead[] {
@@ -42,19 +41,19 @@ const daysSince = (iso: string, now: Date) => Math.floor((now.getTime() - new Da
 function urgency(l: Lead, today: string, now: Date): { text: string; tone: 'danger' | 'info' } | null {
   if (l.stage === 'new') {
     const d = daysSince(l.createdAt, now)
-    return d >= 1 ? { text: `Waiting ${d} ${d === 1 ? 'day' : 'days'} for a call`, tone: 'danger' } : null
+    return d >= 1 ? { text: tr("Waiting {0} {1} for a call", d, plural(d, 'day', 'days')), tone: 'danger' } : null
   }
   if (l.stage === 'contacted') {
     const d = daysSince(l.updatedAt, now)
-    return d >= 3 ? { text: `No trial booked for ${d} days`, tone: 'danger' } : null
+    return d >= 3 ? { text: tr("No trial booked for {0} days", d), tone: 'danger' } : null
   }
   if (l.stage === 'trial_scheduled' && l.trial) {
-    if (l.trial.date < today) return { text: `Trial was ${formatDate(l.trial.date)}: record the result`, tone: 'danger' }
-    if (l.trial.date === today) return { text: `Trial today at ${l.trial.time}`, tone: 'info' }
+    if (l.trial.date < today) return { text: tr("Trial was {0}: record the result", formatDate(l.trial.date)), tone: 'danger' }
+    if (l.trial.date === today) return { text: tr("Trial today at {0}", l.trial.time), tone: 'info' }
   }
   if (l.stage === 'trial_done') {
     const d = daysSince(l.updatedAt, now)
-    return d >= 3 ? { text: `Trial done ${d} days ago, not enrolled yet`, tone: 'danger' } : null
+    return d >= 3 ? { text: tr("Trial done {0} days ago, not enrolled yet", d), tone: 'danger' } : null
   }
   return null
 }
@@ -71,51 +70,20 @@ interface Props {
  * (trial date, trial result, group, reason) open the right form first.
  */
 export function LeadBoard({ leads, onCreate }: Props) {
-  const { data, now, actions } = useSchool()
-  const toast = useToast()
+  const { data, now } = useSchool()
   const navigate = useNavigate()
   const today = toISODate(now)
-  const [dialog, setDialog] = useState<Dialog>(null)
+  const { moveTo, openForm, dialogs } = useLeadMove()
   const [dragging, setDragging] = useState<string | null>(null)
   const [over, setOver] = useState<LeadStage | null>(null)
   const [showLost, setShowLost] = useState(false)
   const groupName = new Map(data.groups.map((g) => [g.id, g.name]))
   const enrolledSince = addDays(now, -ENROLLED_DAYS).toISOString()
 
-  /** Move a lead to a stage, asking for whatever that step needs. */
-  const moveTo = (lead: Lead, stage: LeadStage) => {
-    if (lead.stage === stage) return
-    if (lead.stage === 'enrolled') {
-      toast.show(`${lead.studentName} is already a student. Change things on their student profile.`, 'error')
-      return
-    }
-    switch (stage) {
-      case 'new':
-      case 'contacted':
-        actions.updateLead(lead.id, { stage, lostReason: undefined })
-        toast.show(`${lead.studentName}: ${leadStageLabel[stage]}.`)
-        return
-      case 'trial_scheduled':
-        setDialog({ kind: 'trial', lead })
-        return
-      case 'trial_done':
-        if (!lead.trial) {
-          toast.show('Book the trial lesson first.', 'error')
-          setDialog({ kind: 'trial', lead })
-        } else setDialog({ kind: 'result', lead })
-        return
-      case 'enrolled':
-        setDialog({ kind: 'enroll', lead })
-        return
-      case 'lost':
-        setDialog({ kind: 'lost', lead })
-    }
-  }
-
   const primary = (lead: Lead) => {
     if (lead.stage === 'new') moveTo(lead, 'contacted')
     else if (lead.stage === 'contacted') moveTo(lead, 'trial_scheduled')
-    else if (lead.stage === 'trial_scheduled') setDialog({ kind: 'result', lead })
+    else if (lead.stage === 'trial_scheduled') openForm('result', lead)
     else if (lead.stage === 'trial_done') moveTo(lead, 'enrolled')
   }
 
@@ -132,12 +100,15 @@ export function LeadBoard({ leads, onCreate }: Props) {
     if (stage === 'enrolled') items = items.filter((l) => l.updatedAt >= enrolledSince)
     items = sortColumn(stage, items)
     const waiting = items.filter((l) => urgency(l, today, now)?.tone === 'danger').length
-    const info = COLUMN[stage]
+    // Stages the owner added have no automatic step: cards are dragged on.
+    const info = COLUMN[stage] ?? { hint: tr("Drag a card on when it’s ready") }
+    const name = stageName(data.leadStages, stage)
     const collapsed = stage === 'lost' && !showLost
     return (
       <section
         key={stage}
-        aria-label={`${leadStageLabel[stage]}: ${items.length}`}
+        aria-label={`${name}: ${items.length}`}
+        data-stage={stage}
         onDragOver={(e) => {
           if (!dragging) return
           e.preventDefault()
@@ -159,13 +130,16 @@ export function LeadBoard({ leads, onCreate }: Props) {
                 {index}
               </span>
             )}
-            <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{leadStageLabel[stage]}</h3>
+            <span aria-hidden className={cn('size-2 shrink-0 rounded-full', toneDot[stageColor(data.leadStages, stage)])} />
+            <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-ink" title={isSystemStage(stage) ? undefined : tr("Stage added by the owner")}>
+              {name}
+            </h3>
             <span className="num rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-ink">{items.length}</span>
           </div>
           <p className="mt-1 text-xs text-ink-muted">{info.hint}</p>
           {waiting > 0 && (
             <p className="mt-1.5 text-xs font-medium text-danger">
-              {waiting} {waiting === 1 ? 'needs' : 'need'} attention
+              {waiting} {waiting === 1 ? tr("needs") : tr("need")}{' '}{tr("attention")}
             </p>
           )}
           {stage === 'new' && onCreate && (
@@ -175,19 +149,19 @@ export function LeadBoard({ leads, onCreate }: Props) {
               className="mt-2 flex w-full items-center justify-center gap-1 rounded-control border border-dashed border-line-strong bg-surface py-1.5 text-sm font-medium text-brand hover:border-brand"
             >
               <Plus aria-hidden className="size-4" />
-              New enquiry
+              {tr("New enquiry")}
             </button>
           )}
           {stage === 'lost' && (
             <button type="button" onClick={() => setShowLost((v) => !v)} className="mt-2 text-xs font-medium text-brand hover:underline">
-              {showLost ? 'Hide' : 'Show'}
+              {showLost ? tr("Hide") : tr("Show")}
             </button>
           )}
         </header>
 
         {!collapsed && (
           <ul className="flex-1 space-y-2 p-2">
-            {items.length === 0 && <li className="px-2 py-6 text-center text-xs text-ink-faint">{dragging ? 'Drop here' : 'Nobody here'}</li>}
+            {items.length === 0 && <li className="px-2 py-6 text-center text-xs text-ink-faint">{dragging ? tr("Drop here") : tr("Nobody here")}</li>}
             {items.map((l) => {
               const warn = urgency(l, today, now)
               const Action = info.icon
@@ -216,10 +190,10 @@ export function LeadBoard({ leads, onCreate }: Props) {
                       <span className="min-w-0 font-medium text-ink group-hover:text-brand">{l.studentName}</span>
                       <ChevronRight aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-faint" />
                     </span>
-                    {l.parentName && <span className="block truncate text-xs text-ink-muted">Parent: {l.parentName}</span>}
+                    {l.parentName && <span className="block truncate text-xs text-ink-muted">{tr("Parent:")}{' '}{l.parentName}</span>}
                     <span className="mt-1.5 flex flex-wrap gap-1">
                       <span className="rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-ink">{l.course}</span>
-                      {l.placement?.level && <span className="rounded bg-subtle px-1.5 py-0.5 text-2xs font-medium text-ink">Level {l.placement.level}</span>}
+                      {l.placement?.level && <span className="rounded bg-subtle px-1.5 py-0.5 text-2xs font-medium text-ink">{tr("Level")}{' '}{l.placement.level}</span>}
                       {l.source && <span className="rounded bg-subtle px-1.5 py-0.5 text-2xs text-ink-muted">{l.source}</span>}
                     </span>
                   </button>
@@ -229,7 +203,7 @@ export function LeadBoard({ leads, onCreate }: Props) {
                   <div className="px-3 pb-2.5 text-xs">
                     {l.stage === 'trial_scheduled' && l.trial && !warn && (
                       <p className="text-ink-muted">
-                        Trial {formatDate(l.trial.date)}, {l.trial.time}
+                        {tr("Trial")}{' '}{formatDate(l.trial.date)}, {l.trial.time}
                         {l.trial.groupId ? ` · ${groupName.get(l.trial.groupId) ?? ''}` : ''}
                       </p>
                     )}
@@ -248,7 +222,7 @@ export function LeadBoard({ leads, onCreate }: Props) {
                       >
                         <Action aria-hidden className="size-4" />
                         {info.action}
-                        <span className="sr-only"> for {l.studentName}</span>
+                        <span className="sr-only">{' '}{tr("for")}{' '}{l.studentName}</span>
                       </button>
                     </div>
                   )}
@@ -263,35 +237,14 @@ export function LeadBoard({ leads, onCreate }: Props) {
 
   return (
     <>
-      <p className="mb-2 text-xs text-ink-muted">Tip: drag a card to another column, or use the button on the card. Cards with a red edge are waiting too long.</p>
-      <div className="-mx-4 snap-x scroll-px-4 overflow-x-auto px-4 pb-3 lg:mx-0 lg:scroll-px-0 lg:px-0">
+      <p className="mb-2 text-xs text-ink-muted">{tr("Tip: drag a card to another column, or use the button on the card. Cards with a red edge are waiting too long.")}</p>
+      <div className="relative -mx-4 snap-x scroll-px-4 overflow-x-auto px-4 pb-3 lg:mx-0 lg:scroll-px-0 lg:px-0">
         <div className="flex items-start gap-3">
-          {PIPELINE.map((stage, i) => column(stage, i + 1))}
-          {column('lost', null)}
+          {orderedStages(data.leadStages).map((s, i) => column(s.id, s.id === 'lost' ? null : i + 1))}
         </div>
       </div>
 
-      {dialog?.kind === 'trial' && <TrialDialog open lead={dialog.lead} onClose={() => setDialog(null)} />}
-      {dialog?.kind === 'result' && <TrialResultDialog open lead={dialog.lead} onClose={() => setDialog(null)} />}
-      {dialog?.kind === 'lost' && <LostDialog open lead={dialog.lead} onClose={() => setDialog(null)} />}
-      {dialog?.kind === 'enroll' && (
-        <StudentFormDialog
-          open
-          onClose={() => setDialog(null)}
-          title={`Enroll ${dialog.lead.studentName}`}
-          initial={{
-            fullName: dialog.lead.studentName,
-            parentName: dialog.lead.parentName,
-            parentPhone: dialog.lead.phone,
-            groupId: dialog.lead.placement?.recommendedGroupId ?? dialog.lead.trial?.groupId,
-          }}
-          create={(input) => actions.enrollLead(dialog.lead.id, input)}
-          onSaved={(s) => {
-            setDialog(null)
-            toast.show(`${s.fullName} is now a student.`, 'success')
-          }}
-        />
-      )}
+      {dialogs}
     </>
   )
 }

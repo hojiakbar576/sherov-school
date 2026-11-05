@@ -1,16 +1,9 @@
-import type { LeadStage } from '../../types'
-import { Badge, type Tone } from '../../components/ui/Badge'
-import { leadStageLabel } from '../../lib/admissions'
+import { useSchool } from '../../data/school-context'
+import { Badge } from '../../components/ui/Badge'
+import { stageColor, stageName } from '../../lib/lead-stages'
 
-const tone: Record<LeadStage, Tone> = {
-  new: 'accent',
-  contacted: 'neutral',
-  trial_scheduled: 'info',
-  trial_done: 'brand',
-  enrolled: 'success',
-  lost: 'neutral',
-}
-
-export function LeadStageBadge({ stage }: { stage: LeadStage }) {
-  return <Badge tone={tone[stage]}>{leadStageLabel[stage]}</Badge>
+/** A stage's name in its colour, from the owner's stage list. */
+export function LeadStageBadge({ stage }: { stage: string }) {
+  const { data } = useSchool()
+  return <Badge tone={stageColor(data.leadStages, stage)}>{stageName(data.leadStages, stage)}</Badge>
 }

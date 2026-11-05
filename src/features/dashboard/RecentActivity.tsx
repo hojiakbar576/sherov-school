@@ -3,6 +3,7 @@ import { Panel } from '../../components/ui/Panel'
 import { EmptyState } from '../../components/ui/misc'
 import type { Activity, ActivityType } from '../../types'
 import { formatRelative } from '../../lib/format'
+import { tr } from '../../i18n'
 
 const icons: Record<ActivityType, LucideIcon> = {
   student_added: UserPlus,
@@ -27,10 +28,10 @@ const icons: Record<ActivityType, LucideIcon> = {
 export function RecentActivity({ activity, now }: { activity: Activity[]; now: Date }) {
   const items = activity.slice(0, 8)
   return (
-    <Panel id="recent-activity" title="Recent activity" description="Changes made in this browser, newest first">
+    <Panel id="recent-activity" title={tr("Recent activity")} description={tr("Changes made in this browser, newest first")}>
       {items.length === 0 ? (
-        <EmptyState icon={ClipboardCheck} title="No activity yet">
-          Adding students, recording payments and taking attendance will appear here.
+        <EmptyState icon={ClipboardCheck} title={tr("No activity yet")}>
+          {tr("Adding students, recording payments and taking attendance will appear here.")}
         </EmptyState>
       ) : (
         <ol className="relative space-y-4 before:absolute before:top-2 before:bottom-2 before:left-[15px] before:w-px before:bg-line">

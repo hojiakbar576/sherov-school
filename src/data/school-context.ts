@@ -6,6 +6,8 @@ import type {
   ContactLog,
   Expense,
   ExtraLesson,
+  LeadStageColor,
+  LeadStageDef,
   ListItem,
   SalaryPayment,
   StaffAttendance,
@@ -13,6 +15,7 @@ import type {
   AttendanceMark,
   Branch,
   Course,
+  CourseLevel,
   Grade,
   MonthKey,
   Group,
@@ -40,6 +43,10 @@ export type StudentInput = Omit<Student, 'id' | 'branchId' | StudentProfile> & P
 export type TeacherInput = Omit<Teacher, 'id' | 'branchId'>
 export type GroupInput = Omit<Group, 'id' | 'branchId'>
 export type PaymentInput = Omit<Payment, 'id' | 'recordedBy'>
+export interface LeadStageInput {
+  name: string
+  color: LeadStageColor
+}
 /** A new enquiry. Stage, trial and placement are changed with updateLead. */
 export type LeadInput = Pick<Lead, 'studentName' | 'parentName' | 'phone' | 'course' | 'source' | 'notes'>
 export type LeadUpdate = Partial<Pick<Lead, 'studentName' | 'parentName' | 'phone' | 'course' | 'source' | 'notes' | 'stage' | 'trial' | 'placement' | 'lostReason'>>
@@ -77,6 +84,8 @@ export interface ResultInput {
 
 export interface SchoolActions {
   addStudent(input: StudentInput): Student
+  /** Adds many students in one save (Excel import). */
+  importStudents(inputs: StudentInput[]): Student[]
   updateStudent(id: string, input: StudentInput): void
   /** Also removes the student's payments and attendance marks. */
   deleteStudent(id: string): void
@@ -123,6 +132,14 @@ export interface SchoolActions {
   /** Creates the student from the enquiry and marks it enrolled. */
   enrollLead(leadId: string, input: StudentInput): Student
 
+  // Admissions stages: owner only, shared by every branch (lib/lead-stages.ts).
+  addLeadStage(input: LeadStageInput): LeadStageDef
+  updateLeadStage(id: string, input: LeadStageInput): void
+  /** Moves an open stage one column left (-1) or right (+1). */
+  moveLeadStage(id: string, direction: -1 | 1): void
+  /** Deletes a stage the owner added, first moving its enquiries (every branch) to `moveLeadsTo`. */
+  deleteLeadStage(id: string, moveLeadsTo?: string): { ok: true; moved: number } | { ok: false; reason: string }
+
   /** Assessments are for groups the person teaches or manages; null/false otherwise. */
   addAssessment(input: AssessmentInput): Assessment | null
   updateAssessment(id: string, input: AssessmentInput): boolean
@@ -151,7 +168,8 @@ export interface SchoolActions {
   addListItem(list: CatalogName, name: string): ListItem
   renameListItem(list: CatalogName, id: string, name: string): void
   setListItemActive(list: CatalogName, id: string, active: boolean): void
-  updateCourse(id: string, input: { levels: string[]; defaultFee?: number }): void
+  /** Renames a course and saves its levels (in order); names on groups, teachers and enquiries follow. */
+  updateCourse(id: string, input: { name: string; levels: CourseLevel[]; defaultFee?: number }): void
 
   addExpense(input: ExpenseInput): Expense
   updateExpense(id: string, input: ExpenseInput): void

@@ -139,6 +139,15 @@ The sidebar follows a working day: Dashboard; **Admissions** (Leads & trials); P
 - **Translations**: `src/i18n` holds the message catalogue and `t()`; the sidebar uses it. Uzbek and Russian can be added there and the rest of the screens moved over gradually.
 - Teachers can add a short comment per student when checking homework (Comment mark, key M). The comment is saved with the grade and shows on the student profile.
 
+## Languages (English, Uzbek, Russian)
+
+Switch with the **EN / UZ / RU** buttons on the sign-in page or in the profile menu (top right). The choice is remembered in the browser and the page reloads in that language.
+
+- Screen text is written in English inside `tr('…')`. Translations live in `src/i18n/uz.ts` and `src/i18n/ru.ts`, keyed by the English text. To change a word, edit the right-hand side there.
+- Anything missing a translation shows in English, so new screens never break.
+- `npm run i18n:check` lists text that still needs Uzbek or Russian.
+- Names, group and course names, and saved activity text stay exactly as they were typed.
+
 ## Not built yet
 
 - Real backend, database and authentication (sign-in is a labelled demo; permissions are enforced only in the browser)

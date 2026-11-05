@@ -16,33 +16,57 @@ import type {
   TuitionAdjustmentKind,
 } from '../types'
 import { parseISODate, startOfDay } from './dates'
+import { currentLocale, tr } from '../i18n'
 
-const LOCALE = 'en-GB'
+/** Locale for the browser's own date formatting (long month and weekday names). */
+export const INTL_LOCALE = ({ en: 'en-GB', uz: 'uz-Latn-UZ', ru: 'ru-RU' } as const)[currentLocale]
 
-// Fixed English month abbreviations ("Sep", not the en-GB "Sept").
-const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const SHORT_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+// Fixed month and weekday abbreviations per language ("Sep", not the en-GB "Sept").
+const SHORT_MONTHS = {
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  uz: ['yan', 'fev', 'mar', 'apr', 'may', 'iyun', 'iyul', 'avg', 'sen', 'okt', 'noy', 'dek'],
+  ru: ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'],
+}[currentLocale]
+const SHORT_WEEKDAYS = {
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  uz: ['Yak', 'Du', 'Se', 'Chor', 'Pay', 'Ju', 'Shan'],
+  ru: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
+}[currentLocale]
+
+// Browsers have patchy Uzbek date data, so Uzbek long names are spelled out here.
+const UZ_MONTHS = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr']
+const UZ_WEEKDAYS = ['yakshanba', 'dushanba', 'seshanba', 'chorshanba', 'payshanba', 'juma', 'shanba']
+
+/** "Monday" / "dushanba" / "понедельник" */
+export function longWeekday(date: Date): string {
+  return currentLocale === 'uz' ? UZ_WEEKDAYS[date.getDay()] : date.toLocaleDateString(INTL_LOCALE, { weekday: 'long' })
+}
+
+/** "Mon" / "Du" / "Пн" for a Date#getDay() number. */
+export function shortWeekday(day: number): string {
+  return SHORT_WEEKDAYS[day]
+}
 
 const wholeNumber = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
 /** UZS 1,250,000 */
 export function formatUZS(amount: number): string {
-  return `UZS ${wholeNumber.format(Math.round(amount))}`
+  return tr("UZS {0}", wholeNumber.format(Math.round(amount)))
 }
 
 /** UZS 86.4M, UZS 650K: for headline figures where precision is not needed. */
 export function formatUZSCompact(amount: number): string {
   const abs = Math.abs(amount)
-  if (abs >= 1_000_000_000) return `UZS ${(amount / 1_000_000_000).toFixed(1)}B`
-  if (abs >= 1_000_000) return `UZS ${(amount / 1_000_000).toFixed(1)}M`
-  if (abs >= 1_000) return `UZS ${Math.round(amount / 1_000)}K`
+  if (abs >= 1_000_000_000) return tr("UZS {0}B", (amount / 1_000_000_000).toFixed(1))
+  if (abs >= 1_000_000) return tr("UZS {0}M", (amount / 1_000_000).toFixed(1))
+  if (abs >= 1_000) return tr("UZS {0}K", Math.round(amount / 1_000))
   return formatUZS(amount)
 }
 
 /** Short axis labels: 86.4M, 650K */
 export function formatAxisAmount(amount: number): string {
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(amount >= 10_000_000 ? 0 : 1)}M`
-  if (amount >= 1_000) return `${Math.round(amount / 1_000)}K`
+  if (amount >= 1_000_000) return tr("{0}M", (amount / 1_000_000).toFixed(amount >= 10_000_000 ? 0 : 1))
+  if (amount >= 1_000) return tr("{0}K", Math.round(amount / 1_000))
   return String(amount)
 }
 
@@ -62,7 +86,8 @@ export function formatDate(value: ISODate): string {
 
 /** Thursday, 29 October 2026 */
 export function formatLongDate(date: Date): string {
-  return date.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  if (currentLocale === 'uz') return `${date.getFullYear()}-yil ${date.getDate()}-${UZ_MONTHS[date.getMonth()]}, ${UZ_WEEKDAYS[date.getDay()]}`
+  return date.toLocaleDateString(INTL_LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 /** Thu 29 Oct */
@@ -78,7 +103,8 @@ export function formatDayMonth(date: Date): string {
 /** October 2026 */
 export function formatMonth(key: MonthKey): string {
   const [y, m] = key.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' })
+  if (currentLocale === 'uz') return `${y}-yil ${UZ_MONTHS[m - 1]}`
+  return new Date(y, m - 1, 1).toLocaleDateString(INTL_LOCALE, { month: 'long', year: 'numeric' })
 }
 
 /** Oct */
@@ -87,27 +113,27 @@ export function formatMonthShort(key: MonthKey): string {
 }
 
 export function formatTimeOfDay(date: Date): string {
-  return date.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString(INTL_LOCALE, { hour: '2-digit', minute: '2-digit' })
 }
 
 /** "Just now", "12 min ago", "Today, 14:05", "Yesterday, 09:30", "27 Oct, 16:10" */
 export function formatRelative(value: ISODateTime, now: Date = new Date()): string {
   const date = new Date(value)
   const diffMinutes = Math.round((now.getTime() - date.getTime()) / 60_000)
-  if (diffMinutes < 1) return 'Just now'
-  if (diffMinutes < 60) return `${diffMinutes} min ago`
+  if (diffMinutes < 1) return tr("Just now")
+  if (diffMinutes < 60) return tr("{0} min ago", diffMinutes)
   const dayDiff = Math.round((startOfDay(now).getTime() - startOfDay(date).getTime()) / 86_400_000)
   const time = formatTimeOfDay(date)
-  if (dayDiff === 0) return `Today, ${time}`
-  if (dayDiff === 1) return `Yesterday, ${time}`
+  if (dayDiff === 0) return tr("Today, {0}", time)
+  if (dayDiff === 1) return tr("Yesterday, {0}", time)
   return `${formatDayMonth(date)}, ${time}`
 }
 
 export function greeting(now: Date): string {
   const hour = now.getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 18) return 'Good afternoon'
-  return 'Good evening'
+  if (hour < 12) return tr("Good morning")
+  if (hour < 18) return tr("Good afternoon")
+  return tr("Good evening")
 }
 
 export function initials(fullName: string): string {
@@ -144,78 +170,80 @@ export function isValidEmail(value: string): boolean {
 // ---- Labels for stored enum values ----
 
 export const studentStatusLabel: Record<StudentStatus, string> = {
-  active: 'Active',
-  paused: 'Paused',
-  left: 'Left',
-  graduated: 'Graduated',
+  active: tr("Active"),
+  paused: tr("Paused"),
+  left: tr("Left"),
+  graduated: tr("Graduated"),
 }
 
 export const tuitionAdjustmentLabel: Record<TuitionAdjustmentKind, string> = {
-  discount: 'Discount',
-  scholarship: 'Scholarship',
-  special_price: 'Special price',
+  discount: tr("Discount"),
+  scholarship: tr("Scholarship"),
+  special_price: tr("Special price"),
 }
 
 export const teacherStatusLabel: Record<TeacherStatus, string> = {
-  active: 'Teaching',
-  on_leave: 'On leave',
+  active: tr("Teaching"),
+  on_leave: tr("On leave"),
 }
 
 export const groupStatusLabel: Record<GroupStatus, string> = {
-  active: 'Running',
-  paused: 'Paused',
-  completed: 'Completed',
+  active: tr("Running"),
+  paused: tr("Paused"),
+  completed: tr("Completed"),
 }
 
 /** Names of the starting payment methods. Use methodName() so renamed or added methods show correctly. */
 export const paymentMethodLabel: Record<PaymentMethod, string> = {
-  cash: 'Cash',
-  card: 'Card (Uzcard/Humo)',
-  click: 'Click',
-  payme: 'Payme',
-  transfer: 'Bank transfer',
+  cash: tr("Cash"),
+  card: tr("Card (Uzcard/Humo)"),
+  click: tr("Click"),
+  payme: tr("Payme"),
+  transfer: tr("Bank transfer"),
 }
 
 /** The current name of a payment method id, from the school's own list. */
 export function methodName(catalogs: Catalogs, id: PaymentMethod | undefined): string {
   if (!id) return '—'
-  return catalogs.paymentMethods.find((m) => m.id === id)?.name ?? paymentMethodLabel[id] ?? id
+  const name = catalogs.paymentMethods.find((m) => m.id === id)?.name
+  return name ? tr(name) : (paymentMethodLabel[id] ?? id)
 }
 
 /** The name of an entry in one of the school's lists (tags, categories, reasons). */
 export function listName(items: ListItem[], id: string | undefined): string {
-  return items.find((x) => x.id === id)?.name ?? '—'
+  const name = items.find((x) => x.id === id)?.name
+  return name ? tr(name) : '—'
 }
 
 export const paymentStatusLabel: Record<PaymentStatus, string> = {
-  paid: 'Paid',
-  pending: 'Pending',
-  refunded: 'Refunded',
+  paid: tr("Paid"),
+  pending: tr("Pending"),
+  refunded: tr("Refunded"),
 }
 
 export const attendanceMarkLabel: Record<AttendanceMark, string> = {
-  present: 'Present',
-  late: 'Late',
-  absent: 'Absent',
-  excused: 'Excused',
+  present: tr("Present"),
+  late: tr("Late"),
+  absent: tr("Absent"),
+  excused: tr("Excused"),
 }
 
 export const dayPatternLabel: Record<DayPattern, string> = {
-  odd: 'Mon, Wed, Fri',
-  even: 'Tue, Thu, Sat',
+  odd: tr("Mon, Wed, Fri"),
+  even: tr("Tue, Thu, Sat"),
 }
 
 export const guardianRelationshipLabel: Record<GuardianRelationship, string> = {
-  mother: 'Mother',
-  father: 'Father',
-  grandmother: 'Grandmother',
-  grandfather: 'Grandfather',
-  guardian: 'Guardian',
+  mother: tr("Mother"),
+  father: tr("Father"),
+  grandmother: tr("Grandmother"),
+  grandfather: tr("Grandfather"),
+  guardian: tr("Guardian"),
 }
 
 export const genderLabel: Record<Gender, string> = {
-  female: 'Female',
-  male: 'Male',
+  female: tr("Female"),
+  male: tr("Male"),
 }
 
 /** Age in full years on the given day. */
@@ -226,6 +254,6 @@ export function ageOn(dateOfBirth: ISODate, now: Date): number {
 }
 
 export const dayPatternShort: Record<DayPattern, string> = {
-  odd: 'Odd days',
-  even: 'Even days',
+  odd: tr('Odd days'),
+  even: tr('Even days'),
 }

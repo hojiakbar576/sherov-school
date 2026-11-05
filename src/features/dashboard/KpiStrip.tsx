@@ -4,6 +4,7 @@ import { CalendarDays, ClipboardCheck, Users, Wallet, WalletCards, type LucideIc
 import { formatNumber, formatPercent, formatUZSCompact } from '../../lib/format'
 import type { MarkSummary } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 interface KpiProps {
   to: string
@@ -39,37 +40,33 @@ interface KpiStripProps {
 /** The five numbers an administrator checks first. Each opens the page behind it. */
 export function KpiStrip({ activeStudents, activeGroups, classes, today, revenue, outstanding }: KpiStripProps) {
   return (
-    <section aria-label="Key figures" className="grid grid-cols-1 gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-2 xl:grid-cols-5 [&>*:last-child]:sm:col-span-2 [&>*:last-child]:xl:col-span-1">
-      <Kpi to="/students?status=active" icon={Users} label="Active students" value={formatNumber(activeStudents)} detail={`In ${activeGroups} running groups`} />
+    <section aria-label={tr("Key figures")} className="grid grid-cols-1 gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-2 xl:grid-cols-5 [&>*:last-child]:sm:col-span-2 [&>*:last-child]:xl:col-span-1">
+      <Kpi to="/students?status=active" icon={Users} label={tr("Active students")} value={formatNumber(activeStudents)} detail={tr("In {0} running groups", activeGroups)} />
       <Kpi
         to="/#today-classes"
         icon={CalendarDays}
-        label="Classes today"
+        label={tr("Classes today")}
         value={formatNumber(classes.total)}
         tone={classes.missing > 0 ? 'danger' : 'default'}
         detail={
-          classes.total === 0
-            ? 'No classes today'
-            : classes.missing > 0
-              ? `${classes.missing} ended without attendance`
-              : `${classes.recorded} of ${classes.total} with attendance taken`
+          classes.total === 0 ? tr("No classes today") : classes.missing > 0 ? tr("{0} ended without attendance", classes.missing) : tr("{0} of {1} with attendance taken", classes.recorded, classes.total)
         }
       />
       <Kpi
         to="/attendance"
         icon={ClipboardCheck}
-        label="Attendance today"
+        label={tr("Attendance today")}
         value={today.rate === null ? '—' : formatPercent(today.rate)}
-        detail={today.rate === null ? 'No attendance taken yet today' : `${today.present + today.late} of ${today.total} students came`}
+        detail={today.rate === null ? tr("No attendance taken yet today") : tr("{0} of {1} students came", today.present + today.late, today.total)}
       />
-      <Kpi to="/payments" icon={Wallet} label="Collected this month" value={formatUZSCompact(revenue.total)} detail={`${formatNumber(revenue.count)} payments received`} />
+      <Kpi to="/payments" icon={Wallet} label={tr("Collected this month")} value={formatUZSCompact(revenue.total)} detail={tr("{0} payments received", formatNumber(revenue.count))} />
       <Kpi
         to="/payments?view=owing"
         icon={WalletCards}
-        label="Overdue tuition"
+        label={tr("Overdue tuition")}
         value={formatUZSCompact(outstanding.overdueTotal)}
         tone={outstanding.overdueStudents > 0 ? 'danger' : 'default'}
-        detail={`${outstanding.overdueStudents} students overdue, ${outstanding.students - outstanding.overdueStudents} more not paid yet`}
+        detail={tr("{0} students overdue, {1} more not paid yet", outstanding.overdueStudents, outstanding.students - outstanding.overdueStudents)}
       />
     </section>
   )

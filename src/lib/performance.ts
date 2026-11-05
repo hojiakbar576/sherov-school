@@ -6,15 +6,16 @@
 import type { Homework, HomeworkEvaluation, HomeworkResult, SchoolData } from '../types'
 import { toISODate } from './dates'
 import { studentAttendance } from './metrics'
+import { tr } from '../i18n'
 
 /** What a teacher (or later a parent) sees for one student's homework. */
 export type ResultStatus = 'not_submitted' | 'submitted' | 'late' | 'evaluated'
 
 export const resultStatusLabel: Record<ResultStatus, string> = {
-  not_submitted: 'Not submitted',
-  submitted: 'Submitted',
-  late: 'Late',
-  evaluated: 'Evaluated',
+  not_submitted: tr("Not submitted"),
+  submitted: tr("Submitted"),
+  late: tr("Late"),
+  evaluated: tr("Evaluated"),
 }
 
 export function resultStatus(result: HomeworkResult | undefined): ResultStatus {
@@ -48,9 +49,9 @@ export type Trend = 'improving' | 'steady' | 'declining'
 export type PerformanceLabel = 'excellent' | 'good' | 'needs_improvement'
 
 export const performanceLabelText: Record<PerformanceLabel, string> = {
-  excellent: 'Excellent',
-  good: 'Good',
-  needs_improvement: 'Needs improvement',
+  excellent: tr("Excellent"),
+  good: tr("Good"),
+  needs_improvement: tr("Needs improvement"),
 }
 
 export const trendText: Record<Trend, string> = {

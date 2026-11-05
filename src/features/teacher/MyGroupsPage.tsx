@@ -10,6 +10,7 @@ import { dayPatternLabel, formatPercent } from '../../lib/format'
 import { enrolmentByGroup, summarizeMarks } from '../../lib/metrics'
 import { rateTone } from './teacher-metrics'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 const statusOrder = { active: 0, paused: 1, completed: 2 } as const
 
@@ -21,15 +22,15 @@ export function MyGroupsPage() {
 
   return (
     <>
-      <PageHeader title="My groups" description="Groups you teach. Open one to see its students, attendance and homework." />
+      <PageHeader title={tr("My groups")} description={tr("Groups you teach. Open one to see its students, attendance and homework.")} />
       {groups.length === 0 ? (
         <div className="rounded-panel border border-line bg-surface">
-          <EmptyState icon={UsersRound} title="No groups yet">
-            Your branch administrator assigns groups to teachers.
+          <EmptyState icon={UsersRound} title={tr("No groups yet")}>
+            {tr("Your branch administrator assigns groups to teachers.")}
           </EmptyState>
         </div>
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Your groups">
+        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label={tr("Your groups")}>
           {groups.map((g) => {
             const students = enrolment.get(g.id) ?? 0
             const rate = summarizeMarks(data.attendance.filter((r) => r.groupId === g.id)).rate
@@ -48,30 +49,30 @@ export function MyGroupsPage() {
                   </div>
                   <dl className="num mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                     <div>
-                      <dt className="text-xs text-ink-muted">Schedule</dt>
+                      <dt className="text-xs text-ink-muted">{tr("Schedule")}</dt>
                       <dd className="text-ink">{dayPatternLabel[g.days]}</dd>
                       <dd className="text-ink">
                         {g.startTime}–{endTime(g)}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-ink-muted">Room and branch</dt>
+                      <dt className="text-xs text-ink-muted">{tr("Room and branch")}</dt>
                       <dd className="text-ink">{g.room}</dd>
                       <dd className="text-ink">{branchName.get(g.branchId) ?? '—'}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-ink-muted">Students</dt>
+                      <dt className="text-xs text-ink-muted">{tr("Students")}</dt>
                       <dd className="text-ink">
-                        {students} of {g.capacity}
+                        {students}{' '}{tr("of")}{' '}{g.capacity}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-ink-muted">Attendance</dt>
-                      <dd className={cn('font-medium', rateTone(rate))}>{rate === null ? 'No records' : formatPercent(rate)}</dd>
+                      <dt className="text-xs text-ink-muted">{tr("Attendance")}</dt>
+                      <dd className={cn('font-medium', rateTone(rate))}>{rate === null ? tr("No records") : formatPercent(rate)}</dd>
                     </div>
                   </dl>
                   <span className="mt-4 flex items-center gap-1 border-t border-line pt-3 text-sm font-medium text-brand">
-                    Open group
+                    {tr("Open group")}
                     <ChevronRight aria-hidden className="size-4" />
                   </span>
                 </Link>

@@ -7,6 +7,7 @@ import { StudentsPage } from '../features/students/StudentsPage'
 import { StudentDetailPage } from '../features/students/StudentDetailPage'
 import { TeachersPage } from '../features/teachers/TeachersPage'
 import { GroupsPage } from '../features/groups/GroupsPage'
+import { GroupDetailPage } from '../features/groups/GroupDetailPage'
 import { AttendancePage } from '../features/attendance/AttendancePage'
 import { SchedulePage } from '../features/schedule/SchedulePage'
 import { PaymentsPage } from '../features/payments/PaymentsPage'
@@ -41,7 +42,7 @@ import { ActivityPage } from '../features/activity/ActivityPage'
 import { ReceiptPage } from '../features/payments/ReceiptPage'
 
 // The owner has their own pages under /owner and can also use every administrator page (for any branch).
-const MANAGERS = ['admin', 'reception', 'accountant', 'owner'] as const
+const MANAGERS = ['admin', 'accountant', 'owner'] as const
 const OWNER = ['owner'] as const
 const TEACHERS = ['teacher'] as const
 
@@ -83,6 +84,7 @@ export function App() {
         <Route path="leads" element={<LeadsPage />} />
         <Route path="leads/:leadId" element={<LeadDetailPage />} />
         <Route path="groups" element={<GroupsPage />} />
+        <Route path="groups/:groupId" element={<GroupDetailPage />} />
         <Route path="assessments" element={<AssessmentsPage />} />
         <Route path="assessments/:assessmentId" element={<AssessmentDetailPage />} />
         <Route path="attendance" element={<AttendancePage />} />

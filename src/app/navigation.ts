@@ -27,6 +27,7 @@ import {
 import type { Role } from '../types'
 import { t } from '../i18n'
 import { canOpen } from './permissions'
+import { tr } from '../i18n'
 
 export interface NavItem {
   to: string
@@ -105,18 +106,18 @@ const TEACHER_NAV: PortalNav = {
     {
       label: '',
       items: [
-        { to: '/teacher', label: 'Home', icon: House },
-        { to: '/teacher/students', label: 'Students', icon: GraduationCap },
-        { to: '/teacher/statistics', label: 'Statistics', icon: ChartColumn },
-        { to: '/teacher/homework', label: 'Homework', icon: NotebookPen },
-        { to: '/teacher/profile', label: 'Profile', icon: UserRound },
+        { to: '/teacher', label: tr("Home"), icon: House },
+        { to: '/teacher/students', label: tr("Students"), icon: GraduationCap },
+        { to: '/teacher/statistics', label: tr("Statistics"), icon: ChartColumn },
+        { to: '/teacher/homework', label: tr("Homework"), icon: NotebookPen },
+        { to: '/teacher/profile', label: tr("Profile"), icon: UserRound },
       ],
     },
   ],
   hidden: [
-    { to: '/teacher/notifications', label: 'Notifications' },
-    { to: '/teacher/groups', label: 'Group' },
-    { to: '/teacher/schedule', label: 'Schedule' },
+    { to: '/teacher/notifications', label: tr("Notifications") },
+    { to: '/teacher/groups', label: tr("Group") },
+    { to: '/teacher/schedule', label: tr("Schedule") },
   ],
 }
 
@@ -182,7 +183,7 @@ export function pageTitle(pathname: string, role: Role = 'admin'): string {
   const nav = navFor(role)
   const items = [...nav.sections.flatMap((s) => s.items), ...(nav.footer ? [nav.footer] : []), ...(nav.hidden ?? [])]
   const home = nav.base || '/'
-  if (pathname === home || pathname === `${home}/`) return role === 'teacher' ? 'Home' : 'Dashboard'
+  if (pathname === home || pathname === `${home}/`) return role === 'teacher' ? tr("Home") : tr("Dashboard")
   const match = items
     .filter((item) => item.to !== home && (pathname === item.to || pathname.startsWith(`${item.to}/`)))
     .sort((a, b) => b.to.length - a.to.length)[0]

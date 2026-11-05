@@ -3,6 +3,7 @@ import { SessionStatusBadge } from '../../components/StatusBadges'
 import { atTime, toISODate } from '../../lib/dates'
 import { formatDayShort } from '../../lib/format'
 import type { Session } from '../../lib/metrics'
+import { tr } from '../../i18n'
 
 interface ClassListProps {
   sessions: Session[]
@@ -24,7 +25,7 @@ export function ClassList({ sessions, now, withDay, action, label }: ClassListPr
         return (
           <li key={`${s.group.id}-${s.date}`} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
             <div className="num w-24 shrink-0 text-sm">
-              {withDay && <p className="text-xs text-ink-muted">{s.date === today ? 'Today' : formatDayShort(atTime(s.date, s.start))}</p>}
+              {withDay && <p className="text-xs text-ink-muted">{s.date === today ? tr("Today") : formatDayShort(atTime(s.date, s.start))}</p>}
               <p className="font-medium text-ink">
                 {s.start}–{s.end}
               </p>
@@ -32,7 +33,7 @@ export function ClassList({ sessions, now, withDay, action, label }: ClassListPr
             <div className="min-w-0 flex-1 basis-40">
               <p className="truncate text-sm font-medium text-ink">{s.group.name}</p>
               <p className="num truncate text-xs text-ink-muted">
-                {s.group.room} · {s.enrolled} {s.enrolled === 1 ? 'student' : 'students'}
+                {s.group.room} · {s.enrolled} {s.enrolled === 1 ? tr("student") : tr("students")}
               </p>
             </div>
             <SessionStatusBadge status={s.status} />
@@ -41,7 +42,7 @@ export function ClassList({ sessions, now, withDay, action, label }: ClassListPr
                 {linkText}
                 <span className="sr-only">
                   {' '}
-                  for {s.group.name}, {s.date}
+                  {tr("for")}{' '}{s.group.name}, {s.date}
                 </span>
               </Link>
             )}

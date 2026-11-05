@@ -4,27 +4,29 @@ import { useSchool } from '../../data/school-context'
 import { roleLabel } from '../../lib/auth'
 import { initials } from '../../lib/format'
 import { Popover } from '../ui/Popover'
+import { tr } from '../../i18n'
+import { LanguageSwitcher } from './LanguageSwitcher'
 
 export function ProfileMenu() {
   const { user, branch, data, signOut } = useSchool()
   const navigate = useNavigate()
   if (!user) return null
   const isManager = user.role !== 'teacher'
-  const place = branch ? `${branch.name} branch` : 'All branches'
+  const place = branch ? tr('{0} branch', branch.name) : tr('All branches')
 
   return (
     <Popover
-      label="Account"
+      label={tr("Account")}
       className="w-72"
       trigger={(props) => (
-        <button type="button" {...props} aria-label={`Account menu, ${user.fullName}`} className="flex h-10 items-center gap-2 rounded-control pr-1.5 pl-1 hover:bg-subtle">
+        <button type="button" {...props} aria-label={tr("Account menu, {0}", user.fullName)} className="flex h-10 items-center gap-2 rounded-control pr-1.5 pl-1 hover:bg-subtle">
           <span aria-hidden className="flex size-8 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
             {initials(user.fullName)}
           </span>
           <span className="hidden text-left leading-tight xl:block">
             <span className="block max-w-40 truncate text-sm font-medium text-ink">{user.fullName}</span>
             <span className="block text-xs text-ink-muted">
-              {roleLabel[user.role]}, {branch?.name ?? 'all branches'}
+              {roleLabel[user.role]}, {branch?.name ?? tr("all branches")}
             </span>
           </span>
           <ChevronDown aria-hidden className="hidden size-4 text-ink-faint sm:block" />
@@ -46,13 +48,13 @@ export function ProfileMenu() {
                 <li>
                   <Link to={user.role === 'owner' ? '/owner/settings' : '/settings'} onClick={close} className="flex items-center gap-3 px-4 py-2 text-sm text-ink hover:bg-subtle">
                     <Settings aria-hidden className="size-4 text-ink-faint" />
-                    Centre settings
+                    {tr("Centre settings")}
                   </Link>
                 </li>
                 <li>
                   <Link to="/settings#demo-data" onClick={close} className="flex items-center gap-3 px-4 py-2 text-sm text-ink hover:bg-subtle">
                     <RotateCcw aria-hidden className="size-4 text-ink-faint" />
-                    Reset demo data
+                    {tr("Reset demo data")}
                   </Link>
                 </li>
               </>
@@ -68,12 +70,13 @@ export function ProfileMenu() {
                 className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-ink hover:bg-subtle"
               >
                 <LogOut aria-hidden className="size-4 text-ink-faint" />
-                Sign out
+                {tr("Sign out")}
               </button>
             </li>
           </ul>
+          <LanguageSwitcher showLabel className="justify-between border-t border-line px-4 py-2.5" />
           <p className="border-t border-line px-4 py-2.5 text-xs text-ink-muted">
-            Temporary demo sign-in. Not secure; for trying the app only.
+            {tr("Temporary demo sign-in. Not secure; for trying the app only.")}
           </p>
         </>
       )}

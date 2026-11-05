@@ -14,6 +14,7 @@ import { cn } from '../../../lib/cn'
 import { GradeChip } from './GradeChip'
 import { gradeTone } from './grade-style'
 import { ToolButton } from './ToolButton'
+import { tr } from '../../../i18n'
 
 /** What a tap on a student does. Pick it once, then tap as many students as needed. */
 type Tool = 'absent' | 'late' | Grade | 'clear'
@@ -37,7 +38,7 @@ export function LessonSheet({ group, date, onClose }: Props) {
       onClose={onClose}
       size="lg"
       title={date ? `${group.name} · ${formatDayShort(parseISODate(date))}` : group.name}
-      description="Everyone is present by default. Pick a mark, then tap the students it applies to."
+      description={tr("Everyone is present by default. Pick a mark, then tap the students it applies to.")}
     >
       {date && <Sheet key={date} group={group} date={date} onClose={onClose} />}
     </Dialog>
@@ -120,15 +121,15 @@ function Sheet({ group, date, onClose }: { group: Group; date: ISODate; onClose:
   const save = () => {
     const ok = actions.saveAttendance(group.id, date, marks, existing?.comments, grades)
     if (!ok) {
-      toast.show('This lesson could not be saved.', 'error')
+      toast.show(tr("This lesson could not be saved."), 'error')
       return
     }
-    toast.show(`Saved: ${students.length - absent} present, ${absent} absent, ${graded} graded.`, 'success')
+    toast.show(tr("Saved: {0} present, {1} absent, {2} graded.", students.length - absent, absent, graded), 'success')
     onClose()
   }
 
   if (students.length === 0) {
-    return <p className="text-sm text-ink-muted">There are no students in this group on this day.</p>
+    return <p className="text-sm text-ink-muted">{tr("There are no students in this group on this day.")}</p>
   }
 
   return (
@@ -136,14 +137,14 @@ function Sheet({ group, date, onClose }: { group: Group; date: ISODate; onClose:
       {/* The palette: pick a mark first. */}
       <div className="sticky -top-5 z-10 -mx-5 -mt-5 border-b border-line bg-surface/95 px-5 py-3 backdrop-blur">
         <p id="tool-label" className="mb-2 text-xs font-medium text-ink-muted">
-          1. Pick a mark
+          {tr("1. Pick a mark")}
         </p>
         <div role="radiogroup" aria-labelledby="tool-label" className="flex flex-wrap gap-2">
           <ToolButton active={tool === 'absent'} onClick={() => setTool('absent')} shortcut="A" className="data-[active=true]:bg-danger data-[active=true]:text-white">
-            <UserX aria-hidden className="size-4" /> Absent
+            <UserX aria-hidden className="size-4" />{' '}{tr("Absent")}
           </ToolButton>
           <ToolButton active={tool === 'late'} onClick={() => setTool('late')} shortcut="L" className="data-[active=true]:bg-warning-mark data-[active=true]:text-ink">
-            <Clock aria-hidden className="size-4" /> Late
+            <Clock aria-hidden className="size-4" />{' '}{tr("Late")}
           </ToolButton>
           <span aria-hidden className="mx-1 hidden w-px self-stretch bg-line sm:block" />
           {GRADES.map((g) => (
@@ -152,23 +153,23 @@ function Sheet({ group, date, onClose }: { group: Group; date: ISODate; onClose:
               active={tool === g}
               onClick={() => setTool(g)}
               shortcut={String(g)}
-              label={`Grade ${g}`}
+              label={tr("Grade {0}", g)}
               className={cn('w-12 justify-center text-base font-semibold', tool === g && gradeTone[g])}
             >
               {g}
             </ToolButton>
           ))}
           <ToolButton active={tool === 'clear'} onClick={() => setTool('clear')} shortcut="C" className="data-[active=true]:bg-ink data-[active=true]:text-white">
-            <Eraser aria-hidden className="size-4" /> Clear
+            <Eraser aria-hidden className="size-4" />{' '}{tr("Clear")}
           </ToolButton>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-medium text-ink-muted">2. Tap the students it applies to</p>
+        <p className="text-xs font-medium text-ink-muted">{tr("2. Tap the students it applies to")}</p>
         {typeof tool === 'number' && ungraded.length > 0 && (
           <button type="button" onClick={() => giveRest(tool)} className="text-sm font-medium text-brand hover:underline">
-            Give {tool} to the {ungraded.length} not graded yet
+            {tr("Give {0} to the {1} not graded yet", tool, ungraded.length)}
           </button>
         )}
       </div>
@@ -182,7 +183,7 @@ function Sheet({ group, date, onClose }: { group: Group; date: ISODate; onClose:
               <button
                 type="button"
                 onClick={() => apply(s.id)}
-                aria-label={`${s.fullName}: ${mark}${grade ? `, grade ${grade}` : ''}`}
+                aria-label={`${s.fullName}: ${tr(mark === 'absent' ? 'Absent' : mark === 'late' ? 'Late' : 'Present')}${grade ? `, ${tr('Grade {0}', grade)}` : ''}`}
                 className={cn(
                   'flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors active:scale-[0.99]',
                   mark === 'absent' ? 'border-danger-mark/40 bg-danger-soft' : mark === 'late' ? 'border-warning-mark/50 bg-warning-soft' : 'border-line bg-surface hover:border-line-strong hover:bg-canvas',
@@ -190,8 +191,8 @@ function Sheet({ group, date, onClose }: { group: Group; date: ISODate; onClose:
               >
                 <Avatar name={s.fullName} size="sm" />
                 <span className={cn('min-w-0 flex-1 truncate text-sm font-medium', mark === 'absent' ? 'text-danger' : 'text-ink')}>{s.fullName}</span>
-                {mark === 'absent' && <span className="text-xs font-semibold text-danger">Absent</span>}
-                {mark === 'late' && <span className="text-xs font-semibold text-warning">Late</span>}
+                {mark === 'absent' && <span className="text-xs font-semibold text-danger">{tr("Absent")}</span>}
+                {mark === 'late' && <span className="text-xs font-semibold text-warning">{tr("Late")}</span>}
                 {grade ? (
                   <GradeChip grade={grade} />
                 ) : (
@@ -209,14 +210,14 @@ function Sheet({ group, date, onClose }: { group: Group; date: ISODate; onClose:
 
       <div className="sticky -bottom-5 -mx-5 -mb-5 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-canvas px-5 py-3">
         <p className="num text-sm text-ink-muted" aria-live="polite">
-          <span className="font-semibold text-ink">{students.length - absent}</span> present
-          {late > 0 && ` (${late} late)`} · <span className={cn('font-semibold', absent ? 'text-danger' : 'text-ink')}>{absent}</span> absent ·{' '}
-          <span className="font-semibold text-ink">{graded}</span> graded
+          <span className="font-semibold text-ink">{students.length - absent}</span>{' '}{tr("present")}
+          {late > 0 && tr(" ({0} late)", late)} · <span className={cn('font-semibold', absent ? 'text-danger' : 'text-ink')}>{absent}</span>{' '}{tr("absent ·")}{' '}
+          <span className="font-semibold text-ink">{graded}</span>{' '}{tr("graded")}
         </p>
         <div className="flex gap-2">
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>{tr("Cancel")}</Button>
           <Button variant="primary" onClick={save}>
-            {existing ? 'Save changes' : 'Save lesson'}
+            {existing ? tr("Save changes") : tr("Save lesson")}
           </Button>
         </div>
       </div>

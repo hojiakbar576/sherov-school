@@ -1,21 +1,11 @@
 // The admissions pipeline: enquiry → contacted → trial lesson → placement →
-// enrolled (or lost). Labels and the "what's next" rules live here so the
-// Leads pages, the dashboard and notifications all say the same thing.
+// enrolled (or lost). The "what's next" rules live here so the Leads pages,
+// the dashboard and notifications all say the same thing. The stage list
+// itself (names, colours, order) is data the owner manages: lib/lead-stages.ts.
 
-import type { ISODate, Lead, LeadStage } from '../types'
+import type { ISODate, Lead } from '../types'
 import { formatDate } from './format'
-
-export const leadStageLabel: Record<LeadStage, string> = {
-  new: 'New enquiry',
-  contacted: 'Contacted',
-  trial_scheduled: 'Trial scheduled',
-  trial_done: 'Trial done',
-  enrolled: 'Enrolled',
-  lost: 'Lost',
-}
-
-/** The stages a lead moves through, in order (lost is off to the side). */
-export const PIPELINE: LeadStage[] = ['new', 'contacted', 'trial_scheduled', 'trial_done', 'enrolled']
+import { tr } from '../i18n'
 
 export const LEAD_SOURCES = ['Instagram', 'Telegram channel', 'Friend’s recommendation', 'Walk-in', 'Google Maps', 'School flyer', 'Phone call', 'Other']
 export const LOST_REASONS = ['Price too high', 'Chose another centre', 'Schedule doesn’t fit', 'Not answering calls', 'Not interested any more', 'Other']
@@ -28,19 +18,22 @@ export function isOpenLead(lead: Lead): boolean {
 export function nextStep(lead: Lead, today: ISODate): string {
   switch (lead.stage) {
     case 'new':
-      return 'Call back'
+      return tr("Call back")
     case 'contacted':
-      return 'Schedule a trial lesson'
+      return tr("Schedule a trial lesson")
     case 'trial_scheduled':
-      if (!lead.trial) return 'Schedule a trial lesson'
-      if (lead.trial.date < today) return 'Record the trial result'
-      return lead.trial.date === today ? `Trial today at ${lead.trial.time}` : `Trial ${formatDate(lead.trial.date)}, ${lead.trial.time}`
+      if (!lead.trial) return tr("Schedule a trial lesson")
+      if (lead.trial.date < today) return tr("Record the trial result")
+      return lead.trial.date === today ? tr("Trial today at {0}", lead.trial.time) : tr("Trial {0}, {1}", formatDate(lead.trial.date), lead.trial.time)
     case 'trial_done':
-      return 'Enroll as a student'
+      return tr("Enroll as a student")
     case 'enrolled':
-      return 'Enrolled'
+      return tr("Enrolled")
     case 'lost':
-      return lead.lostReason ? `Lost: ${lead.lostReason}` : 'Lost'
+      return lead.lostReason ? tr("Lost: {0}", lead.lostReason) : tr("Lost")
+    default:
+      // A stage the owner added: no automatic step, the team moves it on.
+      return tr("Move to the next stage when ready")
   }
 }
 

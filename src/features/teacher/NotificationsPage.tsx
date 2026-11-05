@@ -11,6 +11,7 @@ import { EmptyState } from '../../components/ui/misc'
 import { formatRelative } from '../../lib/format'
 import { notificationIcon, notificationKindLabel, teacherNotifications } from '../../lib/notifications'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 const FILTERS = ['kind', 'show'] as const
 const KINDS: NotificationKind[] = ['schedule', 'announcement', 'homework', 'admin']
@@ -27,26 +28,26 @@ export function NotificationsPage() {
   return (
     <>
       <PageHeader
-        title="Notifications"
-        description="Schedule changes, announcements, homework deadlines and messages from your administrator."
+        title={tr("Notifications")}
+        description={tr("Schedule changes, announcements, homework deadlines and messages from your administrator.")}
         actions={
           <Button onClick={() => actions.markNotificationsRead(unreadIds)} disabled={unreadIds.length === 0}>
-            Mark all as read
+            {tr("Mark all as read")}
           </Button>
         }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <RangeToggle
-          label="Show"
+          label={tr("Show")}
           value={values.show === 'unread' ? 'unread' : 'all'}
           onChange={(v) => set('show', v === 'all' ? '' : v)}
           options={[
-            { value: 'all', label: `All (${all.length})` },
-            { value: 'unread', label: `Unread (${unreadIds.length})` },
+            { value: 'all', label: tr("All ({0})", all.length) },
+            { value: 'unread', label: tr("Unread ({0})", unreadIds.length) },
           ]}
         />
-        <div role="group" aria-label="Filter by type" className="flex flex-wrap gap-1.5">
+        <div role="group" aria-label={tr("Filter by type")} className="flex flex-wrap gap-1.5">
           {KINDS.map((kind) => (
             <button
               key={kind}
@@ -66,8 +67,8 @@ export function NotificationsPage() {
 
       <div className="rounded-panel border border-line bg-surface">
         {shown.length === 0 ? (
-          <EmptyState icon={BellOff} title="Nothing here">
-            {values.show === 'unread' ? 'You’ve read everything.' : 'No notifications of this type.'}
+          <EmptyState icon={BellOff} title={tr("Nothing here")}>
+            {values.show === 'unread' ? tr("You’ve read everything.") : tr("No notifications of this type.")}
           </EmptyState>
         ) : (
           <ul className="divide-y divide-line">
@@ -84,19 +85,19 @@ export function NotificationsPage() {
                       {notificationKindLabel[n.kind]} · {formatRelative(n.createdAt, now)}
                     </p>
                     <h2 className={cn('text-sm text-ink', isUnread ? 'font-semibold' : 'font-medium')}>
-                      {isUnread && <span className="sr-only">Unread: </span>}
+                      {isUnread && <span className="sr-only">{tr("Unread:")}{' '}</span>}
                       {n.title}
                     </h2>
                     <p className="mt-0.5 max-w-[70ch] text-sm text-ink-muted">{n.body}</p>
                     <div className="mt-2 flex flex-wrap gap-4 text-sm">
                       {n.link && (
                         <Link to={n.link} onClick={() => actions.markNotificationsRead([n.id])} className="font-medium text-brand hover:underline">
-                          Open
+                          {tr("Open")}
                         </Link>
                       )}
                       {isUnread && (
                         <button type="button" onClick={() => actions.markNotificationsRead([n.id])} className="font-medium text-ink-muted hover:text-ink">
-                          Mark as read
+                          {tr("Mark as read")}
                         </button>
                       )}
                     </div>

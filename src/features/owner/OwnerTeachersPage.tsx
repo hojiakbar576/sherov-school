@@ -18,6 +18,7 @@ import { formatDate, formatMonth, formatPercent, formatUZS } from '../../lib/for
 import { BONUS_PLACES, RATING_PART_LABEL, RATING_PARTS, RATING_WEIGHTS, teacherRatings } from '../../lib/rating'
 import { enrolmentByGroup } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 /**
  * Every teacher across the branches: the monthly rating (with bonuses for
@@ -40,19 +41,19 @@ export function OwnerTeachersPage() {
 
   return (
     <>
-      <PageHeader title="Teachers & rating" description="Who is putting in the work each month, bonuses, and which branch each teacher works at." />
+      <PageHeader title={tr("Teachers & rating")} description={tr("Who is putting in the work each month, bonuses, and which branch each teacher works at.")} />
 
       <Panel
-        title={`Rating for ${formatMonth(month)}`}
-        description={`Out of 100, from what teachers do day to day: ${RATING_PARTS.map((p) => `${RATING_PART_LABEL[p].title.toLowerCase()} (${RATING_WEIGHTS[p]})`).join(', ')}. How high their grades are doesn’t count. The top ${BONUS_PLACES} can get a bonus.`}
+        title={tr("Rating for {0}", formatMonth(month))}
+        description={tr("Out of 100, from what teachers do day to day: {0}. How high their grades are doesn’t count. The top {1} can get a bonus.", RATING_PARTS.map((p) => `${RATING_PART_LABEL[p].title.toLowerCase()} (${RATING_WEIGHTS[p]})`).join(', '), BONUS_PLACES)}
         actions={
           <RangeToggle
-            label="Month"
+            label={tr("Month")}
             value={which}
             onChange={setWhich}
             options={[
-              { value: 'last', label: 'Last month' },
-              { value: 'this', label: 'This month so far' },
+              { value: 'last', label: tr("Last month") },
+              { value: 'this', label: tr("This month so far") },
             ]}
           />
         }
@@ -60,18 +61,18 @@ export function OwnerTeachersPage() {
       >
         <TableScroll>
           <table className="w-full min-w-[820px] text-sm">
-            <caption className="sr-only">Teacher rating for {formatMonth(month)}</caption>
+            <caption className="sr-only">{tr("Teacher rating for")}{' '}{formatMonth(month)}</caption>
             <thead className="border-y border-line bg-canvas">
               <tr>
-                <th scope="col" className={cn(th, 'w-14')}>Place</th>
-                <th scope="col" className={th}>Teacher</th>
-                <th scope="col" className={cn(th, 'text-right')}>Score</th>
+                <th scope="col" className={cn(th, 'w-14')}>{tr("Place")}</th>
+                <th scope="col" className={th}>{tr("Teacher")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Score")}</th>
                 {RATING_PARTS.map((p) => (
                   <th key={p} scope="col" className={cn(th, 'hidden text-right lg:table-cell')} title={RATING_PART_LABEL[p].detail}>
                     {RATING_PART_LABEL[p].title}
                   </th>
                 ))}
-                <th scope="col" className={cn(th, 'text-right')}>Bonus</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Bonus")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -111,7 +112,7 @@ export function OwnerTeachersPage() {
                       ) : (
                         <Button size="sm" variant={inBonus ? 'secondary' : 'ghost'} onClick={() => setAwarding({ teacherId: r.teacherId, place: r.rank })}>
                           <Gift aria-hidden />
-                          Award
+                          {tr("Award")}
                         </Button>
                       )}
                     </td>
@@ -121,16 +122,16 @@ export function OwnerTeachersPage() {
             </tbody>
           </table>
         </TableScroll>
-        {ratings.length === 0 && <p className="px-5 py-4 text-sm text-ink-muted">No teacher had running groups this month.</p>}
+        {ratings.length === 0 && <p className="px-5 py-4 text-sm text-ink-muted">{tr("No teacher had running groups this month.")}</p>}
       </Panel>
 
       <Panel
-        title="All teachers"
-        description="Only you can move a teacher to another branch. Their history stays with them."
+        title={tr("All teachers")}
+        description={tr("Only you can move a teacher to another branch. Their history stays with them.")}
         className="mt-6"
         actions={
-          <Select aria-label="Filter by branch" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="h-9 w-44">
-            <option value="">All branches</option>
+          <Select aria-label={tr("Filter by branch")} value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="h-9 w-44">
+            <option value="">{tr("All branches")}</option>
             {data.branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -144,13 +145,13 @@ export function OwnerTeachersPage() {
           <table className="w-full min-w-[760px] text-sm">
             <thead className="border-y border-line bg-canvas">
               <tr>
-                <th scope="col" className={th}>Teacher</th>
-                <th scope="col" className={th}>Branch</th>
-                <th scope="col" className={cn(th, 'text-right')}>Groups</th>
-                <th scope="col" className={cn(th, 'text-right')}>Students</th>
-                <th scope="col" className={cn(th, 'text-right')}>Pay share</th>
-                <th scope="col" className={th}>Status</th>
-                <th scope="col" className={th}><span className="sr-only">Actions</span></th>
+                <th scope="col" className={th}>{tr("Teacher")}</th>
+                <th scope="col" className={th}>{tr("Branch")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Groups")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Students")}</th>
+                <th scope="col" className={cn(th, 'text-right')}>{tr("Pay share")}</th>
+                <th scope="col" className={th}>{tr("Status")}</th>
+                <th scope="col" className={th}><span className="sr-only">{tr("Actions")}</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -171,7 +172,7 @@ export function OwnerTeachersPage() {
                     </td>
                     <td className={td}>
                       {branchName.get(t.branchId)}
-                      {history.length > 1 && <span className="block text-xs text-ink-muted">since {formatDate(history[history.length - 1].from)}</span>}
+                      {history.length > 1 && <span className="block text-xs text-ink-muted">{tr("since")}{' '}{formatDate(history[history.length - 1].from)}</span>}
                     </td>
                     <td className={cn(td, 'num text-right')}>{groups.length}</td>
                     <td className={cn(td, 'num text-right')}>{groups.reduce((s, g) => s + (enrolment.get(g.id) ?? 0), 0)}</td>
@@ -182,7 +183,7 @@ export function OwnerTeachersPage() {
                     <td className={cn(td, 'text-right')}>
                       <Button size="sm" variant="ghost" onClick={() => setMoving(t)}>
                         <ArrowRightLeft aria-hidden />
-                        Move
+                        {tr("Move")}
                       </Button>
                     </td>
                   </tr>
@@ -204,10 +205,10 @@ function BonusDelete({ id }: { id: string }) {
   const toast = useToast()
   return (
     <IconButton
-      label="Remove this bonus"
+      label={tr("Remove this bonus")}
       onClick={() => {
         actions.deleteBonus(id)
-        toast.show('Bonus removed.')
+        toast.show(tr("Bonus removed."))
       }}
       className="size-7 hover:bg-danger-soft hover:text-danger"
     >
@@ -220,7 +221,7 @@ function BonusDelete({ id }: { id: string }) {
 
 function MoveTeacherDialog({ teacher, onClose }: { teacher: Teacher | null; onClose: () => void }) {
   return (
-    <Dialog open={teacher !== null} onClose={onClose} title="Move to another branch" description={teacher ? `${teacher.fullName}. Their history and past pay stay on record.` : undefined}>
+    <Dialog open={teacher !== null} onClose={onClose} title={tr("Move to another branch")} description={teacher ? tr("{0}. Their history and past pay stay on record.", teacher.fullName) : undefined}>
       {teacher && <MoveTeacherForm teacher={teacher} onClose={onClose} />}
     </Dialog>
   )
@@ -241,23 +242,23 @@ function MoveTeacherForm({ teacher, onClose }: { teacher: Teacher; onClose: () =
     if (!isValidISODate(on)) return setError('Choose the date of the move.')
     const result = actions.transferTeacher(teacher.id, to, on)
     if (!result.ok) return setError(result.reason)
-    toast.show(`${teacher.fullName} now works at ${data.branches.find((b) => b.id === to)?.name}.`)
+    toast.show(tr("{0} now works at {1}.", teacher.fullName, data.branches.find((b) => b.id === to)?.name))
     onClose()
   }
 
   return (
     <form onSubmit={submit} noValidate className="space-y-4">
       <p className="rounded-control bg-subtle px-3 py-2 text-sm text-ink-muted">
-        Now at <span className="font-medium text-ink">{data.branches.find((b) => b.id === teacher.branchId)?.name}</span>.
+        {tr("Now at")}{' '}<span className="font-medium text-ink">{data.branches.find((b) => b.id === teacher.branchId)?.name}</span>.
         {groups.length > 0 && (
           <>
             {' '}
-            Still teaches {groups.map((g) => g.name).join(', ')}. A group stays at its branch, so give these groups another teacher first.
+            {tr("Still teaches")}{' '}{groups.map((g) => g.name).join(', ')}{tr(". A group stays at its branch, so give these groups another teacher first.")}
           </>
         )}
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="New branch">
+        <Field label={tr("New branch")}>
           {(p) => (
             <Select {...p} value={to} onChange={(e) => setTo(e.target.value)}>
               {others.map((b) => (
@@ -268,14 +269,14 @@ function MoveTeacherForm({ teacher, onClose }: { teacher: Teacher; onClose: () =
             </Select>
           )}
         </Field>
-        <Field label="From" error={error || undefined}>
+        <Field label={tr("From")} error={error || undefined}>
           {(p) => <Input {...p} type="date" value={on} onChange={(e) => setOn(e.target.value)} />}
         </Field>
       </div>
       <div className="flex justify-end gap-2 border-t border-line pt-4">
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{tr("Cancel")}</Button>
         <Button type="submit" variant="primary" disabled={groups.length > 0}>
-          Move teacher
+          {tr("Move teacher")}
         </Button>
       </div>
     </form>
@@ -288,7 +289,7 @@ function BonusDialog({ award, month, onClose }: { award: { teacherId: string; pl
   const { owner } = useSchool()
   const teacher = owner?.data.teachers.find((t) => t.id === award?.teacherId)
   return (
-    <Dialog open={award !== null} onClose={onClose} title="Award a bonus" description={teacher ? `${teacher.fullName}, ${formatMonth(month)}. Place ${award?.place} in the rating.` : undefined} size="sm">
+    <Dialog open={award !== null} onClose={onClose} title={tr("Award a bonus")} description={teacher ? tr("{0}, {1}. Place {2} in the rating.", teacher.fullName, formatMonth(month), award?.place) : undefined} size="sm">
       {award && <BonusForm award={award} month={month} onClose={onClose} />}
     </Dialog>
   )
@@ -305,21 +306,21 @@ function BonusForm({ award, month, onClose }: { award: { teacherId: string; plac
     const n = Number(amount)
     if (!Number.isFinite(n) || n <= 0) return setError('Enter the amount in UZS.')
     actions.awardBonus({ teacherId: award.teacherId, month, place: award.place, amount: Math.round(n), note: note.trim() || undefined })
-    toast.show(`Bonus of ${formatUZS(Math.round(n))} recorded.`)
+    toast.show(tr("Bonus of {0} recorded.", formatUZS(Math.round(n))))
     onClose()
   }
   return (
     <form onSubmit={submit} noValidate className="space-y-4">
-      <Field label="Amount (UZS)" error={error || undefined} hint="Recorded here only; paying it out happens outside the app.">
+      <Field label={tr("Amount (UZS)")} error={error || undefined} hint={tr("Recorded here only; paying it out happens outside the app.")}>
         {(p) => <Input {...p} type="number" inputMode="numeric" min={0} step={50000} value={amount} onChange={(e) => setAmount(e.target.value)} />}
       </Field>
-      <Field label="Note" optional>
+      <Field label={tr("Note")} optional>
         {(p) => <Input {...p} value={note} maxLength={120} onChange={(e) => setNote(e.target.value)} />}
       </Field>
       <div className="flex justify-end gap-2 border-t border-line pt-4">
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{tr("Cancel")}</Button>
         <Button type="submit" variant="primary">
-          Award bonus
+          {tr("Award bonus")}
         </Button>
       </div>
     </form>

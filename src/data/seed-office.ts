@@ -1,10 +1,11 @@
 // Sample front-office and finance data: the lists the school manages
-// (payment methods, expense categories, tags, reasons), receptionist and
-// accountant accounts, receipts, expenses, salary payouts, staff attendance,
+// (payment methods, expense categories, tags, reasons), accountant
+// accounts, receipts, expenses, salary payouts, staff attendance,
 // call/message logs and extra lessons. Used by the demo generator and by the
 // upgrade of older saved data. Derived from ids and dates, so the same demo
 // day always gives the same records.
 
+import { levelId } from '../lib/courses'
 import type {
   Catalogs,
   ContactLog,
@@ -26,6 +27,7 @@ import { addDays, addMonths, atTime, isoWeekday, monthKey, monthRange, toISODate
 import { meetsOn } from '../lib/schedule'
 import { teacherSalary } from '../lib/salary'
 import { randomFor } from './seed-learning'
+import { defaultLeadStages } from '../lib/lead-stages'
 
 const item = (prefix: string, name: string): ListItem => ({ id: `${prefix}_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`, name, active: true })
 
@@ -57,7 +59,11 @@ const COURSE_LEVELS: Record<string, { levels: string[]; fee: number }> = {
 }
 
 export function withCourseLevels(courses: Course[]): Course[] {
-  return courses.map((c) => (c.levels ? c : { ...c, levels: COURSE_LEVELS[c.name]?.levels ?? [], defaultFee: COURSE_LEVELS[c.name]?.fee }))
+  return courses.map((c) =>
+    c.levels?.length
+      ? c
+      : { ...c, levels: (COURSE_LEVELS[c.name]?.levels ?? []).map((name) => ({ id: levelId(c.id, name), name, active: true })), defaultFee: COURSE_LEVELS[c.name]?.fee },
+  )
 }
 
 /** The level a sample group teaches, worked out from its name. */
@@ -66,21 +72,17 @@ function levelFor(group: Group): string | undefined {
   return levels.find((l) => group.name.toLowerCase().includes(l.toLowerCase().split(' ')[0]))
 }
 
-const OFFICE_STAFF: Record<string, [string, string]> = {
-  br_bashlik: ['Shahnoza Rasulova', 'Ozoda Mirzayeva'],
-  br_chilonzor: ['Dilfuza Hamidova', 'Nodira Sobirova'],
-  br_quyliq: ['Barno Tursunova', 'Lola Karimova'],
+const OFFICE_STAFF: Record<string, string> = {
+  br_bashlik: 'Ozoda Mirzayeva',
+  br_chilonzor: 'Nodira Sobirova',
+  br_quyliq: 'Lola Karimova',
 }
 
-/** A receptionist and an accountant at each branch (demo accounts). */
+/** One accountant at each branch (demo accounts). The branch administrator also runs the front desk. */
 export function officeUsers(branchIds: string[], now: Date): User[] {
-  return branchIds.flatMap((branchId) => {
+  return branchIds.map((branchId) => {
     const short = branchId.replace('br_', '')
-    const [reception, accountant] = OFFICE_STAFF[branchId] ?? ['Receptionist', 'Accountant']
-    return [
-      { id: `usr_reception_${short}`, role: 'reception' as const, fullName: reception, username: `reception.${short}`, branchId, active: true, createdAt: now.toISOString() },
-      { id: `usr_accountant_${short}`, role: 'accountant' as const, fullName: accountant, username: `accountant.${short}`, branchId, active: true, createdAt: now.toISOString() },
-    ]
+    return { id: `usr_accountant_${short}`, role: 'accountant' as const, fullName: OFFICE_STAFF[branchId] ?? 'Accountant', username: `accountant.${short}`, branchId, active: true, createdAt: now.toISOString() }
   })
 }
 
@@ -136,7 +138,7 @@ export function seedExpenses(branchIds: string[], catalogs: Catalogs, adminFor: 
       add(branchId, 'Rent', RENT[branchId] ?? 8_000_000, `${month}-0${rand.int(1, 3)}`, 'Monthly rent', 'Building owner')
       add(branchId, 'Utilities', Math.round(rand.int(12, 22) * 100_000), `${month}-${rand.int(10, 14)}`, 'Electricity, water, internet')
       add(branchId, 'Cleaning and supplies', Math.round(rand.int(3, 7) * 100_000), `${month}-${rand.int(15, 20)}`, 'Cleaning, paper, markers')
-      add(branchId, 'Staff salaries', 4_500_000, `${month}-05`, 'Receptionist and accountant')
+      add(branchId, 'Staff salaries', 4_500_000, `${month}-05`, 'Accountant')
       if (rand.chance(0.5)) add(branchId, 'Marketing', Math.round(rand.int(10, 25) * 100_000), `${month}-${rand.int(10, 25)}`, rand.pick(['Flyers near schools', 'Banner outside the branch', 'Local Telegram ads']))
       if (rand.chance(0.25)) add(branchId, 'Equipment', Math.round(rand.int(15, 60) * 100_000), `${month}-${rand.int(10, 25)}`, rand.pick(['New whiteboard', 'Projector repair', 'Two computers for the lab', 'Chairs for Room 102']))
     }
@@ -203,7 +205,7 @@ export function seedStaffAttendance(data: SchoolData, now: Date): StaffAttendanc
         mark: m,
         ...(arrive !== null ? { arrivedAt: `${String(Math.floor(arrive / 60)).padStart(2, '0')}:${String(arrive % 60).padStart(2, '0')}` } : {}),
         ...(m === 'excused' ? { note: 'Doctor’s appointment, agreed in advance' } : {}),
-        recordedBy: `usr_reception_${branchId.replace('br_', '')}`,
+        recordedBy: `usr_admin_${branchId.replace('br_', '')}`,
         savedAt: atTime(date, '10:00').toISOString(),
       })
     }
@@ -212,7 +214,7 @@ export function seedStaffAttendance(data: SchoolData, now: Date): StaffAttendanc
       const first = data.groups.filter((g) => g.teacherId === t.id && meetsOn(g, date)).sort((a, b) => a.startTime.localeCompare(b.startTime))[0]
       if (first) mark('teacher', t.id, t.branchId, first.startTime)
     }
-    for (const u of data.users) if ((u.role === 'reception' || u.role === 'accountant') && u.branchId) mark('user', u.id, u.branchId, '09:00')
+    for (const u of data.users) if ((u.role === 'admin' || u.role === 'accountant') && u.branchId) mark('user', u.id, u.branchId, '09:00')
   }
   return out.filter((r) => r.date < today)
 }
@@ -224,7 +226,7 @@ const DEBT_CALLS = ['Mother promised to pay by Friday', 'Father will pay on payd
 
 export function seedContactLogs(data: SchoolData, overdue: Student[], now: Date): ContactLog[] {
   const out: ContactLog[] = []
-  const adminFor = (b: string) => data.users.find((u) => u.role === 'reception' && u.branchId === b)?.id ?? data.users.find((u) => u.role === 'admin' && u.branchId === b)?.id
+  const adminFor = (b: string) => data.users.find((u) => u.role === 'admin' && u.branchId === b)?.id
   for (const lead of data.leads) {
     if (lead.stage === 'new') continue
     const rand = randomFor(lead.id, 'calls')
@@ -299,14 +301,14 @@ export function seedExtraLessons(data: SchoolData, now: Date): ExtraLesson[] {
 
 // ---------------------------------------------------------------- all together
 
-type Base = Omit<SchoolData, 'catalogs' | 'extraLessons' | 'expenses' | 'salaryPayments' | 'staffAttendance' | 'contactLogs'>
+type Base = Omit<SchoolData, 'catalogs' | 'extraLessons' | 'expenses' | 'salaryPayments' | 'staffAttendance' | 'contactLogs' | 'leadStages'> & { leadStages?: SchoolData['leadStages'] }
 
 /**
  * Adds the office and finance records to data that doesn't have them yet.
  * `demo` also tags some students and gives two teachers a fixed or mixed
  * salary: sample choices that only make sense for freshly generated data.
  */
-/** Active students with nothing paid for last month: the ones a receptionist would call. */
+/** Active students with nothing paid for last month: the ones an administrator would call. */
 function likelyOverdue(data: SchoolData, now: Date): Student[] {
   const last = addMonths(monthKey(now), -1)
   const paid = new Set(data.payments.filter((p) => p.status === 'paid' && p.period === last).map((p) => p.studentId))
@@ -345,6 +347,7 @@ export function addOfficeData(base: Base, now: Date, { demo }: { demo: boolean }
     courses: withCourseLevels(base.courses),
     payments: withReceipts(base.payments, students),
     catalogs,
+    leadStages: base.leadStages ?? defaultLeadStages(),
     extraLessons: [],
     expenses: [],
     salaryPayments: [],

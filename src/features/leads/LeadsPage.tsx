@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Download, Plus, UserRoundPlus } from 'lucide-react'
+import { Download, Plus, Settings2, UserRoundPlus } from 'lucide-react'
 import type { Lead, LeadStage } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useBranchChoice } from '../../hooks/useBranchChoice'
@@ -11,14 +11,17 @@ import { EmptyState, SearchInput, TableScroll, td, th } from '../../components/u
 import { PhoneLine } from '../../components/ui/CopyButton'
 import { toISODate } from '../../lib/dates'
 import { formatDate, formatRelative } from '../../lib/format'
-import { isOpenLead, leadStageLabel, nextStep, PIPELINE, trialsOn } from '../../lib/admissions'
+import { isOpenLead, nextStep, trialsOn } from '../../lib/admissions'
+import { orderedStages, stageCounts, stageName } from '../../lib/lead-stages'
 import { downloadCSV } from '../../lib/csv'
 import { cn } from '../../lib/cn'
 import { RangeToggle } from '../../components/ui/RangeToggle'
 import { LeadStageBadge } from './LeadStageBadge'
 import { LeadFormDialog } from './LeadDialogs'
 import { LeadBoard } from './LeadBoard'
+import { LeadStagesDialog } from './LeadStagesManager'
 import { Select } from '../../components/ui/Field'
+import { plural, tr } from '../../i18n'
 
 const FILTERS = ['q', 'stage', 'view', 'course'] as const
 type View = LeadStage | 'open' | 'all'
@@ -28,7 +31,11 @@ type View = LeadStage | 'open' | 'all'
  * steps across the top are the pipeline; each is also a filter.
  */
 export function LeadsPage() {
-  const { data, now } = useSchool()
+  const { data, now, user } = useSchool()
+  // Only the owner manages the stages (shared by every branch). This is a
+  // browser-side check for the demo; the database must enforce it too.
+  const isOwner = user?.role === 'owner'
+  const [managing, setManaging] = useState(false)
   const needsBranch = useBranchChoice()
   const navigate = useNavigate()
   const { values, set } = useListParams(FILTERS)
@@ -36,11 +43,7 @@ export function LeadsPage() {
   const today = toISODate(now)
   const view: View = (values.stage as View) || 'open'
 
-  const counts = useMemo(() => {
-    const c = Object.fromEntries([...PIPELINE, 'lost'].map((s) => [s, 0])) as Record<LeadStage, number>
-    for (const l of data.leads) c[l.stage] += 1
-    return c
-  }, [data.leads])
+  const counts = useMemo(() => stageCounts(data.leads), [data.leads])
   const open = data.leads.filter(isOpenLead).length
   const trialsToday = trialsOn(data.leads, today)
   const groupName = new Map(data.groups.map((g) => [g.id, g.name]))
@@ -77,8 +80,8 @@ export function LeadsPage() {
 
   const exportCSV = () =>
     downloadCSV(`sherov-school-leads-${today}.csv`, [
-      ['Student', 'Parent', 'Phone', 'Course', 'Stage', 'Next step', 'Trial date', 'Placement level', 'Source', 'Enquiry date', 'Notes'],
-      ...rows.map((l) => [l.studentName, l.parentName, l.phone, l.course, leadStageLabel[l.stage], nextStep(l, today), l.trial?.date, l.placement?.level, l.source, l.createdAt.slice(0, 10), l.notes]),
+      [tr("Student"), tr("Parent"), tr("Phone"), tr("Course"), tr("Stage"), tr("Next step"), tr("Trial date"), tr("Placement level"), tr("Source"), tr("Enquiry date"), tr("Notes")],
+      ...rows.map((l) => [l.studentName, l.parentName, l.phone, l.course, stageName(data.leadStages, l.stage), nextStep(l, today), l.trial?.date, l.placement?.level, l.source, l.createdAt.slice(0, 10), l.notes]),
     ])
 
   const step = (stage: View, label: string, n: number) => (
@@ -99,17 +102,22 @@ export function LeadsPage() {
   return (
     <>
       <PageHeader
-        title="Admissions"
-        description="Enquiries from people who want to study: call them, book a trial lesson, place them at the right level, then enroll."
+        title={tr("Admissions")}
         actions={
           <>
+            {isOwner && (
+              <Button variant="ghost" onClick={() => setManaging(true)}>
+                <Settings2 aria-hidden />
+                {tr("Manage lead stages")}
+              </Button>
+            )}
             <Button onClick={exportCSV} disabled={rows.length === 0}>
               <Download aria-hidden />
-              Export CSV
+              {tr("Export CSV")}
             </Button>
             <Button variant="primary" onClick={() => setCreating(true)} disabled={Boolean(needsBranch)} title={needsBranch ?? undefined}>
               <Plus aria-hidden />
-              New enquiry
+              {tr("New enquiry")}
             </Button>
           </>
         }
@@ -118,7 +126,7 @@ export function LeadsPage() {
       {trialsToday.length > 0 && (
         <div className="mb-4 rounded-panel border border-info/30 bg-info-soft px-4 py-3 text-sm text-ink">
           <p className="font-medium">
-            {trialsToday.length} trial {trialsToday.length === 1 ? 'lesson' : 'lessons'} today
+            {tr("{0} trial {1} today", trialsToday.length, plural(trialsToday.length, 'lesson', 'lessons'))}
           </p>
           <ul className="mt-1 flex flex-wrap gap-x-5 gap-y-1">
             {trialsToday.map((l) => (
@@ -134,33 +142,34 @@ export function LeadsPage() {
       )}
 
       {!board && (
-      <nav aria-label="Pipeline" className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-        {step('open', 'All open', open)}
-        {PIPELINE.map((s) => (
-          <span key={s} className="contents">
-            {step(s, leadStageLabel[s], counts[s])}
+      <nav aria-label={tr("Pipeline")} className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+        {step('open', tr('All open'), open)}
+        {orderedStages(data.leadStages).map((s) => (
+          <span key={s.id} className="contents">
+            {step(s.id, stageName(data.leadStages, s.id), counts.get(s.id) ?? 0)}
           </span>
         ))}
-        {step('lost', 'Lost', counts.lost)}
-        {step('all', 'Everyone', data.leads.length)}
+        {step('all', tr('Everyone'), data.leads.length)}
       </nav>
       )}
 
+      {isOwner && <LeadStagesDialog open={managing} onClose={() => setManaging(false)} />}
+
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <RangeToggle
-          label="Show as"
+          label={tr("Show as")}
           value={board ? 'board' : 'list'}
           onChange={(v) => set('view', v === 'list' ? 'list' : '')}
           options={[
-            { value: 'board', label: 'Board' },
-            { value: 'list', label: 'List' },
+            { value: 'board', label: tr("Board") },
+            { value: 'list', label: tr("List") },
           ]}
         />
         {board && (
           <>
-            <SearchInput label="Search enquiries" value={values.q} onChange={(v) => set('q', v)} placeholder="Name or phone" />
-            <Select aria-label="Course" value={values.course} onChange={(e) => set('course', e.target.value)} className="sm:w-48">
-              <option value="">All courses</option>
+            <SearchInput label={tr("Search enquiries")} value={values.q} onChange={(v) => set('q', v)} placeholder={tr("Name or phone")} />
+            <Select aria-label={tr("Course")} value={values.course} onChange={(e) => set('course', e.target.value)} className="sm:w-48">
+              <option value="">{tr("All courses")}</option>
               {courses.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -168,7 +177,7 @@ export function LeadsPage() {
               ))}
             </Select>
             <p className="num text-sm text-ink-muted sm:ml-auto">
-              {matching.filter(isOpenLead).length} open {matching.filter(isOpenLead).length === 1 ? 'enquiry' : 'enquiries'}
+              {matching.filter(isOpenLead).length}{' '}{tr("open")}{' '}{matching.filter(isOpenLead).length === 1 ? tr("enquiry") : tr("enquiries")}
             </p>
           </>
         )}
@@ -177,34 +186,34 @@ export function LeadsPage() {
       {board ? (
         <LeadBoard leads={matching} onCreate={needsBranch ? undefined : () => setCreating(true)} />
       ) : (
-      <section aria-label="Enquiries" className="rounded-panel border border-line bg-surface">
+      <section aria-label={tr("Enquiries")} className="rounded-panel border border-line bg-surface">
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center">
-          <SearchInput label="Search enquiries" value={values.q} onChange={(v) => set('q', v)} placeholder="Name or phone" />
+          <SearchInput label={tr("Search enquiries")} value={values.q} onChange={(v) => set('q', v)} placeholder={tr("Name or phone")} />
           <p className="num text-sm text-ink-muted sm:ml-auto" aria-live="polite">
-            {rows.length} {rows.length === 1 ? 'enquiry' : 'enquiries'}
+            {rows.length} {rows.length === 1 ? tr("enquiry") : tr("enquiries")}
           </p>
         </div>
         {rows.length === 0 ? (
           <EmptyState
             icon={UserRoundPlus}
-            title={data.leads.length ? 'Nothing here' : 'No enquiries yet'}
-            action={needsBranch ? undefined : <Button onClick={() => setCreating(true)}>New enquiry</Button>}
+            title={data.leads.length ? tr("Nothing here") : tr("No enquiries yet")}
+            action={needsBranch ? undefined : <Button onClick={() => setCreating(true)}>{tr("New enquiry")}</Button>}
           >
-            {data.leads.length ? 'No enquiries at this stage. Try another step above.' : 'When someone calls or walks in asking about classes, add them here.'}
+            {data.leads.length ? tr("No enquiries at this stage. Try another step above.") : tr("When someone calls or walks in asking about classes, add them here.")}
           </EmptyState>
         ) : (
           <>
             <TableScroll>
               <table className="hidden w-full text-sm md:table">
-                <caption className="sr-only">Enquiries. Click a row to open it.</caption>
+                <caption className="sr-only">{tr("Enquiries. Click a row to open it.")}</caption>
                 <thead className="bg-canvas">
                   <tr className="border-b border-line">
-                    <th scope="col" className={th}>Name</th>
-                    <th scope="col" className={th}>Phone</th>
-                    <th scope="col" className={th}>Course</th>
-                    <th scope="col" className={th}>Stage</th>
-                    <th scope="col" className={th}>Next step</th>
-                    <th scope="col" className={cn(th, 'hidden xl:table-cell')}>Enquired</th>
+                    <th scope="col" className={th}>{tr("Name")}</th>
+                    <th scope="col" className={th}>{tr("Phone")}</th>
+                    <th scope="col" className={th}>{tr("Course")}</th>
+                    <th scope="col" className={th}>{tr("Stage")}</th>
+                    <th scope="col" className={th}>{tr("Next step")}</th>
+                    <th scope="col" className={cn(th, 'hidden xl:table-cell')}>{tr("Enquired")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -225,7 +234,7 @@ export function LeadsPage() {
                   </div>
                   <p className="text-xs text-ink-muted">
                     {l.course}
-                    {l.parentName ? ` · Parent: ${l.parentName}` : ''}
+                    {l.parentName ? tr(" · Parent: {0}", l.parentName) : ''}
                   </p>
                   <PhoneLine phone={l.phone} className="text-sm text-ink" />
                   <p className={cn('text-xs', nextStepTone(l, today))}>{nextStep(l, today)}</p>
@@ -257,7 +266,7 @@ function LeadRow({ lead: l, today, now, onOpen }: { lead: Lead; today: string; n
         <Link to={`/leads/${l.id}`} onClick={(e) => e.stopPropagation()} className="font-medium text-ink hover:text-brand hover:underline">
           {l.studentName}
         </Link>
-        {l.parentName && <p className="text-xs text-ink-muted">Parent: {l.parentName}</p>}
+        {l.parentName && <p className="text-xs text-ink-muted">{tr("Parent:")}{' '}{l.parentName}</p>}
       </td>
       <td className={cn(td, 'py-2')} onClick={(e) => e.stopPropagation()}>
         <PhoneLine phone={l.phone} />

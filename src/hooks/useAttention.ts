@@ -1,16 +1,17 @@
 import { useMemo } from 'react'
 import { useSchool } from '../data/school-context'
 import { attentionItems, type AttentionItem, type AttentionKind } from '../lib/metrics'
+import { tr } from '../i18n'
 
 export const attentionLabel: Record<AttentionKind, string> = {
-  overdue: 'Tuition overdue',
-  absences: 'Repeated absences',
-  capacity: 'Group almost full',
-  attendance_missing: 'Attendance missing',
-  teacher_away: 'Group without a teacher',
-  trial_today: 'Trial lesson today',
-  trial_result: 'Trial result missing',
-  lead_new: 'New enquiry',
+  overdue: tr("Tuition overdue"),
+  absences: tr("Repeated absences"),
+  capacity: tr("Group almost full"),
+  attendance_missing: tr("Attendance missing"),
+  teacher_away: tr("Group without a teacher"),
+  trial_today: tr("Trial lesson today"),
+  trial_result: tr("Trial result missing"),
+  lead_new: tr("New enquiry"),
 }
 
 /** Where to go to resolve an item. */

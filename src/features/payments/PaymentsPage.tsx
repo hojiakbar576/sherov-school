@@ -18,6 +18,7 @@ import { cn } from '../../lib/cn'
 import { PaymentFormDialog } from './PaymentFormDialog'
 import { OwingList } from './OwingList'
 import { ExportButtons } from '../../components/ui/ExportButtons'
+import { tr } from '../../i18n'
 
 const PAGE_SIZE = 25
 const FILTERS = ['q', 'month', 'method', 'status'] as const
@@ -77,7 +78,7 @@ export function PaymentsPage() {
 
   const userName = new Map(data.users.map((u) => [u.id, u.fullName]))
   const exportRows = () => [
-      ['Date', 'Student', 'For month', 'Amount (UZS)', 'Method', 'Status', 'Recorded by', 'Note'],
+      [tr("Date"), tr("Student"), tr("For month"), tr("Amount (UZS)"), tr("Method"), tr("Status"), tr("Recorded by"), tr("Note")],
       ...filtered.map((p) => [p.date, student.get(p.studentId)?.fullName ?? '', p.period, p.amount, methodName(data.catalogs, p.method), paymentStatusLabel[p.status], (p.recordedBy && userName.get(p.recordedBy)) || '', p.note ?? '']),
   ]
 
@@ -85,16 +86,16 @@ export function PaymentsPage() {
     <div className="flex justify-end gap-0.5">
       <Link
         to={`/payments/${p.id}/receipt`}
-        aria-label={`Receipt ${p.receiptNo ?? ''}`}
-        title="Receipt and history"
+        aria-label={tr("Receipt {0}", p.receiptNo ?? '')}
+        title={tr("Receipt and history")}
         className="inline-flex size-9 items-center justify-center rounded-control text-ink-muted hover:bg-subtle hover:text-ink"
       >
         <Receipt className="size-[18px]" />
       </Link>
-      <IconButton label="Edit payment" onClick={() => setEditing(p)}>
+      <IconButton label={tr("Edit payment")} onClick={() => setEditing(p)}>
         <Pencil />
       </IconButton>
-      <IconButton label="Delete payment" onClick={() => setDeleting(p)} className="hover:bg-danger-soft hover:text-danger">
+      <IconButton label={tr("Delete payment")} onClick={() => setDeleting(p)} className="hover:bg-danger-soft hover:text-danger">
         <Trash2 />
       </IconButton>
     </div>
@@ -103,8 +104,8 @@ export function PaymentsPage() {
   return (
     <>
       <PageHeader
-        title="Payments"
-        description="Who has paid, who hasn’t, and every payment received. Recording a payment updates balances everywhere."
+        title={tr("Payments")}
+        description={tr("Who has paid, who hasn’t, and every payment received. Recording a payment updates balances everywhere.")}
         actions={
           <>
             {/* The debtors list has its own export. */}
@@ -113,7 +114,7 @@ export function PaymentsPage() {
             )}
             <Button variant="primary" onClick={() => setEditing('new')}>
               <Plus aria-hidden />
-              Record payment
+              {tr("Record payment")}
             </Button>
           </>
         }
@@ -121,16 +122,16 @@ export function PaymentsPage() {
 
       <div className="mb-6 flex items-start gap-2.5 rounded-panel border border-info/20 bg-info-soft px-4 py-3 text-sm text-info">
         <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
-        <p>This is a record-keeping demo, not a payment system. Nothing here charges a card or moves money.</p>
+        <p>{tr("This is a record-keeping demo, not a payment system. Nothing here charges a card or moves money.")}</p>
       </div>
 
       <dl className="mb-6 grid gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-2 xl:grid-cols-4">
         {(
           [
-            ['Collected this month', formatUZSCompact(thisMonth.total), `${thisMonth.count} payments${pending.length ? `, ${pending.length} transfers awaiting confirmation` : ''}`, ''],
-            ['Paid this month', `${tuition.paid} students`, `of ${tuition.billed} active students billed`, ''],
-            ['Not paid yet', `${tuition.due} students`, `Due by the ${data.settings.tuitionDueDay}th, not late yet`, ''],
-            ['Overdue', formatUZSCompact(outstanding.overdueTotal), `${outstanding.overdueStudents} students past the due day`, outstanding.overdueStudents ? 'text-danger' : ''],
+            [tr("Collected this month"), formatUZSCompact(thisMonth.total), tr("{0} payments{1}", thisMonth.count, pending.length ? tr(", {0} transfers awaiting confirmation", pending.length) : ''), ''],
+            [tr("Paid this month"), tr("{0} students", tuition.paid), tr("of {0} active students billed", tuition.billed), ''],
+            [tr("Not paid yet"), tr("{0} students", tuition.due), tr("Due by the {0}th, not late yet", data.settings.tuitionDueDay), ''],
+            [tr("Overdue"), formatUZSCompact(outstanding.overdueTotal), tr("{0} students past the due day", outstanding.overdueStudents), outstanding.overdueStudents ? 'text-danger' : ''],
           ] as const
         ).map(([label, value, detail, tone]) => (
           <div key={label} className="bg-surface px-5 py-4">
@@ -141,11 +142,11 @@ export function PaymentsPage() {
         ))}
       </dl>
 
-      <div role="tablist" aria-label="Payments view" className="mb-4 inline-flex rounded-panel border border-line bg-surface p-1">
+      <div role="tablist" aria-label={tr("Payments view")} className="mb-4 inline-flex rounded-panel border border-line bg-surface p-1">
         {(
           [
-            ['owing', `Who hasn’t paid (${outstanding.students})`],
-            ['history', 'Payment history'],
+            ['owing', tr("Who hasn’t paid ({0})", outstanding.students)],
+            ['history', tr("Payment history")],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -164,28 +165,28 @@ export function PaymentsPage() {
       {view === 'owing' && <OwingList onRecordPayment={(id) => setPayingFor(id)} />}
 
       {view === 'history' && (
-      <section aria-label="Payment history" className="rounded-panel border border-line bg-surface">
+      <section aria-label={tr("Payment history")} className="rounded-panel border border-line bg-surface">
         <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:flex-wrap sm:items-center">
-          <SearchInput label="Search payments" value={values.q} onChange={(v) => set('q', v)} placeholder="Student name or note" />
+          <SearchInput label={tr("Search payments")} value={values.q} onChange={(v) => set('q', v)} placeholder={tr("Student name or note")} />
           <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
-            <Select aria-label="Filter by month" value={values.month} onChange={(e) => set('month', e.target.value)} className="sm:w-40">
-              <option value="">All months</option>
+            <Select aria-label={tr("Filter by month")} value={values.month} onChange={(e) => set('month', e.target.value)} className="sm:w-40">
+              <option value="">{tr("All months")}</option>
               {months.map((m) => (
                 <option key={m} value={m}>
                   {formatMonth(m)}
                 </option>
               ))}
             </Select>
-            <Select aria-label="Filter by method" value={values.method} onChange={(e) => set('method', e.target.value)} className="sm:w-44">
-              <option value="">All methods</option>
+            <Select aria-label={tr("Filter by method")} value={values.method} onChange={(e) => set('method', e.target.value)} className="sm:w-44">
+              <option value="">{tr("All methods")}</option>
               {data.catalogs.paymentMethods.map((pm) => pm.id).map((m) => (
                 <option key={m} value={m}>
                   {methodName(data.catalogs, m)}
                 </option>
               ))}
             </Select>
-            <Select aria-label="Filter by status" value={values.status} onChange={(e) => set('status', e.target.value)} className="col-span-2 sm:w-36">
-              <option value="">All statuses</option>
+            <Select aria-label={tr("Filter by status")} value={values.status} onChange={(e) => set('status', e.target.value)} className="col-span-2 sm:w-36">
+              <option value="">{tr("All statuses")}</option>
               {Object.entries(paymentStatusLabel).map(([v, label]) => (
                 <option key={v} value={v}>
                   {label}
@@ -195,33 +196,33 @@ export function PaymentsPage() {
           </div>
           {active && (
             <Button variant="ghost" size="sm" onClick={clear}>
-              Clear filters
+              {tr("Clear filters")}
             </Button>
           )}
           <p className="num text-sm text-ink-muted sm:ml-auto" aria-live="polite">
-            {formatNumber(filtered.length)} payments, {formatUZSCompact(filteredPaid)} paid
+            {formatNumber(filtered.length)}{' '}{tr("payments,")}{' '}{formatUZSCompact(filteredPaid)}{' '}{tr("paid")}
           </p>
         </div>
 
         {filtered.length === 0 ? (
-          <EmptyState icon={Receipt} title="No payments match" action={active ? <Button onClick={clear}>Clear filters</Button> : undefined}>
-            {active ? 'Try another month, method or name.' : 'Recorded payments will appear here.'}
+          <EmptyState icon={Receipt} title={tr("No payments match")} action={active ? <Button onClick={clear}>{tr("Clear filters")}</Button> : undefined}>
+            {active ? tr("Try another month, method or name.") : tr("Recorded payments will appear here.")}
           </EmptyState>
         ) : (
           <>
             <TableScroll>
               <table className="hidden w-full text-sm md:table">
-                <caption className="sr-only">Payments, newest first</caption>
+                <caption className="sr-only">{tr("Payments, newest first")}</caption>
                 <thead className="bg-canvas">
                   <tr className="border-b border-line">
-                    <th scope="col" className={th}>Date</th>
-                    <th scope="col" className={th}>Student</th>
-                    <th scope="col" className={cn(th, 'hidden lg:table-cell')}>For month</th>
-                    <th scope="col" className={th}>Method</th>
-                    <th scope="col" className={cn(th, 'hidden xl:table-cell')}>Recorded by</th>
-                    <th scope="col" className={cn(th, 'text-right')}>Amount</th>
-                    <th scope="col" className={th}>Status</th>
-                    <th scope="col" className={th}><span className="sr-only">Actions</span></th>
+                    <th scope="col" className={th}>{tr("Date")}</th>
+                    <th scope="col" className={th}>{tr("Student")}</th>
+                    <th scope="col" className={cn(th, 'hidden lg:table-cell')}>{tr("For month")}</th>
+                    <th scope="col" className={th}>{tr("Method")}</th>
+                    <th scope="col" className={cn(th, 'hidden xl:table-cell')}>{tr("Recorded by")}</th>
+                    <th scope="col" className={cn(th, 'text-right')}>{tr("Amount")}</th>
+                    <th scope="col" className={th}>{tr("Status")}</th>
+                    <th scope="col" className={th}><span className="sr-only">{tr("Actions")}</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -236,7 +237,7 @@ export function PaymentsPage() {
                               {s.fullName}
                             </Link>
                           ) : (
-                            <span className="text-ink-faint">Unknown student</span>
+                            <span className="text-ink-faint">{tr("Unknown student")}</span>
                           )}
                           {p.note && <p className="text-xs text-ink-muted">{p.note}</p>}
                         </td>
@@ -258,7 +259,7 @@ export function PaymentsPage() {
               {visible.map((p) => (
                 <li key={p.id} className="flex items-start gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-ink">{student.get(p.studentId)?.fullName ?? 'Unknown student'}</p>
+                    <p className="truncate font-medium text-ink">{student.get(p.studentId)?.fullName ?? tr("Unknown student")}</p>
                     <p className="text-xs text-ink-muted">
                       {formatDate(p.date)}, {methodName(data.catalogs, p.method)}
                     </p>
@@ -281,18 +282,18 @@ export function PaymentsPage() {
       <PaymentFormDialog open={editing !== null} payment={editing === 'new' || editing === null ? undefined : editing} onClose={() => setEditing(null)} />
       <ConfirmDialog
         open={deleting !== null}
-        title="Delete payment?"
-        confirmLabel="Delete payment"
+        title={tr("Delete payment?")}
+        confirmLabel={tr("Delete payment")}
         onClose={() => setDeleting(null)}
         onConfirm={() => {
           if (!deleting) return
           actions.deletePayment(deleting.id)
-          toast.show('Payment deleted.')
+          toast.show(tr("Payment deleted."))
         }}
       >
         <p>
-          The {deleting ? formatUZS(deleting.amount) : ''} payment from {student.get(deleting?.studentId ?? '')?.fullName ?? 'this student'} on{' '}
-          {deleting ? formatDate(deleting.date) : ''} will be removed. Their balance and this month’s revenue will be recalculated.
+          {tr("The")}{' '}{deleting ? formatUZS(deleting.amount) : ''}{' '}{tr("payment from")}{' '}{student.get(deleting?.studentId ?? '')?.fullName ?? tr("this student")}{' '}{tr("on")}{' '}
+          {deleting ? formatDate(deleting.date) : ''}{' '}{tr("will be removed. Their balance and this month’s revenue will be recalculated.")}
         </p>
       </ConfirmDialog>
     </>

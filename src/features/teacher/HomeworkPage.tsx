@@ -16,6 +16,7 @@ import { formatDate } from '../../lib/format'
 import { homeworkProgress, type HomeworkProgress } from '../../lib/performance'
 import { splitHomework } from './teacher-metrics'
 import { HomeworkFormDialog } from './HomeworkFormDialog'
+import { tr } from '../../i18n'
 
 const FILTERS = ['group', 'show'] as const
 
@@ -45,27 +46,27 @@ export function HomeworkPage() {
           <div className="min-w-0 flex-1 basis-64">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-medium text-ink group-hover:text-brand-ink">{h.title}</h3>
-              {h.dueDate === today && <Badge tone="warning">Due today</Badge>}
-              {h.dueDate === tomorrow && <Badge tone="info">Due tomorrow</Badge>}
+              {h.dueDate === today && <Badge tone="warning">{tr("Due today")}</Badge>}
+              {h.dueDate === tomorrow && <Badge tone="info">{tr("Due tomorrow")}</Badge>}
             </div>
             <p className="num mt-0.5 text-sm text-ink-muted">
-              {groupName.get(h.groupId) ?? 'Group'} · set {formatDate(h.assignedOn)} · {h.dueDate < today ? 'was due' : 'due'} {formatDate(h.dueDate)}
+              {groupName.get(h.groupId) ?? tr("Group")}{' '}{tr("· set")}{' '}{formatDate(h.assignedOn)} · {h.dueDate < today ? tr("was due") : tr("due")} {formatDate(h.dueDate)}
             </p>
           </div>
           <dl className="num flex gap-6 text-sm">
             <div>
-              <dt className="text-xs text-ink-muted">Handed in</dt>
+              <dt className="text-xs text-ink-muted">{tr("Handed in")}</dt>
               <dd className="font-medium text-ink">
                 {p.handedIn}/{p.assigned}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-ink-muted">Evaluated</dt>
+              <dt className="text-xs text-ink-muted">{tr("Evaluated")}</dt>
               <dd className="font-medium text-ink">{p.evaluated}</dd>
             </div>
             <div className="w-24">
-              <dt className="text-xs text-ink-muted">To evaluate</dt>
-              <dd>{p.toEvaluate > 0 ? <Badge tone="accent">{p.toEvaluate} waiting</Badge> : <span className="text-ink-faint">None</span>}</dd>
+              <dt className="text-xs text-ink-muted">{tr("To evaluate")}</dt>
+              <dd>{p.toEvaluate > 0 ? <Badge tone="accent">{p.toEvaluate}{' '}{tr("waiting")}</Badge> : <span className="text-ink-faint">{tr("None")}</span>}</dd>
             </div>
           </dl>
           <ChevronRight aria-hidden className="hidden size-4 text-ink-faint sm:block" />
@@ -77,19 +78,19 @@ export function HomeworkPage() {
   return (
     <>
       <PageHeader
-        title="Homework"
-        description="Set homework for your groups, then open an assignment to record who handed it in and evaluate each student."
+        title={tr("Homework")}
+        description={tr("Set homework for your groups, then open an assignment to record who handed it in and evaluate each student.")}
         actions={
           <Button variant="primary" onClick={() => setCreating(true)} disabled={data.groups.length === 0}>
             <Plus aria-hidden />
-            New homework
+            {tr("New homework")}
           </Button>
         }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Select aria-label="Filter by group" value={values.group} onChange={(e) => set('group', e.target.value)} className="sm:w-64">
-          <option value="">All my groups</option>
+        <Select aria-label={tr("Filter by group")} value={values.group} onChange={(e) => set('group', e.target.value)} className="sm:w-64">
+          <option value="">{tr("All my groups")}</option>
           {data.groups.map((g) => (
             <option key={g.id} value={g.id}>
               {g.name}
@@ -97,29 +98,29 @@ export function HomeworkPage() {
           ))}
         </Select>
         <RangeToggle
-          label="Show"
+          label={tr("Show")}
           value={toEvaluateOnly ? 'to-evaluate' : 'all'}
           onChange={(v) => set('show', v === 'all' ? '' : v)}
           options={[
-            { value: 'all', label: 'All' },
-            { value: 'to-evaluate', label: `To evaluate (${waiting})` },
+            { value: 'all', label: tr("All") },
+            { value: 'to-evaluate', label: tr("To evaluate ({0})", waiting) },
           ]}
         />
       </div>
 
       <div className="space-y-6">
-        <Panel title="Current" description={`${current.length} not yet past the deadline`} flush>
+        <Panel title={tr("Current")} description={tr("{0} not yet past the deadline", current.length)} flush>
           {current.length === 0 ? (
-            <EmptyState icon={NotebookPen} title={toEvaluateOnly ? 'Nothing waiting here' : 'No homework due'} action={toEvaluateOnly ? undefined : <Button onClick={() => setCreating(true)}>Set homework</Button>}>
-              {toEvaluateOnly ? 'Everything handed in for current homework is evaluated.' : `Nothing is due${values.group ? ' for this group' : ''} from today on.`}
+            <EmptyState icon={NotebookPen} title={toEvaluateOnly ? tr("Nothing waiting here") : tr("No homework due")} action={toEvaluateOnly ? undefined : <Button onClick={() => setCreating(true)}>{tr("Set homework")}</Button>}>
+              {toEvaluateOnly ? tr("Everything handed in for current homework is evaluated.") : tr("Nothing is due{0} from today on.", values.group ? tr(" for this group") : '')}
             </EmptyState>
           ) : (
             <ul className="divide-y divide-line border-t border-line">{current.map(row)}</ul>
           )}
         </Panel>
-        <Panel title="Previous" description={past.length ? `${past.length} past the deadline` : undefined} flush>
+        <Panel title={tr("Previous")} description={past.length ? tr("{0} past the deadline", past.length) : undefined} flush>
           {past.length === 0 ? (
-            <EmptyState icon={NotebookPen} title={toEvaluateOnly ? 'All evaluated' : 'No previous homework'} />
+            <EmptyState icon={NotebookPen} title={toEvaluateOnly ? tr("All evaluated") : tr("No previous homework")} />
           ) : (
             <ul className="divide-y divide-line border-t border-line">{past.map(row)}</ul>
           )}

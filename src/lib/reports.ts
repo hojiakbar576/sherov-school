@@ -6,6 +6,7 @@ import type { MonthKey, SchoolData } from '../types'
 import { monthKeyOf } from './dates'
 import { revenueInMonth, summarizeMarks } from './metrics'
 import { teacherSalary } from './salary'
+import { tr } from '../i18n'
 
 export interface ProfitMonth {
   key: MonthKey
@@ -75,7 +76,7 @@ export function retention(data: SchoolData, from: MonthKey): Retention {
 
   const reasons = new Map<string, number>()
   for (const e of leftEvents) {
-    const reason = (e.detail ?? '').split(':')[0].trim() || 'No reason given'
+    const reason = (e.detail ?? '').split(':')[0].trim() || tr("No reason given")
     reasons.set(reason, (reasons.get(reason) ?? 0) + 1)
   }
   return {

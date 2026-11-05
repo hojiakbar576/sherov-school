@@ -4,11 +4,12 @@ import { ButtonLink } from '../../components/ui/Button'
 import { axisProps, CHART_COLORS, tooltipStyle } from '../../components/charts/chartTheme'
 import { formatPercent } from '../../lib/format'
 import type { DayAttendance } from '../../lib/metrics'
+import { tr } from '../../i18n'
 
 const SERIES = [
-  { key: 'present', label: 'Present', color: CHART_COLORS.present },
-  { key: 'late', label: 'Late', color: CHART_COLORS.late },
-  { key: 'absent', label: 'Absent', color: CHART_COLORS.absent },
+  { key: 'present', label: tr("Present"), color: CHART_COLORS.present },
+  { key: 'late', label: tr("Late"), color: CHART_COLORS.late },
+  { key: 'absent', label: tr("Absent"), color: CHART_COLORS.absent },
 ] as const
 
 export function AttendanceOverview({ days }: { days: DayAttendance[] }) {
@@ -21,9 +22,9 @@ export function AttendanceOverview({ days }: { days: DayAttendance[] }) {
   return (
     <Panel
       id="attendance-overview"
-      title="Attendance this week"
-      description={rate === null ? 'No attendance taken this week yet' : `${formatPercent(rate)} attended across ${week.total} student check-ins`}
-      actions={<ButtonLink to="/attendance" size="sm">Take attendance</ButtonLink>}
+      title={tr("Attendance this week")}
+      description={rate === null ? tr("No attendance taken this week yet") : tr("{0} attended across {1} student check-ins", formatPercent(rate), week.total)}
+      actions={<ButtonLink to="/attendance" size="sm">{tr("Take attendance")}</ButtonLink>}
     >
       <ul className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         {SERIES.map((s) => (
@@ -55,20 +56,20 @@ export function AttendanceOverview({ days }: { days: DayAttendance[] }) {
         </ResponsiveContainer>
       </div>
       <table className="sr-only">
-        <caption>Attendance by day this week</caption>
+        <caption>{tr("Attendance by day this week")}</caption>
         <thead>
           <tr>
-            <th scope="col">Day</th>
-            <th scope="col">Present</th>
-            <th scope="col">Late</th>
-            <th scope="col">Absent</th>
+            <th scope="col">{tr("Day")}</th>
+            <th scope="col">{tr("Present")}</th>
+            <th scope="col">{tr("Late")}</th>
+            <th scope="col">{tr("Absent")}</th>
           </tr>
         </thead>
         <tbody>
           {days.map((d) => (
             <tr key={d.date}>
               <th scope="row">{d.label}</th>
-              <td>{d.isFuture ? 'Not yet' : d.present}</td>
+              <td>{d.isFuture ? tr("Not yet") : d.present}</td>
               <td>{d.isFuture ? '' : d.late}</td>
               <td>{d.isFuture ? '' : d.absent}</td>
             </tr>
@@ -76,7 +77,7 @@ export function AttendanceOverview({ days }: { days: DayAttendance[] }) {
         </tbody>
       </table>
       {days.some((d) => d.isFuture) && (
-        <p className="mt-2 text-xs text-ink-muted">Days still to come are left empty. Today shows only classes taken so far.</p>
+        <p className="mt-2 text-xs text-ink-muted">{tr("Days still to come are left empty. Today shows only classes taken so far.")}</p>
       )}
     </Panel>
   )

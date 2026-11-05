@@ -1,4 +1,5 @@
 import { cn } from '../../lib/cn'
+import { tr } from '../../i18n'
 
 /**
  * One ring of the Sherov School mark. Four copies, each turned a quarter,
@@ -34,7 +35,7 @@ export function Logo({ compact = false, onDark = false }: { compact?: boolean; o
     <span className="flex items-center gap-2.5">
       <LogoMark onDark={onDark} className="size-9" />
       {compact ? (
-        <span className="sr-only">Sherov School</span>
+        <span className="sr-only">{tr("Sherov School")}</span>
       ) : (
         <span
           className={cn(
@@ -42,7 +43,7 @@ export function Logo({ compact = false, onDark = false }: { compact?: boolean; o
             onDark ? 'text-sidebar-ink' : 'text-logo',
           )}
         >
-          <span>Sherov</span>
+          <span>{tr("Sherov")}</span>
           <span>School</span>
         </span>
       )}

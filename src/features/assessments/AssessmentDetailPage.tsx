@@ -13,6 +13,7 @@ import { formatDate, formatPercent } from '../../lib/format'
 import { assessmentKindLabel, summarizeAssessment } from '../../lib/assessments'
 import { cn } from '../../lib/cn'
 import { AssessmentFormDialog } from './AssessmentFormDialog'
+import { tr } from '../../i18n'
 
 export function AssessmentDetailPage() {
   const { assessmentId } = useParams()
@@ -26,8 +27,8 @@ export function AssessmentDetailPage() {
   if (!assessment) {
     return (
       <div className="rounded-panel border border-line bg-surface">
-        <EmptyState icon={ClipboardX} title="Assessment not found" action={<ButtonLink to="/assessments">Back to assessments</ButtonLink>}>
-          It may have been deleted, or it belongs to another branch.
+        <EmptyState icon={ClipboardX} title={tr("Assessment not found")} action={<ButtonLink to="/assessments">{tr("Back to assessments")}</ButtonLink>}>
+          {tr("It may have been deleted, or it belongs to another branch.")}
         </EmptyState>
       </div>
     )
@@ -40,23 +41,23 @@ export function AssessmentDetailPage() {
     <>
       <Link to="/assessments" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
         <ArrowLeft aria-hidden className="size-4" />
-        Assessments
+        {tr("Assessments")}
       </Link>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-[-0.015em] text-ink">{assessment.title}</h1>
           <p className="mt-1 text-ink-muted">
-            {assessmentKindLabel[assessment.kind]} · {group?.name ?? 'Group'} · {formatDate(assessment.date)} · out of {assessment.maxScore}
+            {assessmentKindLabel[assessment.kind]} · {group?.name ?? tr("Group")} · {formatDate(assessment.date)}{' '}{tr("· out of")}{' '}{assessment.maxScore}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={() => setDeleting(true)} className="hover:bg-danger-soft hover:text-danger">
             <Trash2 aria-hidden />
-            Delete
+            {tr("Delete")}
           </Button>
           <Button onClick={() => setEditing(true)}>
             <Pencil aria-hidden />
-            Edit
+            {tr("Edit")}
           </Button>
         </div>
       </div>
@@ -64,10 +65,10 @@ export function AssessmentDetailPage() {
       <dl className="num mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-4">
         {(
           [
-            ['Took the test', `${s.taken}${s.absent ? ` (${s.absent} absent)` : ''}`],
-            ['Average', s.average === null ? '—' : `${s.average.toFixed(1)} (${formatPercent(s.averagePercent ?? 0)})`],
-            ['Highest', s.highest === null ? '—' : String(s.highest)],
-            ['Lowest', s.lowest === null ? '—' : String(s.lowest)],
+            [tr("Took the test"), `${s.taken}${s.absent ? ` (${s.absent} absent)` : ''}`],
+            [tr("Average"), s.average === null ? '—' : `${s.average.toFixed(1)} (${formatPercent(s.averagePercent ?? 0)})`],
+            [tr("Highest"), s.highest === null ? '—' : String(s.highest)],
+            [tr("Lowest"), s.lowest === null ? '—' : String(s.lowest)],
           ] as const
         ).map(([label, value]) => (
           <div key={label} className="bg-surface px-5 py-4">
@@ -83,18 +84,18 @@ export function AssessmentDetailPage() {
       <AssessmentFormDialog open={editing} assessment={assessment} onClose={() => setEditing(false)} />
       <ConfirmDialog
         open={deleting}
-        title="Delete this assessment?"
-        confirmLabel="Delete assessment"
+        title={tr("Delete this assessment?")}
+        confirmLabel={tr("Delete assessment")}
         onClose={() => setDeleting(false)}
         onConfirm={() => {
           if (actions.deleteAssessment(assessment.id)) {
-            toast.show('Assessment deleted.')
+            toast.show(tr("Assessment deleted."))
             navigate('/assessments', { replace: true })
           }
         }}
       >
         <p>
-          {assessment.title} for {group?.name} and its {s.taken} results will be removed from every student’s profile.
+          {assessment.title}{' '}{tr("for")}{' '}{group?.name}{' '}{tr("and its")}{' '}{s.taken}{' '}{tr("results will be removed from every student’s profile.")}
         </p>
       </ConfirmDialog>
     </>
@@ -134,7 +135,7 @@ function ResultsTable({ assessment }: { assessment: Assessment }) {
   const errorFor = (row: Row) => {
     if (row.absent || row.score.trim() === '') return null
     const n = Number(row.score)
-    return Number.isFinite(n) && n >= 0 && n <= assessment.maxScore ? null : `Score must be from 0 to ${assessment.maxScore}.`
+    return Number.isFinite(n) && n >= 0 && n <= assessment.maxScore ? null : tr('Score must be from 0 to {0}.', assessment.maxScore)
   }
   const invalid = students.filter((st) => errorFor(rows[st.id]))
 
@@ -143,23 +144,23 @@ function ResultsTable({ assessment }: { assessment: Assessment }) {
     const results = students
       .filter((st) => rows[st.id].absent || rows[st.id].score.trim() !== '')
       .map((st) => ({ studentId: st.id, score: rows[st.id].absent ? null : Number(rows[st.id].score), comment: rows[st.id].comment }))
-    if (!actions.saveAssessmentResults(assessment.id, results)) return toast.show('Results weren’t saved: this group isn’t yours.', 'error')
+    if (!actions.saveAssessmentResults(assessment.id, results)) return toast.show(tr("Results weren’t saved: this group isn’t yours."), 'error')
     setDirty(false)
     setShowErrors(false)
-    toast.show(`Saved ${results.length} results.`)
+    toast.show(tr("Saved {0} results.", results.length))
   }
 
   if (students.length === 0) {
     return (
-      <Panel title="Results">
-        <EmptyState icon={Users} title="No students in this group on that date" />
+      <Panel title={tr("Results")}>
+        <EmptyState icon={Users} title={tr("No students in this group on that date")} />
       </Panel>
     )
   }
 
   return (
-    <Panel title="Results" description={`Enter each score out of ${assessment.maxScore}, or mark the student absent. Leave a score empty if it isn’t in yet.`} flush>
-      <ul className="divide-y divide-line border-t border-line" aria-label="Results">
+    <Panel title={tr("Results")} description={tr("Enter each score out of {0}, or mark the student absent. Leave a score empty if it isn’t in yet.", assessment.maxScore)} flush>
+      <ul className="divide-y divide-line border-t border-line" aria-label={tr("Results")}>
         {students.map((st) => {
           const row = rows[st.id]
           const error = showErrors || row.score ? errorFor(row) : null
@@ -171,25 +172,25 @@ function ResultsTable({ assessment }: { assessment: Assessment }) {
                 <span className="truncate">{st.fullName}</span>
               </Link>
               <Input
-                aria-label={`Score for ${st.fullName}, out of ${assessment.maxScore}`}
+                aria-label={tr("Score for {0}, out of {1}", st.fullName, assessment.maxScore)}
                 aria-invalid={error ? true : undefined}
                 inputMode="decimal"
                 disabled={row.absent}
                 value={row.absent ? '' : row.score}
-                placeholder={row.absent ? 'Absent' : `/${assessment.maxScore}`}
+                placeholder={row.absent ? tr("Absent") : `/${assessment.maxScore}`}
                 onChange={(e) => setRow(st.id, { score: e.target.value.replace(/[^\d.]/g, '') })}
                 className="num h-9 text-sm"
               />
               <span className={cn('num hidden text-sm sm:block', percent !== null && percent < 0.6 ? 'text-danger' : 'text-ink-muted')}>{percent === null ? '' : formatPercent(percent)}</span>
               <label className="flex items-center gap-2 text-sm text-ink-muted">
                 <input type="checkbox" checked={row.absent} onChange={(e) => setRow(st.id, { absent: e.target.checked })} className="size-4 accent-[var(--color-brand)]" />
-                Absent
+                {tr("Absent")}
               </label>
               <Input
-                aria-label={`Comment for ${st.fullName}`}
+                aria-label={tr("Comment for {0}", st.fullName)}
                 value={row.comment}
                 maxLength={300}
-                placeholder="Comment (optional)"
+                placeholder={tr("Comment (optional)")}
                 onChange={(e) => setRow(st.id, { comment: e.target.value })}
                 className="col-span-2 h-9 text-sm sm:col-span-1"
               />
@@ -204,7 +205,7 @@ function ResultsTable({ assessment }: { assessment: Assessment }) {
       </ul>
       <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-b-panel border-t border-line bg-surface/95 px-5 py-3 backdrop-blur">
         <p className="text-sm text-ink-muted" role="status">
-          {dirty ? 'Unsaved changes.' : 'All results saved.'}
+          {dirty ? tr("Unsaved changes.") : tr("All results saved.")}
         </p>
         <div className="flex gap-2">
           {dirty && (
@@ -216,11 +217,11 @@ function ResultsTable({ assessment }: { assessment: Assessment }) {
                 setShowErrors(false)
               }}
             >
-              Discard
+              {tr("Discard")}
             </Button>
           )}
           <Button variant="primary" onClick={save} disabled={!dirty}>
-            Save results
+            {tr("Save results")}
           </Button>
         </div>
       </div>
