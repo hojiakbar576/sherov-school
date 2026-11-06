@@ -11,7 +11,8 @@ import { applyStudentChange, isArchived } from '../lib/student-lifecycle'
 import { createId } from '../lib/id'
 import { dayPatternLabel, formatUZS } from '../lib/format'
 import { computeBalances } from '../lib/metrics'
-import { demoSignIn, ownerSignIn, readSession, SESSION_KEY, SIGN_IN_ROLES, writeSession } from '../lib/auth'
+import { signsInOnOwnerPage, userFromProfile } from '../lib/auth'
+import { fetchMyProfile, loginEmail, supabase, type Profile } from '../lib/supabase'
 import { canTeachGroup, scopeData, userBranchId } from '../lib/scope'
 import { addMonths, monthKey, parseISODate, toISODate } from '../lib/dates'
 import { salaryHistory } from '../lib/salary'
@@ -21,7 +22,7 @@ import { createDemoData } from './seed'
 import { DEFAULT_BRANCH_ID, teacherUser } from './seed-portal'
 import { homeworkStudents } from './seed-learning'
 import { loadData, saveData, STORAGE_KEY, validateSchoolData } from './storage'
-import { SchoolContext, type OwnerView, type SchoolActions, type SchoolContextValue, type TeacherView } from './school-context'
+import { SchoolContext, type OwnerView, type SchoolActions, type SchoolContextValue, type SignInResult, type TeacherView } from './school-context'
 
 const OWNER_BRANCH_KEY = 'sherov-school:owner-branch'
 function readOwnerBranch(): string | null {
@@ -46,10 +47,9 @@ function notice(n: Omit<Notification, 'id' | 'createdAt'>): Notification {
   return { ...n, id: createId('ntf'), createdAt: new Date().toISOString() }
 }
 
-/** Only accounts whose role can sign in today count as a session. */
-function sessionUser(data: SchoolData, userId: string | null): User | null {
-  return data.users.find((u) => u.id === userId && SIGN_IN_ROLES.includes(u.role) && u.active !== false) ?? null
-}
+/** Signed-in state: still checking, signed out, or signed in with this account. */
+type Auth = { status: 'loading' } | { status: 'out' } | { status: 'in'; profile: Profile }
+
 
 class NotPermittedError extends Error {}
 
@@ -58,12 +58,49 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   const [fullData, setData] = useState<SchoolData>(initial.data)
   const [persistent, setPersistent] = useState(initial.persistent)
   const [loadProblem, setLoadProblem] = useState<string | null>(initial.problem ?? null)
-  const [userId, setUserId] = useState<string | null>(() => readSession())
+  const [auth, setAuth] = useState<Auth>({ status: 'loading' })
+  // True while a sign-in is checked here, so the background listener doesn't load the profile twice.
+  const signingIn = useRef(false)
   // The owner can narrow the administrator pages to one branch (kept for this browser session).
   const [ownerBranchId, setOwnerBranchId] = useState<string | null>(() => readOwnerBranch())
   const now = useNow()
 
-  const user = sessionUser(fullData, userId)
+  const user = useMemo(() => (auth.status === 'in' ? userFromProfile(auth.profile, fullData.users) : null), [auth, fullData.users])
+  const userId = user?.id ?? null
+
+  // Restore the signed-in account when the site opens, and follow sign-outs
+  // (including from another tab, or an expired session).
+  useEffect(() => {
+    let alive = true
+    const load = async (authUserId: string | undefined) => {
+      if (!authUserId) {
+        if (alive) setAuth({ status: 'out' })
+        return
+      }
+      try {
+        const profile = await fetchMyProfile(authUserId)
+        if (!alive) return
+        if (profile) setAuth({ status: 'in', profile })
+        else {
+          // The account was turned off or removed: end the session.
+          await supabase.auth.signOut()
+          if (alive) setAuth({ status: 'out' })
+        }
+      } catch {
+        // Offline or the server didn't answer: stay signed out rather than guess.
+        if (alive) setAuth({ status: 'out' })
+      }
+    }
+    void supabase.auth.getSession().then(({ data }) => load(data.session?.user.id))
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') setAuth({ status: 'out' })
+      else if (event === 'SIGNED_IN' && session && !signingIn.current) void load(session.user.id)
+    })
+    return () => {
+      alive = false
+      listener.subscription.unsubscribe()
+    }
+  }, [])
   const ownerBranch = user?.role === 'owner' && fullData.branches.some((b) => b.id === ownerBranchId) ? ownerBranchId : null
   const data = useMemo(() => {
     if (!user) return fullData
@@ -82,10 +119,6 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   // Keep two open tabs in step with each other, including signing in and out.
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === SESSION_KEY) {
-        setUserId(event.newValue)
-        return
-      }
       if (event.key !== STORAGE_KEY || !event.newValue) return
       try {
         const next: unknown = JSON.parse(event.newValue)
@@ -114,34 +147,42 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const signIn = useCallback(
-    (username: string, password: string) => {
-      const found = demoSignIn(fullData.users, username, password)
-      if (found) {
-        writeSession(found.id)
-        setUserId(found.id)
+  /** Checks the username and password with the server. `ownerPage` is true on the owner's sign-in page. */
+  const signInWith = useCallback(
+    async (username: string, password: string, ownerPage: boolean): Promise<SignInResult> => {
+      if (!username.trim() || !password) return { error: tr("Enter your username and password.") }
+      signingIn.current = true
+      try {
+        const { data: signed, error } = await supabase.auth.signInWithPassword({ email: loginEmail(username), password })
+        if (error || !signed.user) {
+          const offline = !error || /fetch|network|failed to/i.test(error.message)
+          return { error: offline ? tr("Can’t reach the server. Check the internet connection and try again.") : tr("Wrong username or password.") }
+        }
+        const profile = await fetchMyProfile(signed.user.id)
+        if (!profile) {
+          await supabase.auth.signOut()
+          return { error: tr("This account is turned off. Ask the owner to turn it back on.") }
+        }
+        if (signsInOnOwnerPage(profile.role) !== ownerPage) {
+          await supabase.auth.signOut()
+          return { error: ownerPage ? tr("This page is only for the owner. Staff sign in on the main sign-in page.") : tr("The owner signs in on the Owner sign-in page.") }
+        }
+        setAuth({ status: 'in', profile })
+        return { user: userFromProfile(profile, fullData.users) }
+      } catch {
+        return { error: tr("Can’t reach the server. Check the internet connection and try again.") }
+      } finally {
+        signingIn.current = false
       }
-      return found
     },
     [fullData.users],
   )
-
-  const signInOwner = useCallback(
-    (username: string, password: string) => {
-      const found = ownerSignIn(fullData.users, username, password)
-      if (found) {
-        // Only for this browser session: closing the browser signs the owner out.
-        writeSession(found.id, { sessionOnly: true })
-        setUserId(found.id)
-      }
-      return found
-    },
-    [fullData.users],
-  )
+  const signIn = useCallback((username: string, password: string) => signInWith(username, password, false), [signInWith])
+  const signInOwner = useCallback((username: string, password: string) => signInWith(username, password, true), [signInWith])
 
   const signOut = useCallback(() => {
-    writeSession(null)
-    setUserId(null)
+    void supabase.auth.signOut()
+    setAuth({ status: 'out' })
     setOwnerBranchId(null)
     try {
       window.sessionStorage.removeItem(OWNER_BRANCH_KEY)
@@ -1080,7 +1121,6 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     const id = user?.role === 'owner' ? ownerBranch : user ? userBranchId(fullData, user) : null
     return fullData.branches.find((b) => b.id === id) ?? null
   }, [fullData, user, ownerBranch])
-  const demoAccounts = useMemo(() => fullData.users.filter((u) => u.role !== 'owner' && u.active !== false), [fullData.users])
   const owner = useMemo<OwnerView | null>(
     () => (user?.role === 'owner' ? { data: fullData, branchId: ownerBranch, setBranch: setOwnerBranch } : null),
     [user, fullData, ownerBranch, setOwnerBranch],
@@ -1098,13 +1138,13 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       actions,
       user,
       branch,
-      demoAccounts,
+      authLoading: auth.status === 'loading',
       signIn,
       signInOwner,
       signOut,
       owner,
     }),
-    [data, now, balances, teacherView, persistent, loadProblem, actions, user, branch, demoAccounts, signIn, signInOwner, signOut, owner],
+    [data, now, balances, teacherView, persistent, loadProblem, actions, user, branch, auth.status, signIn, signInOwner, signOut, owner],
   )
 
   return <SchoolContext.Provider value={value}>{children}</SchoolContext.Provider>

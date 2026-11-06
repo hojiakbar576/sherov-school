@@ -4,17 +4,20 @@ import type { Role } from '../types'
 import { useSchool } from '../data/school-context'
 import { ROLE_HOME, ROLE_LOGIN } from '../lib/auth'
 import { canOpen } from './permissions'
+import { tr } from '../i18n'
 
 /**
  * Shows its children only to the given roles. Signed-out visitors go to the
- * sign-in page; anyone else goes to their own portal. This only shapes the
- * demo UI: real access control has to happen on a server.
+ * sign-in page; anyone else goes to their own portal. This shapes the pages;
+ * what data each person can read is enforced by the database's security rules.
  */
 export function RequireRole({ roles, children }: { roles: readonly Role[]; children: ReactNode }) {
   // Owner-only pages send signed-out visitors to the owner's sign-in.
   const loginPath = roles.length === 1 ? ROLE_LOGIN[roles[0]] : '/login'
-  const { user } = useSchool()
+  const { user, authLoading } = useSchool()
   const location = useLocation()
+  // While the saved sign-in is being checked, show nothing rather than bouncing to the sign-in page.
+  if (authLoading) return <div role="status" aria-label={tr("Loading")} className="min-h-dvh bg-canvas" />
   if (!user) {
     const from = `${location.pathname}${location.search}${location.hash}`
     return <Navigate to={loginPath} replace state={{ from }} />

@@ -1,15 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
-import { ArrowRight, ShieldAlert } from 'lucide-react'
+import { ArrowRight, Loader2 } from 'lucide-react'
 import type { User } from '../types'
 import { useSchool } from '../data/school-context'
 import { Logo } from '../components/layout/Logo'
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher'
 import { Button } from '../components/ui/Button'
 import { Field, Input } from '../components/ui/Field'
-import { Avatar } from '../components/ui/misc'
-import { DEMO_PASSWORD, ROLE_HOME, roleLabel } from '../lib/auth'
-import { cn } from '../lib/cn'
+import { ROLE_HOME } from '../lib/auth'
 import { tr } from '../i18n'
 
 /** Sends someone back to the page they asked for, if it belongs to their portal. */
@@ -20,47 +18,37 @@ function destination(user: User, from: unknown): string {
   return inTeacherPortal === (user.role === 'teacher') ? from : home
 }
 
+/** Sign-in for branch administrators, accountants and teachers. Accounts are created by the owner. */
 export function LoginPage() {
-  const { user, signIn, demoAccounts, data } = useSchool()
+  const { user, authLoading, signIn } = useSchool()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: unknown } | null)?.from
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   if (user) return <Navigate to={destination(user, from)} replace />
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const found = signIn(username, password)
-    if (!found) {
-      setError('That username and password don’t match a demo account. Pick one from the list.')
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    const result = await signIn(username, password)
+    setBusy(false)
+    if (!result.user) {
+      setError(result.error)
+      setPassword('')
       return
     }
-    navigate(destination(found, from), { replace: true })
+    navigate(destination(result.user, from), { replace: true })
   }
-
-  const fill = (account: User) => {
-    setUsername(account.username)
-    setPassword(DEMO_PASSWORD)
-    setError(null)
-  }
-
-  const branchName = new Map(data.branches.map((b) => [b.id, b.name]))
-  const teacherBranch = new Map(data.teachers.map((t) => [t.id, t.branchId]))
-  const accountBranch = (u: User) => branchName.get((u.role === 'teacher' ? teacherBranch.get(u.teacherId ?? '') : u.branchId) ?? '') ?? ''
-  const admins = demoAccounts.filter((u) => u.role === 'admin')
-  const office = demoAccounts
-    .filter((u) => u.role === 'accountant' && u.active !== false)
-    .sort((a, b) => accountBranch(a).localeCompare(accountBranch(b)) || a.role.localeCompare(b.role))
-  const teachers = demoAccounts
-    .filter((u) => u.role === 'teacher')
-    .sort((a, b) => accountBranch(a).localeCompare(accountBranch(b)) || a.fullName.localeCompare(b.fullName))
 
   return (
-    <div className="min-h-dvh bg-canvas px-4 py-8 sm:py-12">
-      <main className="mx-auto grid w-full max-w-5xl gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start">
+    <div className="flex min-h-dvh items-start justify-center bg-canvas px-4 py-10 sm:items-center">
+      <main className="w-full max-w-md">
         <section aria-labelledby="sign-in-title" className="rounded-panel border border-line bg-surface p-6 sm:p-8">
           <div className="flex items-center justify-between gap-4">
             <Logo />
@@ -71,23 +59,16 @@ export function LoginPage() {
           </h1>
           <p className="mt-1 text-ink-muted">{tr("Administrators, accountants and teachers each see the pages for their job.")}</p>
 
-          <div role="note" className="mt-6 flex gap-3 rounded-control border border-warning-mark/40 bg-warning-soft px-3.5 py-3 text-sm text-ink">
-            <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
-            <p>
-              <span className="font-semibold">{tr("Temporary demo sign-in.")}</span>{' '}{tr("Not secure: every account uses the password")}{' '}
-              <code className="rounded bg-surface px-1 font-mono text-[0.8125rem]">{DEMO_PASSWORD}</code>{tr(", nothing is checked by a server, and data stays in this browser. Don’t enter real passwords.")}
-            </p>
-          </div>
-
-          <form onSubmit={submit} noValidate className="mt-6 space-y-4">
+          <form onSubmit={(e) => void submit(e)} noValidate className="mt-6 space-y-4" aria-busy={busy || authLoading}>
             <Field label={tr("Username")}>
               {(control) => (
                 <Input
                   {...control}
                   name="username"
-                  autoComplete="off"
+                  autoComplete="username"
                   autoCapitalize="none"
                   spellCheck={false}
+                  autoFocus
                   value={username}
                   onChange={(e) => {
                     setUsername(e.target.value)
@@ -103,7 +84,7 @@ export function LoginPage() {
                   {...control}
                   name="password"
                   type="password"
-                  autoComplete="off"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
@@ -112,74 +93,21 @@ export function LoginPage() {
                 />
               )}
             </Field>
-            <Button type="submit" variant="primary" className="w-full">
-              {tr("Sign in")}
-              <ArrowRight aria-hidden />
+            <Button type="submit" variant="primary" className="w-full" disabled={busy || authLoading}>
+              {busy ? <Loader2 aria-hidden className="animate-spin" /> : null}
+              {busy ? tr("Signing in…") : tr("Sign in")}
+              {!busy && <ArrowRight aria-hidden />}
             </Button>
           </form>
+          <p className="mt-4 text-sm text-ink-muted">{tr("Forgot your password? Ask the owner to set a new one.")}</p>
         </section>
-
-        <section aria-labelledby="accounts-title" className="rounded-panel border border-line bg-surface">
-          <div className="border-b border-line px-5 py-4">
-            <h2 id="accounts-title" className="font-semibold text-ink">
-              {tr("Demo accounts")}
-            </h2>
-            <p className="mt-0.5 text-sm text-ink-muted">{tr("Choose one to fill in the form.")}</p>
-          </div>
-          <AccountList title={tr("Branch administrators")} accounts={admins} branchOf={accountBranch} onPick={fill} selected={username} />
-          {office.length > 0 && <AccountList title={tr("Branch accountants")} accounts={office} branchOf={accountBranch} onPick={fill} selected={username} />}
-          <AccountList title={tr("Teachers")} accounts={teachers} branchOf={accountBranch} onPick={fill} selected={username} />
-          <p className="border-t border-line px-5 py-3 text-sm text-ink-muted">
-            {tr("Mr. Sherzod?")}{' '}
-            <Link to="/owner/login" className="font-medium text-brand hover:underline">
-              {tr("Owner sign-in")}
-            </Link>
-          </p>
-        </section>
+        <p className="mt-4 text-center text-sm text-ink-muted">
+          {tr("Mr. Sherzod?")}{' '}
+          <Link to="/owner/login" className="font-medium text-brand hover:underline">
+            {tr("Owner sign-in")}
+          </Link>
+        </p>
       </main>
-    </div>
-  )
-}
-
-function AccountList({
-  title,
-  accounts,
-  branchOf,
-  onPick,
-  selected,
-}: {
-  title: string
-  accounts: User[]
-  branchOf: (u: User) => string
-  onPick: (u: User) => void
-  selected: string
-}) {
-  return (
-    <div className="px-2 py-3">
-      <h3 className="px-3 pb-1 text-xs font-medium text-ink-faint">{title}</h3>
-      <ul className="grid gap-0.5 sm:grid-cols-2">
-        {accounts.map((account) => (
-          <li key={account.id}>
-            <button
-              type="button"
-              onClick={() => onPick(account)}
-              aria-pressed={selected === account.username}
-              className={cn(
-                'flex w-full items-center gap-3 rounded-control px-3 py-2 text-left hover:bg-subtle',
-                selected === account.username && 'bg-brand-soft hover:bg-brand-soft',
-              )}
-            >
-              <Avatar name={account.fullName} size="sm" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-ink">{account.fullName}</span>
-                <span className="block truncate text-xs text-ink-muted">
-                  <span className="font-mono">{account.username}</span> · {roleLabel[account.role]}, {branchOf(account)}
-                </span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }

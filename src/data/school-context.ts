@@ -236,19 +236,23 @@ export interface SchoolContextValue {
   dismissLoadProblem(): void
   actions: SchoolActions
 
-  /** Demo sign-in (see lib/auth.ts). null when signed out. */
+  /** The signed-in person (checked by the server). null when signed out. */
   user: User | null
+  /** True while the saved sign-in is being checked when the site opens. */
+  authLoading: boolean
   /** The signed-in person's branch; null for the owner. */
   branch: Branch | null
-  /** Accounts that can sign in, for the demo sign-in page (administrators and teachers). */
-  demoAccounts: User[]
-  signIn(username: string, password: string): User | null
-  /** The owner's own demo sign-in (see OWNER_DEMO_CREDENTIALS). */
-  signInOwner(username: string, password: string): User | null
+  /** Staff and teachers sign in here; the result says who, or why not in plain words. */
+  signIn(username: string, password: string): Promise<SignInResult>
+  /** The owner's sign-in. */
+  signInOwner(username: string, password: string): Promise<SignInResult>
   signOut(): void
   /** Only for the signed-in owner; null for everyone else. */
   owner: OwnerView | null
 }
+
+/** What a sign-in attempt returns: the person, or why it failed (already in plain words). */
+export type SignInResult = { user: User; error?: undefined } | { user?: undefined; error: string }
 
 export const SchoolContext = createContext<SchoolContextValue | null>(null)
 

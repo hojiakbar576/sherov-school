@@ -42,11 +42,8 @@ export function OwnerSettingsPage() {
           </Panel>
           <Panel title={tr("Your sign-in")}>
             <div className="flex gap-3 text-sm">
-              <KeyRound aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
-              <p className="text-ink-muted">
-                {tr("This is a")}{' '}<span className="font-medium text-ink">{tr("temporary development login")}</span>{tr(", set in the app’s code (")}<code className="font-mono text-xs">OWNER_DEMO_CREDENTIALS</code>{' '}
-                {tr("in")}{' '}<code className="font-mono text-xs">{tr("src/lib/auth.ts")}</code>{tr("). It is not secure and will be replaced by real sign-in when the school moves to a database.")}
-              </p>
+              <KeyRound aria-hidden className="mt-0.5 size-4 shrink-0 text-success" />
+              <p className="text-ink-muted">{tr("Your account is checked by the server, and the password is stored scrambled, so nobody can read it. Keep it private and don’t reuse it on other sites.")}</p>
             </div>
           </Panel>
         </div>

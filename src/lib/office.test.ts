@@ -3,7 +3,7 @@ import { branchSeatHolder, type AttendanceRecord, type SchoolData } from '../typ
 import { createDemoData, DATA_VERSION } from '../data/seed'
 import { migrate } from '../data/migrate'
 import { validateSchoolData } from '../data/storage'
-import { demoSignIn, DEMO_PASSWORD } from './auth'
+import { userFromProfile } from './auth'
 import { can, canOpen, sectionForPath } from '../app/permissions'
 import { scopeData } from './scope'
 import { summarizeMarks } from './metrics'
@@ -60,11 +60,14 @@ describe('roles', () => {
     expect(sectionForPath('/students/stu_001')).toBe('students')
   })
 
-  it('a turned-off account cannot sign in', () => {
-    const accountant = data.users.find((u) => u.role === 'accountant')!
-    expect(demoSignIn(data.users, accountant.username, DEMO_PASSWORD)?.id).toBe(accountant.id)
-    const users = data.users.map((u) => (u.id === accountant.id ? { ...u, active: false } : u))
-    expect(demoSignIn(users, accountant.username, DEMO_PASSWORD)).toBeNull()
+  it('a signed-in account becomes the matching person in the app, with the server’s role and branch', () => {
+    const profile = { user_id: 'u1', center_id: 'ctr_sherov', branch_id: 'br_quyliq', role: 'accountant' as const, username: 'accountant.quyliq', full_name: 'Quyliq Accountant', app_user_id: 'usr_accountant_quyliq', active: true }
+    const user = userFromProfile(profile, data.users)
+    expect(user).toMatchObject({ id: 'usr_accountant_quyliq', role: 'accountant', branchId: 'br_quyliq', fullName: 'Quyliq Accountant', username: 'accountant.quyliq' })
+    // The server decides the role, even if the app's own list says otherwise.
+    const sneaky = userFromProfile({ ...profile, app_user_id: 'usr_owner' }, data.users)
+    expect(sneaky.role).toBe('accountant')
+    expect(sneaky.branchId).toBe('br_quyliq')
   })
 
   it('has one owner, and one administrator and one accountant per branch', () => {

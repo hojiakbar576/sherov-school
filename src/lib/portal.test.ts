@@ -3,7 +3,6 @@ import type { SchoolData, User } from '../types'
 import { createDemoData, DATA_VERSION } from '../data/seed'
 import { migrate } from '../data/migrate'
 import { validateSchoolData } from '../data/storage'
-import { DEMO_PASSWORD, demoSignIn } from './auth'
 import { canTeachGroup, scopeData } from './scope'
 import { teacherNotifications } from './notifications'
 import { findScheduleConflicts } from './schedule'
@@ -45,13 +44,6 @@ describe('branches and accounts', () => {
       expect(r.teacherId).toMatch(/^tch_/)
       for (const id of Object.keys(r.marks)) expect(studentIds.has(id)).toBe(true)
     }
-  })
-
-  it('signs in only admin and teacher demo accounts with the demo password', () => {
-    expect(demoSignIn(data.users, 'admin.chilonzor', DEMO_PASSWORD)?.role).toBe('admin')
-    expect(demoSignIn(data.users, ' Kamola ', DEMO_PASSWORD)?.role).toBe('teacher')
-    expect(demoSignIn(data.users, 'kamola', 'wrong')).toBeNull()
-    expect(demoSignIn(data.users, 'owner', DEMO_PASSWORD)).toBeNull() // owner portal not built yet
   })
 
   it('allows the same room name at different branches', () => {

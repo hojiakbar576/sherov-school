@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
-import { ArrowRight, ShieldAlert } from 'lucide-react'
+import { ArrowRight, Loader2 } from 'lucide-react'
 import { useSchool } from '../data/school-context'
 import { Logo } from '../components/layout/Logo'
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher'
@@ -11,20 +11,27 @@ import { tr } from '../i18n'
 
 /** Sign-in for the owner only. Administrators and teachers use /login. */
 export function OwnerLoginPage() {
-  const { user, signInOwner } = useSchool()
+  const { user, authLoading, signInOwner } = useSchool()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: unknown } | null)?.from
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   if (user) return <Navigate to={ROLE_HOME[user.role]} replace />
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!signInOwner(username, password)) {
-      setError('That username and password don’t match the owner account.')
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    const result = await signInOwner(username, password)
+    setBusy(false)
+    if (!result.user) {
+      setError(result.error)
+      setPassword('')
       return
     }
     navigate(typeof from === 'string' && from.startsWith('/owner') && from !== '/owner/login' ? from : '/owner', { replace: true })
@@ -43,20 +50,14 @@ export function OwnerLoginPage() {
           </h1>
           <p className="mt-1 text-ink-muted">{tr("For Mr. Sherzod: every branch, finances and teachers in one place.")}</p>
 
-          <div role="note" className="mt-6 flex gap-3 rounded-control border border-warning-mark/40 bg-warning-soft px-3.5 py-3 text-sm text-ink">
-            <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
-            <p>
-              <span className="font-semibold">{tr("Temporary development login.")}</span>{' '}{tr("Not secure: the details are set in the app’s code and nothing is checked by a server. You stay signed in until you sign out or close the browser.")}
-            </p>
-          </div>
 
-          <form onSubmit={submit} noValidate className="mt-6 space-y-4">
+          <form onSubmit={(e) => void submit(e)} noValidate className="mt-6 space-y-4" aria-busy={busy || authLoading}>
             <Field label={tr("Username")}>
               {(control) => (
                 <Input
                   {...control}
                   name="username"
-                  autoComplete="off"
+                  autoComplete="username"
                   autoCapitalize="none"
                   spellCheck={false}
                   autoFocus
@@ -74,7 +75,7 @@ export function OwnerLoginPage() {
                   {...control}
                   name="password"
                   type="password"
-                  autoComplete="off"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
@@ -83,9 +84,10 @@ export function OwnerLoginPage() {
                 />
               )}
             </Field>
-            <Button type="submit" variant="primary" className="w-full">
-              {tr("Sign in")}
-              <ArrowRight aria-hidden />
+            <Button type="submit" variant="primary" className="w-full" disabled={busy || authLoading}>
+              {busy ? <Loader2 aria-hidden className="animate-spin" /> : null}
+              {busy ? tr("Signing in…") : tr("Sign in")}
+              {!busy && <ArrowRight aria-hidden />}
             </Button>
           </form>
         </section>

@@ -3,7 +3,8 @@ import type { SchoolData } from '../types'
 import { createDemoData, DATA_VERSION } from '../data/seed'
 import { migrate } from '../data/migrate'
 import { validateSchoolData } from '../data/storage'
-import { DEMO_PASSWORD, demoSignIn, OWNER_DEMO_CREDENTIALS, ownerSignIn, ROLE_HOME } from './auth'
+import { ROLE_HOME, ROLE_LOGIN, signsInOnOwnerPage } from './auth'
+import { loginEmail } from './supabase'
 import { branchData, branchSummaries, organisationTotals, revenueByBranch } from './owner'
 import { computeBalances, outstandingTotal, revenueInMonth } from './metrics'
 import { scopeData } from './scope'
@@ -13,15 +14,15 @@ const NOW = new Date(2026, 10, 4, 16, 0) // Wed 4 Nov 2026
 const data = createDemoData(NOW)
 
 describe('owner sign-in', () => {
-  it('accepts only the owner credentials, and only on the owner sign-in', () => {
-    const owner = ownerSignIn(data.users, OWNER_DEMO_CREDENTIALS.username, OWNER_DEMO_CREDENTIALS.password)
-    expect(owner?.role).toBe('owner')
-    expect(ownerSignIn(data.users, OWNER_DEMO_CREDENTIALS.username, 'wrong')).toBeNull()
-    expect(ownerSignIn(data.users, 'admin.chilonzor', DEMO_PASSWORD)).toBeNull()
-    // The shared demo sign-in never lets the owner in.
-    expect(demoSignIn(data.users, OWNER_DEMO_CREDENTIALS.username, OWNER_DEMO_CREDENTIALS.password)).toBeNull()
-    expect(demoSignIn(data.users, 'owner', DEMO_PASSWORD)).toBeNull()
+  it('the owner signs in on their own page; staff on the main one', () => {
+    expect(signsInOnOwnerPage('owner')).toBe(true)
+    for (const role of ['admin', 'accountant', 'teacher'] as const) expect(signsInOnOwnerPage(role)).toBe(false)
     expect(ROLE_HOME.owner).toBe('/owner')
+    expect(ROLE_LOGIN.owner).toBe('/owner/login')
+  })
+
+  it('turns a username into the account’s private sign-in address', () => {
+    expect(loginEmail(' Admin.Chilonzor ')).toBe('admin.chilonzor@users.sherov-crm.app')
   })
 
   it('doesn’t take a teacher’s username', () => {

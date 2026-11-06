@@ -103,15 +103,15 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
 export function DemoDataNote({ collapsed }: { collapsed?: boolean }) {
   if (collapsed) {
     return (
-      <div className="flex justify-center pb-4" title={tr("Demo mode: data is saved in this browser only")}>
-        <HardDrive aria-label={tr("Demo mode: data is saved in this browser only")} className="size-4 text-sidebar-faint" />
+      <div className="flex justify-center pb-4" title={tr("Sample data: saved in this browser only")}>
+        <HardDrive aria-label={tr("Sample data: saved in this browser only")} className="size-4 text-sidebar-faint" />
       </div>
     )
   }
   return (
     <div className="mx-3 mb-4 rounded-control bg-sidebar-hover px-3 py-2.5 text-xs text-sidebar-muted">
-      <p className="font-medium text-sidebar-ink">{tr("Demo mode")}</p>
-      <p className="mt-0.5">{tr("Sample data and temporary demo sign-in, saved only in this browser. No server or database yet.")}</p>
+      <p className="font-medium text-sidebar-ink">{tr("Sample data")}</p>
+      <p className="mt-0.5">{tr("Sign-in is real. The school data is still sample data saved in this browser until it moves to the database.")}</p>
     </div>
   )
 }

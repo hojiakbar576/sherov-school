@@ -76,7 +76,7 @@ export function ProfileMenu() {
           </ul>
           <LanguageSwitcher showLabel className="justify-between border-t border-line px-4 py-2.5" />
           <p className="border-t border-line px-4 py-2.5 text-xs text-ink-muted">
-            {tr("Temporary demo sign-in. Not secure; for trying the app only.")}
+            {tr("Signed in securely. School data is still sample data in this browser until it moves to the database.")}
           </p>
         </>
       )}
