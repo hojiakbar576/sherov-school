@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Download, Plus, Settings2, UserRoundPlus } from 'lucide-react'
+import { Plus, Settings2, UserRoundPlus } from 'lucide-react'
 import type { Lead, LeadStage } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useBranchChoice } from '../../hooks/useBranchChoice'
@@ -13,7 +13,7 @@ import { toISODate } from '../../lib/dates'
 import { formatDate, formatRelative } from '../../lib/format'
 import { isOpenLead, nextStep, trialsOn } from '../../lib/admissions'
 import { orderedStages, stageCounts, stageName } from '../../lib/lead-stages'
-import { downloadCSV } from '../../lib/csv'
+import { ExportButtons } from '../../components/ui/ExportButtons'
 import { cn } from '../../lib/cn'
 import { RangeToggle } from '../../components/ui/RangeToggle'
 import { LeadStageBadge } from './LeadStageBadge'
@@ -78,11 +78,10 @@ export function LeadsPage() {
       })
   }, [matching, view])
 
-  const exportCSV = () =>
-    downloadCSV(`sherov-school-leads-${today}.csv`, [
+  const exportRows = () => [
       [tr("Student"), tr("Parent"), tr("Phone"), tr("Course"), tr("Stage"), tr("Next step"), tr("Trial date"), tr("Placement level"), tr("Source"), tr("Enquiry date"), tr("Notes")],
       ...rows.map((l) => [l.studentName, l.parentName, l.phone, l.course, stageName(data.leadStages, l.stage), nextStep(l, today), l.trial?.date, l.placement?.level, l.source, l.createdAt.slice(0, 10), l.notes]),
-    ])
+  ]
 
   const step = (stage: View, label: string, n: number) => (
     <button
@@ -111,10 +110,7 @@ export function LeadsPage() {
                 {tr("Manage lead stages")}
               </Button>
             )}
-            <Button onClick={exportCSV} disabled={rows.length === 0}>
-              <Download aria-hidden />
-              {tr("Export CSV")}
-            </Button>
+            <ExportButtons name="leads" date={today} rows={exportRows} disabled={rows.length === 0} />
             <Button variant="primary" onClick={() => setCreating(true)} disabled={Boolean(needsBranch)} title={needsBranch ?? undefined}>
               <Plus aria-hidden />
               {tr("New enquiry")}

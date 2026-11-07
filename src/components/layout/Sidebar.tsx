@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router'
 import { HardDrive, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { navFor, type NavItem } from '../../app/navigation'
+import { menuFor } from '../../app/navigation'
+import { MenuTree } from './MenuTree'
 import { useSchool } from '../../data/school-context'
 import { cn } from '../../lib/cn'
 import { Logo } from './Logo'
@@ -32,35 +34,8 @@ function LightNavEntry({ item, onNavigate }: { item: NavItem } & SidebarNavProps
   )
 }
 
-function NavEntry({ item, collapsed, onNavigate }: { item: NavItem } & SidebarNavProps) {
-  const Icon = item.icon
-  return (
-    <NavLink
-      to={item.to}
-      end={item.to === '/' || item.to === '/teacher' || item.to === '/owner'}
-      onClick={onNavigate}
-      title={collapsed ? item.label : undefined}
-      className={({ isActive }) =>
-        cn(
-          'group relative flex h-9 items-center gap-3 rounded-control px-2.5 text-sm font-medium transition-colors',
-          collapsed && 'justify-center px-0',
-          isActive ? 'bg-sidebar-active text-white' : 'text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-ink',
-        )
-      }
-    >
-      {({ isActive }) => (
-        <>
-          {isActive && <span aria-hidden className="absolute top-2 bottom-2 -left-3 w-[3px] rounded-r-full bg-accent" />}
-          <Icon aria-hidden className={cn('size-[18px] shrink-0', isActive ? 'text-ivory' : 'text-sidebar-faint group-hover:text-sidebar-muted')} />
-          <span className={cn(collapsed && 'sr-only')}>{item.label}</span>
-        </>
-      )}
-    </NavLink>
-  )
-}
-
 /** Navigation list shared by the desktop sidebar and the mobile drawer. */
-export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
+export function SidebarNav({ collapsed = false, onNavigate, onExpand }: SidebarNavProps & { onExpand?: () => void }) {
   const { user } = useSchool()
   const nav = navFor(user?.role ?? 'admin')
   if (user?.role === 'teacher') {
@@ -77,24 +52,8 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
     )
   }
   return (
-    <nav aria-label={tr("Main")} className="flex flex-1 flex-col overflow-y-auto px-3 py-2">
-      {nav.sections.map((section) => (
-        <div key={section.label} className="mb-4">
-          <p className={cn('mb-1 px-2.5 text-xs font-medium tracking-[0.04em] text-sidebar-faint uppercase', collapsed && 'sr-only')}>{section.label}</p>
-          <ul className="space-y-0.5">
-            {section.items.map((item) => (
-              <li key={item.to}>
-                <NavEntry item={item} collapsed={collapsed} onNavigate={onNavigate} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-      {nav.footer && (
-        <div className="mt-auto border-t border-sidebar-line pt-3">
-          <NavEntry item={nav.footer} collapsed={collapsed} onNavigate={onNavigate} />
-        </div>
-      )}
+    <nav aria-label={tr("Main")} className={cn('flex flex-1 flex-col overflow-y-auto py-2', collapsed ? 'px-2' : 'px-3')}>
+      <MenuTree nodes={menuFor(user?.role ?? 'admin')} collapsed={collapsed} onNavigate={onNavigate} onExpand={onExpand} />
     </nav>
   )
 }
@@ -131,32 +90,26 @@ export function TeacherSidebar() {
   )
 }
 
+/** Administrator, accountant and owner sidebar: light like LC UP, with the school's big logo on top. */
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   return (
-    <aside
-      className={cn(
-        'on-dark sticky top-0 hidden print:hidden h-dvh shrink-0 flex-col bg-sidebar lg:flex',
-        collapsed ? 'w-[72px]' : 'w-60',
-      )}
-    >
-      <div className={cn('flex h-16 items-center', collapsed ? 'justify-center' : 'px-5')}>
-        <Logo compact={collapsed} onDark />
+    <aside className={cn('sticky top-0 hidden print:hidden h-dvh shrink-0 p-3 pr-0 lg:block', collapsed ? 'w-[84px]' : 'w-72')}>
+      <div className="flex h-full flex-col rounded-2xl border border-line bg-surface">
+        <div className={cn('flex h-24 shrink-0 items-center border-b border-line', collapsed ? 'justify-center' : 'px-5')}>
+          <Logo compact={collapsed} large={!collapsed} />
+        </div>
+        <SidebarNav collapsed={collapsed} onExpand={onToggle} />
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={collapsed ? tr("Expand sidebar") : tr("Collapse sidebar")}
+          aria-expanded={!collapsed}
+          className={cn('flex h-11 shrink-0 items-center gap-2 rounded-b-2xl border-t border-line text-sm text-ink-muted hover:bg-subtle hover:text-ink', collapsed ? 'justify-center' : 'px-5')}
+        >
+          {collapsed ? <PanelLeftOpen className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
+          {!collapsed && <span>{tr("Collapse")}</span>}
+        </button>
       </div>
-      <SidebarNav collapsed={collapsed} />
-      <DemoDataNote collapsed={collapsed} />
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={collapsed ? tr("Expand sidebar") : tr("Collapse sidebar")}
-        aria-expanded={!collapsed}
-        className={cn(
-          'flex h-11 items-center gap-2 border-t border-sidebar-line text-sm text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-ink',
-          collapsed ? 'justify-center' : 'px-5',
-        )}
-      >
-        {collapsed ? <PanelLeftOpen className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
-        {!collapsed && <span>{tr("Collapse")}</span>}
-      </button>
     </aside>
   )
 }

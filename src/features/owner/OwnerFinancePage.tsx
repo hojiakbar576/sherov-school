@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Download } from 'lucide-react'
 import { useSchool } from '../../data/school-context'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Panel } from '../../components/ui/Panel'
@@ -12,7 +11,7 @@ import { monthKey, toISODate } from '../../lib/dates'
 import { formatAxisAmount, formatMonth, formatPercent, formatUZS, formatUZSCompact, methodName} from '../../lib/format'
 import { branchSummaries, revenueByBranch } from '../../lib/owner'
 import { teacherSalary } from '../../lib/salary'
-import { downloadCSV } from '../../lib/csv'
+import { ExportButtons } from '../../components/ui/ExportButtons'
 import { cn } from '../../lib/cn'
 import { BRANCH_COLORS } from './owner-ui'
 import { tr } from '../../i18n'
@@ -44,11 +43,10 @@ export function OwnerFinancePage() {
   const branchName = new Map(branches.map((b) => [b.id, b.name]))
   const sixMonthTotal = months.reduce((s, m) => s + m.total, 0)
 
-  const exportRevenue = () =>
-    downloadCSV(`sherov-school-revenue-by-branch-${toISODate(now)}.csv`, [
-      [tr("Month"), ...branches.map((b) => b.name), tr("Total (UZS)")],
-      ...months.map((m) => [m.fullLabel, ...branches.map((b) => m.byBranch[b.id] ?? 0), m.total]),
-    ])
+  const exportRevenue = () => [
+    [tr("Month"), ...branches.map((b) => b.name), tr("Total (UZS)")],
+    ...months.map((m) => [m.fullLabel, ...branches.map((b) => m.byBranch[b.id] ?? 0), m.total]),
+  ]
 
   return (
     <>
@@ -56,10 +54,9 @@ export function OwnerFinancePage() {
         title={tr("Finance")}
         description={tr("Tuition collected by branch, what is still owed, and teacher pay. Paid payments only; pending and refunded ones don’t count.")}
         actions={
-          <Button onClick={exportRevenue}>
-            <Download aria-hidden />
-            {tr("Export CSV")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ExportButtons name="revenue-by-branch" date={toISODate(now)} rows={exportRevenue} />
+          </div>
         }
       />
 

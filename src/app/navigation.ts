@@ -28,6 +28,7 @@ import type { Role } from '../types'
 import { t } from '../i18n'
 import { canOpen } from './permissions'
 import { tr } from '../i18n'
+import { ADMIN_MENU, OWNER_MENU, filterMenu, flattenMenu, pathOf, type MenuNode } from './menu'
 
 export interface NavItem {
   to: string
@@ -178,6 +179,13 @@ export function navFor(role: Role): PortalNav {
   return role === 'admin' ? ADMIN_NAV : forRole(ADMIN_NAV, role)
 }
 
+/** The LC UP-style menu for this role (teachers keep their own short list). */
+export function menuFor(role: Role): MenuNode[] {
+  if (role === 'owner') return OWNER_MENU
+  if (role === 'admin') return ADMIN_MENU
+  return filterMenu(ADMIN_MENU, (to) => canOpen(role, to))
+}
+
 /** Title for the header, e.g. "/students/stu_001" -> "Students". */
 export function pageTitle(pathname: string, role: Role = 'admin'): string {
   const nav = navFor(role)
@@ -187,5 +195,10 @@ export function pageTitle(pathname: string, role: Role = 'admin'): string {
   const match = items
     .filter((item) => item.to !== home && (pathname === item.to || pathname.startsWith(`${item.to}/`)))
     .sort((a, b) => b.to.length - a.to.length)[0]
-  return match?.label ?? 'Page not found'
+  if (match) return match.label
+  // LC UP-style menu entries (e.g. "coming soon" pages, settings tabs).
+  const entry = flattenMenu(OWNER_MENU)
+    .filter((n) => n.to && (pathname === pathOf(n.to) || pathname.startsWith(`${pathOf(n.to)}/`)))
+    .sort((a, b) => pathOf(b.to!).length - pathOf(a.to!).length)[0]
+  return entry?.label ?? 'Page not found'
 }

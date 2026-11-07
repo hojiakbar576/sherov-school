@@ -11,6 +11,7 @@ import { PaymentStatusBadge } from '../../components/StatusBadges'
 import { Logo } from '../../components/layout/Logo'
 import { formatDate, formatMonth, formatRelative, formatUZS, methodName } from '../../lib/format'
 import { tr } from '../../i18n'
+import { generalSettings, type ReceiptField } from '../../lib/general-settings'
 
 /**
  * A payment's receipt, ready to print or save as PDF (the browser's print
@@ -38,6 +39,8 @@ export function ReceiptPage() {
   const branch = all.branches.find((b) => b.id === student?.branchId)
   const userName = new Map(all.users.map((u) => [u.id, u.fullName]))
   const parent = student?.guardians[0]
+  const show = generalSettings(data.settings).receipt
+  const teacher = all.teachers.find((t) => t.id === group?.teacherId)
 
   return (
     <>
@@ -64,39 +67,40 @@ export function ReceiptPage() {
         <div className="flex items-start justify-between gap-4 border-b border-line pb-5">
           <Logo />
           <div className="text-right text-sm">
-            <p className="font-semibold text-ink">{tr("Receipt")}{' '}{payment.receiptNo ?? '—'}</p>
-            <p className="text-ink-muted">{formatDate(payment.date)}</p>
+            {show.receiptNo && <p className="font-semibold text-ink">{tr("Receipt")}{' '}{payment.receiptNo ?? '—'}</p>}
+            {show.time && <p className="text-ink-muted">{formatDate(payment.date)}</p>}
           </div>
         </div>
         <dl className="mt-5 space-y-2.5 text-sm">
           {(
             [
-              [tr("Student"), student?.fullName ?? '—'],
-              [tr("Paid by"), parent ? parent.fullName : (student?.fullName ?? '—')],
-              [tr("Group"), group ? `${group.name} (${group.subject})` : '—'],
-              [tr("For"), tr("Tuition, {0}", formatMonth(payment.period))],
-              [tr("Method"), methodName(data.catalogs, payment.method)],
-              [tr("Branch"), branch ? `${branch.name}, ${branch.address}` : '—'],
-              [tr("Recorded by"), payment.recordedBy ? (userName.get(payment.recordedBy) ?? '—') : '—'],
-            ] as const
-          ).map(([k, v]) => (
+              ['student', tr("Student"), student?.fullName ?? '—'],
+              ['student', tr("Paid by"), parent ? parent.fullName : (student?.fullName ?? '—')],
+              ['group', tr("Group"), group ? `${group.name} (${group.subject})` : '—'],
+              ['teacher', tr("Teacher"), teacher?.fullName ?? '—'],
+              [null, tr("For"), tr("Tuition, {0}", formatMonth(payment.period))],
+              ['method', tr("Method"), methodName(data.catalogs, payment.method)],
+              [null, tr("Branch"), branch ? `${branch.name}, ${branch.address}` : '—'],
+              ['staff', tr("Recorded by"), payment.recordedBy ? (userName.get(payment.recordedBy) ?? '—') : '—'],
+            ] as [ReceiptField | null, string, string][]
+          ).filter(([f]) => f === null || show[f]).map(([, k, v]) => (
             <div key={k} className="flex justify-between gap-6">
               <dt className="text-ink-muted">{k}</dt>
               <dd className="text-right text-ink">{v}</dd>
             </div>
           ))}
         </dl>
-        <div className="mt-6 flex items-center justify-between border-t border-line pt-4">
+        {show.amount && <div className="mt-6 flex items-center justify-between border-t border-line pt-4">
           <span className="text-sm text-ink-muted">{tr("Amount")}</span>
           <span className="num text-2xl font-semibold text-ink">{formatUZS(payment.amount)}</span>
-        </div>
+        </div>}
         <div className="mt-2 flex items-center justify-between">
           <span className="text-sm text-ink-muted">{tr("Status")}</span>
           <PaymentStatusBadge status={payment.status} />
         </div>
-        {payment.note && <p className="mt-4 rounded-control bg-subtle px-3 py-2 text-sm text-ink">{payment.note}</p>}
+        {show.note && payment.note && <p className="mt-4 rounded-control bg-subtle px-3 py-2 text-sm text-ink">{payment.note}</p>}
         <p className="mt-8 text-center text-xs text-ink-muted">
-          {data.settings.centerName} · {branch?.phone ?? data.settings.phone}{tr(". A record of a payment received; not a tax invoice.")}
+          {show.centerName && `${data.settings.centerName} · `}{branch?.phone ?? data.settings.phone}{tr(". A record of a payment received; not a tax invoice.")}
         </p>
       </article>
 

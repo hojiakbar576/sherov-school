@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { Download, GraduationCap, Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
-import { downloadCSV } from '../../lib/csv'
+import { GraduationCap, Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
+import { ExportButtons } from '../../components/ui/ExportButtons'
 import { toISODate } from '../../lib/dates'
 import type { Teacher } from '../../types'
 import { useSchool } from '../../data/school-context'
@@ -22,7 +22,7 @@ import { plural, tr } from '../../i18n'
 const FILTERS = ['q', 'subject', 'status'] as const
 
 export function TeachersPage() {
-  const { data, actions, user } = useSchool()
+  const { data, actions, user, now } = useSchool()
   // Only the owner adds, edits or removes teachers; administrators can look.
   const isOwner = user?.role === 'owner'
   const needsBranch = useBranchChoice()
@@ -57,20 +57,17 @@ export function TeachersPage() {
         description={tr("{0} teachers, {1} currently teaching.", data.teachers.length, data.teachers.filter((t) => t.status === 'active').length)}
         actions={
           <>
-            <Button
-              onClick={() =>
-                downloadCSV(`sherov-school-teachers-${toISODate(new Date())}.csv`, [
-                  [tr("Teacher"), tr("Course"), tr("Phone"), tr("Email"), tr("Status"), tr("Running groups"), tr("Active students"), tr("Pay share %"), tr("Joined")],
-                  ...filtered.map((t) => {
-                    const groups = (groupsByTeacher.get(t.id) ?? []).filter((g) => g.status === 'active')
-                    return [t.fullName, t.subject, t.phone, t.email, teacherStatusLabel[t.status], groups.map((g) => g.name).join('; '), groups.reduce((sum, g) => sum + (enrolment.get(g.id) ?? 0), 0), t.salaryPercent, t.joinedOn]
-                  }),
-                ])
-              }
-            >
-              <Download aria-hidden />
-              {tr("Export CSV")}
-            </Button>
+            <ExportButtons
+              name="teachers"
+              date={toISODate(now)}
+              rows={() => [
+                [tr("Teacher"), tr("Course"), tr("Phone"), tr("Email"), tr("Status"), tr("Running groups"), tr("Active students"), tr("Pay share %"), tr("Joined")],
+                ...filtered.map((t) => {
+                  const groups = (groupsByTeacher.get(t.id) ?? []).filter((g) => g.status === 'active')
+                  return [t.fullName, t.subject, t.phone, t.email, teacherStatusLabel[t.status], groups.map((g) => g.name).join('; '), groups.reduce((sum, g) => sum + (enrolment.get(g.id) ?? 0), 0), t.salaryPercent, t.joinedOn]
+                }),
+              ]}
+            />
             {isOwner && (
               <Button variant="primary" onClick={() => setEditing('new')} disabled={Boolean(needsBranch)} title={needsBranch ?? undefined}>
                 <Plus aria-hidden />

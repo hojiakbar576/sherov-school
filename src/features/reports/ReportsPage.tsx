@@ -1,18 +1,16 @@
 import { useState, type ReactNode } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Download } from 'lucide-react'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Panel } from '../../components/ui/Panel'
-import { Button } from '../../components/ui/Button'
+import { ExportButtons } from '../../components/ui/ExportButtons'
 import { RangeToggle } from '../../components/ui/RangeToggle'
 import { TableScroll, td, th } from '../../components/ui/misc'
 import { axisProps, CHART_COLORS, tooltipStyle } from '../../components/charts/chartTheme'
 import { addMonths, monthKey, monthKeyOf, monthRange, toISODate } from '../../lib/dates'
 import { formatAxisAmount, formatMonth, formatMonthShort, formatNumber, formatPercent, formatUZS, formatUZSCompact } from '../../lib/format'
 import { enrolmentByGroup, enrolmentByMonth, outstandingTotal, revenueByMonth, summarizeMarks } from '../../lib/metrics'
-import { downloadCSV } from '../../lib/csv'
 import { cn } from '../../lib/cn'
 import { MoreReports } from './MoreReports'
 import { tr } from '../../i18n'
@@ -26,15 +24,6 @@ function Stat({ label, value, detail }: { label: string; value: ReactNode; detai
       <p className="num text-xl font-semibold text-ink">{value}</p>
       {detail && <p className="text-xs text-ink-muted">{detail}</p>}
     </div>
-  )
-}
-
-function ExportButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button size="sm" onClick={onClick}>
-      <Download aria-hidden />
-      {tr("CSV")}
-    </Button>
   )
 }
 
@@ -122,12 +111,7 @@ export function ReportsPage() {
           title={tr("Revenue summary")}
           description={periodLabel}
           actions={
-            <ExportButton
-              onClick={() => {
-                downloadCSV(`sherov-school-revenue-${stamp}.csv`, [[tr("Month"), tr("Collected (UZS)")], ...revenue.map((r) => [r.key, r.total])])
-                exported(revenue.length)
-              }}
-            />
+            <ExportButtons size="sm" name="revenue" date={stamp} onExport={exported} rows={() => [[tr("Month"), tr("Collected (UZS)")], ...revenue.map((r) => [r.key, r.total])]} />
           }
         >
           <div className="mb-4 grid grid-cols-2 gap-4">
@@ -170,15 +154,10 @@ export function ReportsPage() {
           title={tr("Attendance summary")}
           description={tr("{0}. Late counts as attended.", periodLabel)}
           actions={
-            <ExportButton
-              onClick={() => {
-                downloadCSV(`sherov-school-attendance-${stamp}.csv`, [
+            <ExportButtons size="sm" name="attendance" date={stamp} onExport={exported} rows={() => [
                   [tr("Group"), tr("Classes recorded"), tr("Present"), tr("Late"), tr("Absent"), tr("Attendance rate")],
                   ...attendanceByGroup.map((r) => [r.group.name, r.sessions, r.present, r.late, r.absent, r.rate === null ? '' : Math.round(r.rate * 100) + '%']),
-                ])
-                exported(attendanceByGroup.length)
-              }}
-            />
+                ]} />
           }
           flush
         >
@@ -219,7 +198,7 @@ export function ReportsPage() {
               </tbody>
             </table>
           </TableScroll>
-          {attendanceByGroup.length > 8 && <p className="border-t border-line px-5 py-2.5 text-xs text-ink-muted">{tr("Showing the 8 lowest. The CSV includes all")}{' '}{attendanceByGroup.length}{' '}{tr("groups.")}</p>}
+          {attendanceByGroup.length > 8 && <p className="border-t border-line px-5 py-2.5 text-xs text-ink-muted">{tr("Showing the 8 lowest. The export includes all")}{' '}{attendanceByGroup.length}{' '}{tr("groups.")}</p>}
         </Panel>
 
         {/* Outstanding */}
@@ -228,16 +207,19 @@ export function ReportsPage() {
           title={tr("Outstanding tuition")}
           description={tr("What active students owe today, by group")}
           actions={
-            <ExportButton
-              onClick={() => {
+            <ExportButtons
+              size="sm"
+              name="outstanding"
+              date={stamp}
+              onExport={exported}
+              rows={() => {
                 const rows = data.students
                   .filter((s) => (balances.get(s.id)?.owed ?? 0) > 0)
                   .map((s) => {
                     const b = balances.get(s.id)!
                     return [s.fullName, s.phone, data.groups.find((g) => g.id === s.groupId)?.name ?? '', b.owed, b.unpaidMonths.join(' '), b.status]
                   })
-                downloadCSV(`sherov-school-outstanding-${stamp}.csv`, [[tr("Student"), tr("Phone"), tr("Group"), tr("Owed (UZS)"), tr("Unpaid months"), tr("Status")], ...rows])
-                exported(rows.length)
+                return [[tr("Student"), tr("Phone"), tr("Group"), tr("Owed (UZS)"), tr("Unpaid months"), tr("Status")], ...rows]
               }}
             />
           }
@@ -283,15 +265,10 @@ export function ReportsPage() {
           title={tr("Student enrolment")}
           description={tr("{0} active students. New enrolments from {1}.", active.length, periodLabel)}
           actions={
-            <ExportButton
-              onClick={() => {
-                downloadCSV(`sherov-school-enrolment-${stamp}.csv`, [
+            <ExportButtons size="sm" name="enrolment" date={stamp} onExport={exported} rows={() => [
                   [tr("Subject"), tr("Running groups"), tr("Active students"), tr("Seats"), tr("Seats filled")],
                   ...bySubject.map((r) => [r.subject, r.groups, r.students, r.capacity, r.capacity ? Math.round((r.students / r.capacity) * 100) + '%' : '']),
-                ])
-                exported(bySubject.length)
-              }}
-            />
+                ]} />
           }
         >
           <div className="h-44" aria-hidden>

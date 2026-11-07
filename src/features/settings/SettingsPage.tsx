@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { Database, Download, HardDrive, RotateCcw } from 'lucide-react'
+import { Database, Download, HardDrive, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import type { Settings } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { DEFAULT_SETTINGS } from '../../data/seed'
 import { useToast } from '../../components/ui/toast-context'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Panel } from '../../components/ui/Panel'
-import { Button } from '../../components/ui/Button'
+import { Button, ButtonLink } from '../../components/ui/Button'
 import { Field, Input, Textarea } from '../../components/ui/Field'
 import { ConfirmDialog } from '../../components/ui/Dialog'
 import { toISODate } from '../../lib/dates'
@@ -69,7 +69,16 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title={tr("Settings")} description={tr("Centre details, the courses you offer, your branch’s rooms, and the demo data.")} />
+      <PageHeader
+        title={tr("Settings")}
+        description={tr("Centre details, the courses you offer, your branch’s rooms, and the demo data.")}
+        actions={
+          <ButtonLink to="/settings/general" variant="primary">
+            <SlidersHorizontal aria-hidden />
+            {tr("General settings")}
+          </ButtonLink>
+        }
+      />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Panel title={tr("Centre details")}>

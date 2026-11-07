@@ -30,16 +30,17 @@ export function LogoMark({ className, onDark = false }: { className?: string; on
 }
 
 /** Mark plus the stacked "SHEROV / SCHOOL" wordmark. */
-export function Logo({ compact = false, onDark = false }: { compact?: boolean; onDark?: boolean }) {
+export function Logo({ compact = false, onDark = false, large = false }: { compact?: boolean; onDark?: boolean; large?: boolean }) {
   return (
-    <span className="flex items-center gap-2.5">
-      <LogoMark onDark={onDark} className="size-9" />
+    <span className={cn('flex items-center', large ? 'gap-3.5' : 'gap-2.5')}>
+      <LogoMark onDark={onDark} className={large ? 'size-14' : 'size-9'} />
       {compact ? (
         <span className="sr-only">{tr("Sherov School")}</span>
       ) : (
         <span
           className={cn(
-            'flex flex-col text-[0.8125rem] leading-[1.1] font-semibold tracking-[0.06em] uppercase',
+            'flex flex-col leading-[1.1] font-semibold tracking-[0.06em] uppercase',
+            large ? 'text-lg' : 'text-[0.8125rem]',
             onDark ? 'text-sidebar-ink' : 'text-logo',
           )}
         >

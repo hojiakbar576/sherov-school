@@ -13,6 +13,9 @@ import { SchedulePage } from '../features/schedule/SchedulePage'
 import { PaymentsPage } from '../features/payments/PaymentsPage'
 import { ReportsPage } from '../features/reports/ReportsPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
+import { GeneralSettingsPage } from '../features/settings/GeneralSettingsPage'
+import { ComingSoonPage } from '../features/soon/ComingSoonPage'
+import { SOON_PAGES } from './menu'
 import { TeacherDetailPage } from '../features/teachers/TeacherDetailPage'
 import { LeadsPage } from '../features/leads/LeadsPage'
 import { LeadDetailPage } from '../features/leads/LeadDetailPage'
@@ -97,6 +100,10 @@ export function App() {
         <Route path="activity" element={<ActivityPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="settings/general" element={<GeneralSettingsPage />} />
+        {SOON_PAGES.map((p) => (
+          <Route key={p.to} path={p.to!.slice(1)} element={<ComingSoonPage />} />
+        ))}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
 

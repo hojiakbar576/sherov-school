@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { CalendarOff, Check, ChevronLeft, ChevronRight, ClipboardCheck, Download, History, Lock, MessageSquarePlus, Users } from 'lucide-react'
+import { CalendarOff, Check, ChevronLeft, ChevronRight, ClipboardCheck, History, Lock, MessageSquarePlus, Users } from 'lucide-react'
 import type { AttendanceMark, Group, Student } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
@@ -14,7 +14,7 @@ import { addDays, isValidISODate, parseISODate, toISODate } from '../../lib/date
 import { attendanceMarkLabel, formatDate, formatLongDate, formatMonth, formatPercent, formatRelative } from '../../lib/format'
 import { findRecord, groupRoster, sessionsOn, summarizeMarks, type Session } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
-import { downloadCSV } from '../../lib/csv'
+import { ExportButtons } from '../../components/ui/ExportButtons'
 import { plural, tr } from '../../i18n'
 
 const MARKS: AttendanceMark[] = ['present', 'late', 'absent', 'excused']
@@ -63,24 +63,27 @@ export function AttendancePage() {
         }
         actions={
           isTeacher ? undefined : (
-            <Button
-              onClick={() => {
-                const month = date.slice(0, 7)
-                const student = new Map(data.students.map((s) => [s.id, s.fullName]))
-                const group = new Map(data.groups.map((g) => [g.id, g.name]))
-                const teacher = new Map(data.teachers.map((t) => [t.id, t.fullName]))
-                const records = data.attendance.filter((r) => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
-                downloadCSV(`sherov-school-attendance-${month}.csv`, [
-                  [tr("Date"), tr("Time"), tr("Group"), tr("Teacher"), tr("Student"), tr("Mark"), tr("Grade"), tr("Note")],
-                  ...records.flatMap((r) =>
-                    Object.entries(r.marks).map(([id, mark]) => [r.date, r.startTime, group.get(r.groupId) ?? '', teacher.get(r.teacherId) ?? '', student.get(id) ?? '', attendanceMarkLabel[mark], r.grades?.[id] ?? '', r.comments?.[id] ?? '']),
-                  ),
-                ])
-              }}
-            >
-              <Download aria-hidden />
-              {tr("Export")}{' '}{formatMonth(date.slice(0, 7))}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-ink-muted">{tr("Export {0}:", formatMonth(date.slice(0, 7)))}</span>
+              <ExportButtons
+                name="attendance"
+                date={date.slice(0, 7)}
+                what={tr("attendance for {0}", formatMonth(date.slice(0, 7)))}
+                rows={() => {
+                  const month = date.slice(0, 7)
+                  const student = new Map(data.students.map((s) => [s.id, s.fullName]))
+                  const group = new Map(data.groups.map((g) => [g.id, g.name]))
+                  const teacher = new Map(data.teachers.map((t) => [t.id, t.fullName]))
+                  const records = data.attendance.filter((r) => r.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
+                  return [
+                    [tr("Date"), tr("Time"), tr("Group"), tr("Teacher"), tr("Student"), tr("Mark"), tr("Grade"), tr("Note")],
+                    ...records.flatMap((r) =>
+                      Object.entries(r.marks).map(([id, mark]) => [r.date, r.startTime, group.get(r.groupId) ?? '', teacher.get(r.teacherId) ?? '', student.get(id) ?? '', attendanceMarkLabel[mark], r.grades?.[id] ?? '', r.comments?.[id] ?? '']),
+                    ),
+                  ]
+                }}
+              />
+            </div>
           )
         }
       />

@@ -17,6 +17,12 @@ export async function readSpreadsheet(file: Blob & { name?: string }): Promise<s
 
 // ---- CSV
 
+/** A cell written as ="…" (how this app keeps phone numbers as text in CSV) reads back as its text. */
+const csvText = (cell: string) => {
+  const m = /^="([\s\S]*)"$/.exec(cell)
+  return m ? m[1].replace(/""/g, '"') : cell
+}
+
 /** Parses CSV text (comma or semicolon separated, quotes allowed). */
 export function parseCsv(text: string): string[][] {
   const clean = text.replace(/^﻿/, '')
@@ -36,18 +42,18 @@ export function parseCsv(text: string): string[][] {
       else cell += ch
     } else if (ch === '"') quoted = true
     else if (ch === sep) {
-      row.push(cell)
+      row.push(csvText(cell))
       cell = ''
     } else if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && clean[i + 1] === '\n') i++
-      row.push(cell)
+      row.push(csvText(cell))
       rows.push(row)
       row = []
       cell = ''
     } else cell += ch
   }
   if (cell !== '' || row.length) {
-    row.push(cell)
+    row.push(csvText(cell))
     rows.push(row)
   }
   return rows

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Download, FileSpreadsheet, Pencil, Plus, Upload, Users } from 'lucide-react'
+import { Pencil, Plus, Upload, Users } from 'lucide-react'
 import type { Student, StudentStatus } from '../../types'
 import { ARCHIVED_STUDENT_STATUSES, CURRENT_STUDENT_STATUSES } from '../../types'
 import { useSchool } from '../../data/school-context'
@@ -17,8 +17,7 @@ import { RangeToggle } from '../../components/ui/RangeToggle'
 import { toISODate } from '../../lib/dates'
 import { StudentFormDialog } from './StudentFormDialog'
 import { TagChips } from './StudentTags'
-import { downloadXlsx } from '../../lib/xlsx'
-import { downloadCSV } from '../../lib/csv'
+import { ExportButtons } from '../../components/ui/ExportButtons'
 import { ImportStudentsDialog } from './ImportStudentsDialog'
 import { tr } from '../../i18n'
 
@@ -308,14 +307,7 @@ export function StudentsPage() {
               {tr("Import from Excel")}
             </Button>
           )}
-          <Button size="sm" onClick={() => downloadXlsx(`sherov-school-${archive ? 'students-archive' : 'students'}-${toISODate(now)}.xlsx`, exportRows(), 'students')} disabled={filtered.length === 0}>
-            <FileSpreadsheet aria-hidden />
-            {active ? tr("Export {0} to Excel", filtered.length) : tr("Export to Excel")}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => downloadCSV(`sherov-school-${archive ? 'students-archive' : 'students'}-${toISODate(now)}.csv`, exportRows())} disabled={filtered.length === 0}>
-            <Download aria-hidden />
-            {tr("CSV")}
-          </Button>
+          <ExportButtons size="sm" name={archive ? 'students-archive' : 'students'} date={toISODate(now)} rows={exportRows} disabled={filtered.length === 0} />
         </div>
       </section>
 

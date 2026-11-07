@@ -614,6 +614,8 @@ export interface Settings {
   workingHours: string
   currency: 'UZS'
   tuitionDueDay: number // day of month after which unpaid tuition is overdue
+  /** General settings, reasons, holidays and receipt fields. Read with generalSettings(). */
+  general?: Partial<import('../lib/general-settings').GeneralSettings>
 }
 
 export interface SchoolData {
