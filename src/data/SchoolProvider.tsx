@@ -9,7 +9,8 @@ import { tr } from '../i18n'
 import { branchData } from '../lib/owner'
 import { applyStudentChange, isArchived } from '../lib/student-lifecycle'
 import { createId } from '../lib/id'
-import { dayPatternLabel, formatUZS } from '../lib/format'
+import { formatUZS, groupDaysLabel } from '../lib/format'
+import { applyLcupImport } from '../lib/lcup-import'
 import { computeBalances } from '../lib/metrics'
 import { signsInOnOwnerPage, userFromProfile } from '../lib/auth'
 import { fetchMyProfile, loginEmail, supabase, type Profile } from '../lib/supabase'
@@ -27,6 +28,7 @@ import { listenForChanges, loadRows, saveChanges } from './cloud-io'
 import { migrate } from './migrate'
 import { DATA_VERSION } from './seed'
 import { SchoolContext, type OwnerView, type SchoolActions, type SchoolContextValue, type SignInResult, type TeacherView } from './school-context'
+import { groupIdsOf, inGroup } from '../lib/membership'
 
 const OWNER_BRANCH_KEY = 'sherov-school:owner-branch'
 function readOwnerBranch(): string | null {
@@ -431,7 +433,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
                 notice({
                   kind: 'admin',
                   title: `New group: ${group.name}`,
-                  body: `You teach ${group.name} on ${dayPatternLabel[group.days]} at ${group.startTime} in ${group.room}.`,
+                  body: `You teach ${group.name} on ${groupDaysLabel(group)} at ${group.startTime} in ${group.room}.`,
                   audience: { teacherId: group.teacherId },
                   link: '/teacher/groups',
                 }),
@@ -454,17 +456,17 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
             notice({
               kind: 'admin',
               title: `New group: ${input.name}`,
-              body: `You now teach ${input.name} on ${dayPatternLabel[input.days]} at ${input.startTime} in ${input.room}.`,
+              body: `You now teach ${input.name} on ${groupDaysLabel(input)} at ${input.startTime} in ${input.room}.`,
               audience: { teacherId: input.teacherId },
               link: '/teacher/groups',
             }),
           )
-        } else if (before && (before.startTime !== input.startTime || before.room !== input.room || before.days !== input.days)) {
+        } else if (before && (before.startTime !== input.startTime || before.room !== input.room || before.days !== input.days || String(before.weekdays ?? '') !== String(input.weekdays ?? ''))) {
           messages.push(
             notice({
               kind: 'schedule',
               title: `Schedule change: ${input.name}`,
-              body: `Was ${dayPatternLabel[before.days]} at ${before.startTime} in ${before.room}. Now ${dayPatternLabel[input.days]} at ${input.startTime} in ${input.room}.`,
+              body: `Was ${groupDaysLabel(before)} at ${before.startTime} in ${before.room}. Now ${groupDaysLabel(input)} at ${input.startTime} in ${input.room}.`,
               audience: { teacherId: input.teacherId },
               link: '/teacher/schedule',
             }),
@@ -490,7 +492,12 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
             {
               ...d,
               groups: d.groups.filter((g) => g.id !== id),
-              students: d.students.map((s) => (s.groupId === id ? { ...s, groupId: null } : s)),
+              students: d.students.map((s) => {
+                if (!inGroup(s, id)) return s
+                // Their next group (if any) becomes the main one.
+                const rest = groupIdsOf(s).filter((g) => g !== id)
+                return { ...s, groupId: rest[0] ?? null, extraGroupIds: rest.slice(1) }
+              }),
               enrollments: d.enrollments.map((e) => (e.groupId === id && !e.endedOn ? { ...e, endedOn: toISODate(new Date()), endReason: `${name} was deleted` } : e)),
               assessments: d.assessments.filter((a) => a.groupId !== id),
               attendance: d.attendance.filter((r) => r.groupId !== id),
@@ -508,7 +515,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         const existing = fullData.attendance.find((r) => r.groupId === groupId && r.date === date)
         // Only students who belong to this class can be marked.
         const allowed = new Set([
-          ...fullData.students.filter((s) => s.groupId === groupId).map((s) => s.id),
+          ...fullData.students.filter((s) => inGroup(s, groupId)).map((s) => s.id),
           ...Object.keys(existing?.marks ?? {}),
         ])
         const cleanMarks = Object.fromEntries(Object.entries(marks).filter(([id]) => allowed.has(id)))
@@ -913,6 +920,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         const after: Student = {
           ...student,
           groupId: target.id,
+          extraGroupIds: (student.extraGroupIds ?? []).filter((g) => g !== target.id),
           branchId: target.branchId,
           ...(input.monthlyTuition !== undefined ? { monthlyTuition: input.monthlyTuition } : {}),
           // Leaving the archive by transfer makes them active again.
@@ -925,12 +933,26 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
           ),
         )
       },
+      setExtraGroups(studentId, groupIds) {
+        const student = fullData.students.find((s) => s.id === studentId)
+        requireInBranch(student?.branchId)
+        if (!student) return
+        // Only real groups at the student's branch, never their main group, no repeats.
+        const valid = [...new Set(groupIds)].filter((id) => id !== student.groupId && fullData.groups.some((g) => g.id === id && g.branchId === student.branchId))
+        const names = valid.map((id) => groupName(fullData, id)).filter(Boolean).join(', ')
+        update((d) =>
+          withActivity(
+            { ...d, students: d.students.map((s) => (s.id === studentId ? { ...s, extraGroupIds: valid } : s)) },
+            activity('group_changed', 'Other groups updated', `${student.fullName}: ${names || 'only their main group'}`, student.branchId),
+          ),
+        )
+      },
       changeStudentStatus(studentId, status, on, reason) {
         const student = fullData.students.find((s) => s.id === studentId)
         requireInBranch(student?.branchId)
         if (!student || student.status === status) return
         // Leaving or graduating frees the seat; pausing keeps it.
-        const after: Student = { ...student, status, groupId: isArchived(status) ? null : student.groupId }
+        const after: Student = { ...student, status, groupId: isArchived(status) ? null : student.groupId, extraGroupIds: isArchived(status) ? [] : student.extraGroupIds }
         update((d) =>
           withActivity(
             applyStudentChange(d, { before: student, after, on, reason: reason?.trim() || undefined, byUserId: user?.id }),
@@ -1164,6 +1186,17 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         )
       },
 
+      importFromLcup(imp) {
+        // Replaces one branch's people, groups and payments with LC UP's: owner only.
+        requireOwner()
+        const r = imp.report
+        update((d) =>
+          withActivity(
+            applyLcupImport(d, imp),
+            activity('settings_changed', 'Moved from LC UP', `${imp.students.length} students, ${imp.groups.length} groups, ${imp.teachers.length} teachers and ${imp.payments.length} payments (balances on ${imp.asOf}; ${r.debtors} owe money)`, imp.branchId),
+          ),
+        )
+      },
       resetDemoData() {
         // Replaces everything in the database with sample data: owner only.
         requireOwner()

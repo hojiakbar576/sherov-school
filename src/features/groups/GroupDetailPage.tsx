@@ -7,7 +7,7 @@ import { ButtonLink, IconButton } from '../../components/ui/Button'
 import { EmptyState, TableScroll, td, th } from '../../components/ui/misc'
 import { GroupStatusBadge, TuitionBadge } from '../../components/StatusBadges'
 import { PhoneLine } from '../../components/ui/CopyButton'
-import { dayPatternLabel, formatDate, formatMonthShort, formatUZS } from '../../lib/format'
+import { formatDate, formatMonthShort, formatUZS, groupDaysLabel } from '../../lib/format'
 import { endTime } from '../../lib/schedule'
 import { levelOf } from '../../lib/courses'
 import { cn } from '../../lib/cn'
@@ -15,6 +15,7 @@ import { GroupFormDialog } from './GroupFormDialog'
 import { AttendanceJournal } from './AttendanceJournal'
 import { PaymentFormDialog } from '../payments/PaymentFormDialog'
 import { tr } from '../../i18n'
+import { inGroup } from '../../lib/membership'
 
 const TABS = ['attendance', 'payments', 'history'] as const
 type Tab = (typeof TABS)[number]
@@ -51,7 +52,7 @@ export function GroupDetailPage() {
 
   // The group's students today.
   const current = useMemo(
-    () => data.students.filter((s) => s.groupId === groupId && (s.status === 'active' || s.status === 'paused')).sort((a, b) => a.fullName.localeCompare(b.fullName)),
+    () => data.students.filter((s) => inGroup(s, groupId) && (s.status === 'active' || s.status === 'paused')).sort((a, b) => a.fullName.localeCompare(b.fullName)),
     [data.students, groupId],
   )
 
@@ -122,7 +123,7 @@ export function GroupDetailPage() {
                 {group.startTime}–{endTime(group)}
               </span>
             </Row>
-            <Row label={tr("Lesson days")}>{dayPatternLabel[group.days]}</Row>
+            <Row label={tr("Lesson days")}>{groupDaysLabel(group)}</Row>
             <Row label={tr("Room")}>{group.room}</Row>
             {branchName && <Row label={tr("Branch")}>{branchName}</Row>}
             <Row label={tr("First lesson")}>{firstLesson ? formatDate(firstLesson) : tr("Not started")}</Row>

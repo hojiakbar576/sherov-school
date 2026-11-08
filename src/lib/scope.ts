@@ -5,6 +5,7 @@
 
 import type { Group, Notification, SchoolData, User } from '../types'
 import { BRANCH_STAFF_ROLES, CURRENT_STUDENT_STATUSES } from '../types'
+import { inAnyGroup } from './membership'
 
 /** The branch someone works at; null for the owner (every branch). */
 export function userBranchId(data: SchoolData, user: User): string | null {
@@ -63,7 +64,7 @@ export function scopeData(data: SchoolData, user: User): SchoolData {
   const groups = data.groups.filter((g) => g.teacherId === user.teacherId)
   const groupIds = new Set(groups.map((g) => g.id))
   // Only students still studying: left and graduated students are the administrator's archive.
-  const students = data.students.filter((s) => s.groupId !== null && groupIds.has(s.groupId) && CURRENT_STUDENT_STATUSES.includes(s.status))
+  const students = data.students.filter((s) => inAnyGroup(s, groupIds) && CURRENT_STUDENT_STATUSES.includes(s.status))
   const studentIds = new Set(students.map((s) => s.id))
   const homework = data.homework.filter((h) => groupIds.has(h.groupId))
   const homeworkIds = new Set(homework.map((h) => h.id))

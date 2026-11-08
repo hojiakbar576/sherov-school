@@ -6,7 +6,7 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { EmptyState } from '../../components/ui/misc'
 import { GroupStatusBadge } from '../../components/StatusBadges'
 import { endTime } from '../../lib/schedule'
-import { dayPatternLabel, formatPercent } from '../../lib/format'
+import { formatPercent, groupDaysLabel } from '../../lib/format'
 import { enrolmentByGroup, summarizeMarks } from '../../lib/metrics'
 import { rateTone } from './teacher-metrics'
 import { cn } from '../../lib/cn'
@@ -50,7 +50,7 @@ export function MyGroupsPage() {
                   <dl className="num mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                     <div>
                       <dt className="text-xs text-ink-muted">{tr("Schedule")}</dt>
-                      <dd className="text-ink">{dayPatternLabel[g.days]}</dd>
+                      <dd className="text-ink">{groupDaysLabel(g)}</dd>
                       <dd className="text-ink">
                         {g.startTime}–{endTime(g)}
                       </dd>

@@ -11,7 +11,7 @@ import { Select } from '../../components/ui/Field'
 import { ConfirmDialog } from '../../components/ui/Dialog'
 import { EmptyState, SearchInput, TableScroll, td, th } from '../../components/ui/misc'
 import { GroupStatusBadge } from '../../components/StatusBadges'
-import { dayPatternLabel, formatUZS, groupStatusLabel } from '../../lib/format'
+import { formatUZS, groupStatusLabel, groupDaysLabel } from '../../lib/format'
 import { enrolmentByGroup } from '../../lib/metrics'
 import { endTime } from '../../lib/schedule'
 import { cn } from '../../lib/cn'
@@ -167,7 +167,7 @@ export function GroupsPage() {
                         <p className="num">
                           {g.startTime}–{endTime(g)}
                         </p>
-                        <p className="text-xs text-ink-muted">{dayPatternLabel[g.days]}</p>
+                        <p className="text-xs text-ink-muted">{groupDaysLabel(g)}</p>
                       </td>
                       <td className={cn(td, 'whitespace-nowrap text-ink-muted')}>{g.room}</td>
                       <td className={td}>
@@ -213,7 +213,7 @@ export function GroupsPage() {
                         {g.startTime}–{endTime(g)}
                       </p>
                       <p className="text-xs text-ink-muted">
-                        {dayPatternLabel[g.days]}, {g.room}
+                        {groupDaysLabel(g)}, {g.room}
                       </p>
                     </div>
                     <Seats count={enrolment.get(g.id) ?? 0} capacity={g.capacity} />

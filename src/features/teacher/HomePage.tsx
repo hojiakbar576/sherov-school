@@ -4,12 +4,13 @@ import { ArrowUpRight, CircleAlert, UsersRound } from 'lucide-react'
 import { useSchool, useUser } from '../../data/school-context'
 import { EmptyState } from '../../components/ui/misc'
 import { parseISODate, toISODate } from '../../lib/dates'
-import { dayPatternLabel, formatDayMonth, greeting } from '../../lib/format'
+import { formatDayMonth, greeting, groupDaysLabel } from '../../lib/format'
 import { endTime, meetsOn } from '../../lib/schedule'
 import { cn } from '../../lib/cn'
 import { RatingCard, SalaryCard } from './TeacherCards'
 import { unmarkedLessons } from './teacher-metrics'
 import { tr } from '../../i18n'
+import { groupIdsOf } from '../../lib/membership'
 
 type Show = 'all' | 'today'
 
@@ -23,7 +24,7 @@ export function HomePage() {
 
   const groups = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const s of data.students) if (s.groupId && s.status === 'active') counts.set(s.groupId, (counts.get(s.groupId) ?? 0) + 1)
+    for (const s of data.students) if (s.status === 'active') for (const id of groupIdsOf(s)) counts.set(id, (counts.get(id) ?? 0) + 1)
     return data.groups
       .filter((g) => g.status === 'active')
       .map((g) => ({
@@ -142,7 +143,7 @@ export function HomePage() {
                           </Link>
                         ) : (
                           <span className="num">
-                            {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)}
+                            {groupDaysLabel(group)}, {group.startTime}–{endTime(group)}
                           </span>
                         )}
                       </span>

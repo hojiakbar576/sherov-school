@@ -164,6 +164,8 @@ export interface Group {
   /** Copy of the level name, kept in step automatically. */
   level?: string
   days: DayPattern
+  /** Exact lesson days (1 = Monday … 7 = Sunday) when they don't follow the odd/even pattern. */
+  weekdays?: Weekday[]
   startTime: string // "HH:mm"
   durationMinutes: number
   capacity: number
@@ -212,6 +214,14 @@ export interface Student {
   /** Parents or guardians, main contact first. Empty when not collected yet. */
   guardians: Guardian[]
   groupId: string | null
+  /** Other groups the student also studies in (e.g. English and Maths). One shared balance. */
+  extraGroupIds?: string[]
+  /**
+   * Balance carried over from the previous system (LC UP) on `asOf`: negative is debt,
+   * positive is credit. While set, the student owes this minus payments made after it;
+   * new monthly charges start once the centre's billing rules are switched on.
+   */
+  openingBalance?: { amount: number; asOf: ISODate; source: string }
   /** Branch the student studies at (their group's branch while they have one). */
   branchId: string
   enrolledOn: ISODate
@@ -313,6 +323,10 @@ export interface Payment {
   note?: string
   /** The user who recorded it, when known. */
   recordedBy?: string
+  /** The group this payment is for, when known (a student may be in several). */
+  groupId?: string
+  /** Brought over from the previous system; already counted in the student's opening balance. */
+  imported?: boolean
   /** Receipt number, given when the payment is recorded, e.g. "CH-000123". */
   receiptNo?: string
   /** Every correction after it was recorded, oldest first. */

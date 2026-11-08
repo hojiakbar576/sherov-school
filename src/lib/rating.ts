@@ -9,6 +9,7 @@ import type { ISODate, MonthKey, SchoolData } from '../types'
 import { daysInMonth, toISODate } from './dates'
 import { meetsOn } from './schedule'
 import { tr } from '../i18n'
+import { inAnyGroup } from './membership'
 
 export const RATING_PARTS = ['lessonsRecorded', 'studentAttendance', 'homeworkChecked', 'gradingActivity', 'groupFill'] as const
 export type RatingPart = (typeof RATING_PARTS)[number]
@@ -106,7 +107,7 @@ export function teacherRatings(data: SchoolData, month: MonthKey, now: Date): Te
       const active = groups.filter((g) => g.status === 'active')
       const activeIds = new Set(active.map((g) => g.id))
       const seats = active.reduce((sum, g) => sum + g.capacity, 0)
-      const enrolled = data.students.filter((s) => s.status === 'active' && s.groupId && activeIds.has(s.groupId)).length
+      const enrolled = data.students.filter((s) => s.status === 'active' && inAnyGroup(s, activeIds)).length
 
       const parts: Record<RatingPart, number | null> = {
         lessonsRecorded: ratio(saved, held),

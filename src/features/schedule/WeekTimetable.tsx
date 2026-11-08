@@ -13,6 +13,7 @@ import { formatDayShort, formatLongDate, longWeekday } from '../../lib/format'
 import { sessionsOn, type Session, type SessionStatus } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
 import { plural, tr } from '../../i18n'
+import { weekdaysOf } from '../../lib/schedule'
 
 /** Each subject gets a quiet colour on the left edge of its classes. */
 const subjectColor: Record<string, string> = {
@@ -82,8 +83,10 @@ interface WeekTimetableProps {
  */
 export function WeekTimetable({ showTeacher, initialView = 'week', labelLevel = 'h2' }: WeekTimetableProps) {
   const { data, now } = useSchool()
-  // Day view starts on today, or on Sunday (no classes) on the coming Monday.
-  const sunday = isoWeekday(now) === 7
+  // Sunday is shown only when some running group meets on Sundays.
+  const dayCount = data.groups.some((g) => g.status === 'active' && weekdaysOf(g).includes(7)) ? 7 : 6
+  // Day view starts on today, or on Sunday (when there are no Sunday classes) on the coming Monday.
+  const sunday = isoWeekday(now) === 7 && dayCount === 6
   const home = { week: sunday ? 1 : 0, index: sunday ? 0 : isoWeekday(now) - 1 }
   const [view, setView] = useState<TimetableView>(initialView)
   const [weekOffset, setWeekOffset] = useState(view === 'day' ? home.week : 0)
@@ -95,7 +98,7 @@ export function WeekTimetable({ showTeacher, initialView = 'week', labelLevel = 
   const Label = labelLevel
 
   const monday = addDays(startOfWeek(now), weekOffset * 7)
-  const days = Array.from({ length: 6 }, (_, i) => addDays(monday, i))
+  const days = Array.from({ length: dayCount }, (_, i) => addDays(monday, i))
   const today = toISODate(now)
 
   const week = days.map((day) => ({
@@ -106,7 +109,7 @@ export function WeekTimetable({ showTeacher, initialView = 'week', labelLevel = 
 
   const slots = Array.from(new Set(week.flatMap((d) => d.sessions.map((s) => s.start)))).sort()
   const total = week.reduce((sum, d) => sum + d.sessions.length, 0)
-  const weekLabel = `${formatDayShort(days[0])} – ${formatDayShort(days[5])}`
+  const weekLabel = `${formatDayShort(days[0])} – ${formatDayShort(days[days.length - 1])}`
   const selectedDay = week[dayIndex]
 
   // Day view steps one day at a time, rolling over into the next or previous week.
@@ -114,8 +117,8 @@ export function WeekTimetable({ showTeacher, initialView = 'week', labelLevel = 
     const next = dayIndex + delta
     if (next < 0) {
       setWeekOffset((w) => w - 1)
-      setDayIndex(5)
-    } else if (next > 5) {
+      setDayIndex(dayCount - 1)
+    } else if (next > dayCount - 1) {
       setWeekOffset((w) => w + 1)
       setDayIndex(0)
     } else setDayIndex(next)

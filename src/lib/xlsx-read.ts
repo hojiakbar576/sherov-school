@@ -61,7 +61,18 @@ export function parseCsv(text: string): string[][] {
 
 // ---- XLSX (a zip of XML files)
 
-async function unzip(bytes: Uint8Array): Promise<Map<string, Uint8Array>> {
+// Only the parts we read: the workbook, its links, shared text and worksheets.
+const XLSX_PARTS = /^xl\/(workbook\.xml|_rels\/workbook\.xml\.rels|sharedStrings\.xml|worksheets\/[^/]+\.xml)$/
+
+/** Every .xlsx inside a .zip file (folders allowed), with its file name and rows. */
+export async function readSpreadsheetsInZip(file: Blob): Promise<{ name: string; rows: string[][] }[]> {
+  const files = await unzip(new Uint8Array(await file.arrayBuffer()), (n) => /\.xlsx$/i.test(n) && !/(^|\/)(__MACOSX|\.)/.test(n))
+  const out: { name: string; rows: string[][] }[] = []
+  for (const [path, bytes] of files) out.push({ name: path.split('/').pop()!, rows: await readXlsx(bytes) })
+  return out
+}
+
+async function unzip(bytes: Uint8Array, keep: (name: string) => boolean = (n) => XLSX_PARTS.test(n)): Promise<Map<string, Uint8Array>> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   // The "end of central directory" record sits in the last 64 KB.
   let eocd = -1
@@ -85,8 +96,7 @@ async function unzip(bytes: Uint8Array): Promise<Map<string, Uint8Array>> {
     const local = view.getUint32(at + 42, true)
     const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLen))
     at += 46 + nameLen + extraLen + commentLen
-    // Only the parts we read: the workbook, its links, shared text and worksheets.
-    if (!/^xl\/(workbook\.xml|_rels\/workbook\.xml\.rels|sharedStrings\.xml|worksheets\/[^/]+\.xml)$/.test(name)) continue
+    if (!keep(name)) continue
     const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true)
     const data = bytes.subarray(start, start + compressed)
     if (method === 0) out.set(name, data)

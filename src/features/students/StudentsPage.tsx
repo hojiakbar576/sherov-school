@@ -20,6 +20,7 @@ import { TagChips } from './StudentTags'
 import { ExportButtons } from '../../components/ui/ExportButtons'
 import { ImportStudentsDialog } from './ImportStudentsDialog'
 import { tr } from '../../i18n'
+import { inGroup, groupIdsOf } from '../../lib/membership'
 
 const PAGE_SIZE = 20
 
@@ -70,7 +71,7 @@ export function StudentsPage() {
         if (!statuses.includes(s.status)) return false
         if (values.tag && !s.tags?.includes(values.tag)) return false
         if (q && !matchesStudent(s, q, digits)) return false
-        if (values.group === 'none' ? s.groupId !== null : values.group && s.groupId !== values.group) return false
+        if (values.group === 'none' ? groupIdsOf(s).length > 0 : values.group && !inGroup(s, values.group)) return false
         // A status from the other view (e.g. "left" while on Current) is ignored.
         if (values.status && statuses.includes(values.status as StudentStatus) && s.status !== values.status) return false
         const b = balances.get(s.id)
@@ -231,7 +232,7 @@ export function StudentsPage() {
                         <td className={td}>
                           {s.groupId ? (
                             <>
-                              <p className="max-w-48 truncate text-ink" title={groupName.get(s.groupId)}>{groupName.get(s.groupId)}</p>
+                              <p className="max-w-48 truncate text-ink" title={groupIdsOf(s).map((id) => groupName.get(id)).join(", ")}>{groupName.get(s.groupId)}{s.extraGroupIds?.length ? <span className="ml-1 text-xs text-ink-muted">+{s.extraGroupIds.length}</span> : null}</p>
                               <p className="truncate text-xs text-ink-muted">{teacherOf.get(s.groupId) ?? tr("No teacher")}</p>
                             </>
                           ) : (

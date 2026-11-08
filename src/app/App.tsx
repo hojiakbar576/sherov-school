@@ -37,6 +37,7 @@ import { OwnerBranchesPage } from '../features/owner/OwnerBranchesPage'
 import { OwnerFinancePage } from '../features/owner/OwnerFinancePage'
 import { OwnerTeachersPage } from '../features/owner/OwnerTeachersPage'
 import { OwnerSettingsPage } from '../features/owner/OwnerSettingsPage'
+import { LcupImportPage } from '../features/owner/LcupImportPage'
 import { OwnerUsersPage } from '../features/owner/OwnerUsersPage'
 import { ExpensesPage } from '../features/expenses/ExpensesPage'
 import { SalariesPage } from '../features/salaries/SalariesPage'
@@ -69,6 +70,7 @@ export function App() {
         <Route path="teachers" element={<OwnerTeachersPage />} />
         <Route path="users" element={<OwnerUsersPage />} />
         <Route path="settings" element={<OwnerSettingsPage />} />
+        <Route path="import" element={<LcupImportPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
 

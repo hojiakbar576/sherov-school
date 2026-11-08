@@ -19,6 +19,7 @@ import { formatDayMonth, formatDayShort, formatMonth, formatMonthShort, formatUZ
 import { endTime, meetsOn } from './schedule'
 import { trialsAwaitingResult, trialsOn } from './admissions'
 import { tr } from '../i18n'
+import { inGroup, groupIdsOf } from './membership'
 
 // ---------------------------------------------------------------- tuition
 
@@ -54,11 +55,33 @@ export function computeBalances(data: SchoolData, now: Date): Map<string, Tuitio
     paid.set(key, (paid.get(key) ?? 0) + p.amount)
   }
 
+  // Payments made after a student's carried-over balance (not the imported ones already in it).
+  const openingDate = new Map(data.students.filter((s) => s.openingBalance).map((s) => [s.id, s.openingBalance!.asOf]))
+  const paidSince = new Map<string, number>()
+  for (const p of data.payments) {
+    const asOf = openingDate.get(p.studentId)
+    if (!asOf || p.status !== 'paid' || p.imported || p.date < asOf) continue
+    paidSince.set(p.studentId, (paidSince.get(p.studentId) ?? 0) + p.amount)
+  }
+
   const balances = new Map<string, TuitionBalance>()
   for (const s of data.students) {
     const paidThisMonth = paid.get(`${s.id}|${currentMonth}`) ?? 0
     if (s.status !== 'active') {
       balances.set(s.id, { owed: 0, unpaidMonths: [], paidThisMonth, status: 'inactive' })
+      continue
+    }
+    // Brought over from LC UP: owes the carried-over debt minus what was paid since.
+    // No new monthly charges until the centre's billing rules are switched on.
+    if (s.openingBalance) {
+      const since = paidSince.get(s.id) ?? 0
+      const debt = Math.max(0, -(s.openingBalance.amount + since))
+      balances.set(s.id, {
+        owed: debt,
+        unpaidMonths: [],
+        paidThisMonth,
+        status: debt === 0 ? 'paid' : now.getDate() > data.settings.tuitionDueDay ? 'overdue' : 'due',
+      })
       continue
     }
     const enrolledMonth = monthKeyOf(s.enrolledOn)
@@ -158,7 +181,7 @@ export function revenueByWeek(data: SchoolData, now: Date, weeks: number): Reven
 export function enrolmentByGroup(data: SchoolData): Map<string, number> {
   const counts = new Map<string, number>()
   for (const s of data.students) {
-    if (s.status === 'active' && s.groupId) counts.set(s.groupId, (counts.get(s.groupId) ?? 0) + 1)
+    if (s.status === 'active') for (const id of groupIdsOf(s)) counts.set(id, (counts.get(id) ?? 0) + 1)
   }
   return counts
 }
@@ -166,7 +189,7 @@ export function enrolmentByGroup(data: SchoolData): Map<string, number> {
 /** Active students in a group who had enrolled by `date`. */
 export function groupRoster(data: SchoolData, groupId: string, date: ISODate): Student[] {
   return data.students
-    .filter((s) => s.groupId === groupId && s.status === 'active' && s.enrolledOn <= date)
+    .filter((s) => inGroup(s, groupId) && s.status === 'active' && s.enrolledOn <= date)
     .sort((a, b) => a.fullName.localeCompare(b.fullName))
 }
 

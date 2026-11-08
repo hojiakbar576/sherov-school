@@ -12,6 +12,7 @@ import { cn } from '../../lib/cn'
 import { lessonDates } from '../teacher/teacher-metrics'
 import { MonthGrid } from '../teacher/group/MonthGrid'
 import { tr } from '../../i18n'
+import { inGroup } from '../../lib/membership'
 
 /**
  * A group's month, LC UP style: students down the side, lesson days across.
@@ -41,7 +42,7 @@ export function AttendanceJournal({ group, canMark = true }: { group: Group; can
   const monthRecords = useMemo(() => records.filter((r) => r.date.startsWith(month)), [records, month])
   // Today's students, then anyone marked in this group during the month (moved or left since).
   const students = useMemo<Student[]>(() => {
-    const current = data.students.filter((s) => s.groupId === group.id && (s.status === 'active' || s.status === 'paused')).sort((a, b) => a.fullName.localeCompare(b.fullName))
+    const current = data.students.filter((s) => inGroup(s, group.id) && (s.status === 'active' || s.status === 'paused')).sort((a, b) => a.fullName.localeCompare(b.fullName))
     const ids = new Set(current.map((s) => s.id))
     const earlier = [...new Set(monthRecords.flatMap((r) => Object.keys(r.marks)))]
       .filter((id) => !ids.has(id))

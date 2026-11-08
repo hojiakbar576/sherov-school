@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import type { DayPattern, Group, GroupStatus } from '../../types'
+import type { DayPattern, Group, GroupStatus, Weekday } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { useToast } from '../../components/ui/toast-context'
 import { Dialog } from '../../components/ui/Dialog'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/Field'
-import { dayPatternLabel, formatUZS, groupStatusLabel } from '../../lib/format'
+import { dayPatternLabel, formatUZS, groupStatusLabel, weekdayShort } from '../../lib/format'
 import { enrolmentByGroup } from '../../lib/metrics'
 import { findScheduleConflicts } from '../../lib/schedule'
 import { timeToMinutes } from '../../lib/dates'
@@ -34,6 +34,8 @@ interface FormState {
   teacherId: string
   room: string
   days: DayPattern
+  /** Set when the group meets on other days than odd/even. */
+  weekdays: Weekday[] | null
   startTime: string
   durationMinutes: string
   capacity: string
@@ -63,6 +65,7 @@ function GroupForm({ onClose, group }: Props) {
     teacherId: group?.teacherId ?? '',
     room: group?.room ?? '',
     days: group?.days ?? 'odd',
+    weekdays: group?.weekdays?.length ? group.weekdays : null,
     startTime: group?.startTime ?? '14:00',
     durationMinutes: String(group?.durationMinutes ?? 90),
     capacity: String(group?.capacity ?? 14),
@@ -97,6 +100,7 @@ function GroupForm({ onClose, group }: Props) {
     if (!levels.some((l) => l.id === form.levelId)) e.levelId = levels.length ? tr("Choose a level.") : tr("This course has no levels yet. Add them in Settings → Courses.")
     if (!form.teacherId) e.teacherId = tr("Choose a teacher.")
     if (!form.room.trim()) e.room = tr("Enter a room.")
+    if (form.weekdays && form.weekdays.length === 0) e.weekdays = tr("Choose at least one day.")
     if (!/^\d{2}:\d{2}$/.test(form.startTime)) e.startTime = tr("Choose a start time.")
     else if (timeToMinutes(form.startTime) < 7 * 60 || timeToMinutes(form.startTime) + Number(form.durationMinutes) > 21 * 60) e.startTime = tr("Classes must run between 07:00 and 21:00.")
     if (!Number.isInteger(capacity) || capacity < 1 || capacity > 40) e.capacity = tr("Enter a capacity between 1 and 40.")
@@ -113,6 +117,7 @@ function GroupForm({ onClose, group }: Props) {
       teacherId: form.teacherId,
       room: form.room.trim(),
       days: form.days,
+      weekdays: form.weekdays?.length ? [...form.weekdays].sort() : undefined,
       startTime: form.startTime,
       durationMinutes: Number(form.durationMinutes),
       capacity,
@@ -219,23 +224,52 @@ function GroupForm({ onClose, group }: Props) {
 
       <fieldset className="sm:col-span-2">
         <legend className="mb-1.5 text-sm font-medium text-ink">{tr("Days")}</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {(Object.keys(dayPatternLabel) as DayPattern[]).map((d) => (
-            <label
-              key={d}
-              className={cn(
-                'flex cursor-pointer items-center gap-2.5 rounded-control border px-3 py-2.5 text-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand',
-                form.days === d ? 'border-brand bg-brand-soft text-brand-ink' : 'border-line-strong hover:bg-subtle',
-              )}
-            >
-              <input type="radio" name="days" value={d} checked={form.days === d} onChange={() => set('days', d)} className="accent-brand" />
-              <span>
-                <span className="block font-medium">{d === 'odd' ? tr("Odd days") : tr("Even days")}</span>
-                <span className="block text-xs opacity-80">{dayPatternLabel[d]}</span>
-              </span>
-            </label>
-          ))}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {([...(Object.keys(dayPatternLabel) as DayPattern[]), 'other'] as const).map((d) => {
+            const checked = d === 'other' ? form.weekdays !== null : form.weekdays === null && form.days === d
+            return (
+              <label
+                key={d}
+                className={cn(
+                  'flex cursor-pointer items-center gap-2.5 rounded-control border px-3 py-2.5 text-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand',
+                  checked ? 'border-brand bg-brand-soft text-brand-ink' : 'border-line-strong hover:bg-subtle',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="days"
+                  value={d}
+                  checked={checked}
+                  onChange={() => (d === 'other' ? set('weekdays', form.weekdays ?? [6, 7]) : setForm((f) => ({ ...f, days: d, weekdays: null })))}
+                  className="accent-brand"
+                />
+                <span>
+                  <span className="block font-medium">{d === 'odd' ? tr("Odd days") : d === 'even' ? tr("Even days") : tr("Other days")}</span>
+                  <span className="block text-xs opacity-80">{d === 'other' ? tr("Choose the days") : dayPatternLabel[d]}</span>
+                </span>
+              </label>
+            )
+          })}
         </div>
+        {form.weekdays !== null && (
+          <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={tr("Lesson days")}>
+            {([1, 2, 3, 4, 5, 6, 7] as Weekday[]).map((w) => {
+              const on = form.weekdays!.includes(w)
+              return (
+                <button
+                  key={w}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => set('weekdays', on ? form.weekdays!.filter((x) => x !== w) : [...form.weekdays!, w])}
+                  className={cn('h-9 min-w-12 rounded-control border px-3 text-sm', on ? 'border-brand bg-brand text-white' : 'border-line-strong hover:bg-subtle')}
+                >
+                  {weekdayShort[w]}
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {errors.weekdays && <p className="mt-1 text-sm text-danger">{errors.weekdays}</p>}
       </fieldset>
 
       <Field label={tr("Start time")} error={errors.startTime}>

@@ -10,6 +10,7 @@ import type { MonthKey, SchoolData, Teacher } from '../types'
 import { formatUZS } from './format'
 import { addMonths } from './dates'
 import { tr } from '../i18n'
+import { groupIdsOf } from './membership'
 
 /** How a teacher's pay is worked out, in words. */
 export function salaryRuleText(t: Teacher): string {
@@ -65,17 +66,25 @@ export function teacherSalary(data: SchoolData, teacherId: string, month: MonthK
   const percent = kind === 'fixed' ? 0 : (teacher?.salaryPercent ?? 0)
   const fixed = kind === 'percent' ? 0 : (teacher?.fixedSalary ?? 0)
   const groups = new Map(data.groups.filter((g) => g.teacherId === teacherId).map((g) => [g.id, g]))
-  const students = new Map(data.students.filter((s) => s.groupId && groups.has(s.groupId)).map((s) => [s.id, s]))
+  const students = new Map(data.students.filter((s) => groupIdsOf(s).some((id) => groups.has(id))).map((s) => [s.id, s]))
 
-  const byStudent = new Map<string, number>()
+  // A payment counts for the group it was paid for; without one, for the student's
+  // first group with this teacher. A student in two groups pays each teacher their own share.
+  const byLine = new Map<string, { studentId: string; groupId: string; paid: number }>()
   for (const p of data.payments) {
     if (p.status !== 'paid' || p.period !== month || !students.has(p.studentId)) continue
-    byStudent.set(p.studentId, (byStudent.get(p.studentId) ?? 0) + p.amount)
+    const student = students.get(p.studentId)!
+    const groupId = p.groupId ? (groups.has(p.groupId) ? p.groupId : null) : groupIdsOf(student).find((id) => groups.has(id))
+    if (!groupId) continue
+    const k = `${p.studentId}|${groupId}`
+    const line = byLine.get(k) ?? { studentId: p.studentId, groupId, paid: 0 }
+    line.paid += p.amount
+    byLine.set(k, line)
   }
 
-  const lines: SalaryLine[] = [...byStudent].map(([studentId, paid]) => {
+  const lines: SalaryLine[] = [...byLine.values()].map(({ studentId, groupId, paid }) => {
     const student = students.get(studentId)!
-    const group = groups.get(student.groupId!)!
+    const group = groups.get(groupId)!
     return { studentId, studentName: student.fullName, groupId: group.id, groupName: group.name, paid, share: Math.round((paid * percent) / 100) }
   })
   lines.sort((a, b) => a.groupName.localeCompare(b.groupName) || a.studentName.localeCompare(b.studentName))

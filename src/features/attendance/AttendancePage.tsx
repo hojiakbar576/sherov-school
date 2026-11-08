@@ -16,6 +16,7 @@ import { findRecord, groupRoster, sessionsOn, summarizeMarks, type Session } fro
 import { cn } from '../../lib/cn'
 import { ExportButtons } from '../../components/ui/ExportButtons'
 import { plural, tr } from '../../i18n'
+import { inGroup } from '../../lib/membership'
 
 const MARKS: AttendanceMark[] = ['present', 'late', 'absent', 'excused']
 const markStyle: Record<AttendanceMark, string> = {
@@ -245,7 +246,7 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
           </div>
           <ul className="divide-y divide-line border-t border-line">
             {students.map((s) => {
-              const inGroup = s.groupId === session.group.id
+              const isInGroup = inGroup(s, session.group.id)
               const comment = comments[s.id] ?? ''
               const showNote = noteOpen[s.id] || comment !== ''
               return (
@@ -254,7 +255,7 @@ function Roster({ session, date, isFuture }: { session: Session; date: string; i
                     <Avatar name={s.fullName} size="sm" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink">{s.fullName}</p>
-                      {!inGroup && <p className="text-xs text-ink-muted">{tr("No longer in this group")}</p>}
+                      {!isInGroup && <p className="text-xs text-ink-muted">{tr("No longer in this group")}</p>}
                     </div>
                   </div>
                   <fieldset className="flex shrink-0 gap-1.5">

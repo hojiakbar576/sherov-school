@@ -7,13 +7,14 @@ import { Panel } from '../../components/ui/Panel'
 import { Avatar, EmptyState, TableScroll, td, th } from '../../components/ui/misc'
 import { GroupStatusBadge, StudentStatusBadge } from '../../components/StatusBadges'
 import { endTime } from '../../lib/schedule'
-import { dayPatternLabel, formatDate, formatPercent } from '../../lib/format'
+import { formatDate, formatPercent, groupDaysLabel } from '../../lib/format'
 import { studentAttendance, summarizeMarks } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
 import { rateTone, splitHomework } from './teacher-metrics'
 import { GuardianContacts } from './LearningBadges'
 import { homeworkProgress } from '../../lib/performance'
 import { tr } from '../../i18n'
+import { inGroup } from '../../lib/membership'
 
 export function GroupDetailPage() {
   const { groupId } = useParams()
@@ -24,7 +25,7 @@ export function GroupDetailPage() {
   const students = useMemo(
     () =>
       data.students
-        .filter((s) => s.groupId === groupId)
+        .filter((s) => inGroup(s, groupId))
         .sort((a, b) => (a.status === b.status ? a.fullName.localeCompare(b.fullName) : a.status === 'active' ? -1 : 1))
         .map((s) => ({ student: s, rate: studentAttendance(data, s.id).rate })),
     [data, groupId],
@@ -60,7 +61,7 @@ export function GroupDetailPage() {
               <GroupStatusBadge status={group.status} />
             </div>
             <p className="num mt-1 text-ink-muted">
-              {group.subject} · {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)} · {group.room}
+              {group.subject} · {groupDaysLabel(group)}, {group.startTime}–{endTime(group)} · {group.room}
               {branch && `, ${branch.name}`}
             </p>
           </div>

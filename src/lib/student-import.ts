@@ -11,6 +11,7 @@ import type { StudentInput } from '../data/school-context'
 import { formatPhone, guardianRelationshipLabel, isValidPhone, studentStatusLabel } from './format'
 import { createId } from './id'
 import { tr } from '../i18n'
+import { groupIdsOf } from './membership'
 
 type Field = 'name' | 'phone' | 'group' | 'parent' | 'relationship' | 'parentPhone' | 'parent2' | 'parent2Phone' | 'tuition' | 'priceNote' | 'status' | 'enrolled' | 'dob'
 
@@ -122,7 +123,7 @@ export function planImport(sheet: string[][], data: SchoolData, opts: { today: s
   const seen = new Set<string>()
   const joining = new Map<string, number>()
   const enrolled = new Map<string, number>()
-  for (const s of data.students) if (s.groupId && (s.status === 'active' || s.status === 'paused')) enrolled.set(s.groupId, (enrolled.get(s.groupId) ?? 0) + 1)
+  for (const s of data.students) if (s.status === 'active' || s.status === 'paused') for (const id of groupIdsOf(s)) enrolled.set(id, (enrolled.get(id) ?? 0) + 1)
 
   const rows: ImportRow[] = []
   sheet.slice(headerIndex + 1).forEach((cells, i) => {

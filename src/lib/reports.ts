@@ -7,6 +7,7 @@ import { monthKeyOf } from './dates'
 import { revenueInMonth, summarizeMarks } from './metrics'
 import { teacherSalary } from './salary'
 import { tr } from '../i18n'
+import { inGroup, inAnyGroup } from './membership'
 
 export interface ProfitMonth {
   key: MonthKey
@@ -177,7 +178,7 @@ export function groupRanking(data: SchoolData, from: MonthKey): GroupRank[] {
   return data.groups
     .filter((g) => g.status === 'active')
     .map((g) => {
-      const mine = students.filter((s) => s.groupId === g.id)
+      const mine = students.filter((s) => inGroup(s, g.id))
       const marks = summarizeMarks(data.attendance.filter((r) => r.groupId === g.id && r.date >= start))
       const homework = avg(mine.flatMap((s) => (s.homework === null ? [] : [s.homework])))
       const tests = avg(mine.flatMap((s) => (s.tests === null ? [] : [s.tests])))
@@ -185,7 +186,7 @@ export function groupRanking(data: SchoolData, from: MonthKey): GroupRank[] {
       return {
         groupId: g.id,
         name: g.name,
-        students: data.students.filter((s) => s.groupId === g.id && s.status === 'active').length,
+        students: data.students.filter((s) => inGroup(s, g.id) && s.status === 'active').length,
         attendance: marks.rate,
         homework,
         tests,
@@ -225,7 +226,7 @@ export function teacherPerformance(data: SchoolData, from: MonthKey, month: Mont
         teacherId: t.id,
         name: t.fullName,
         groups: groups.length,
-        students: data.students.filter((s) => s.status === 'active' && s.groupId && ids.has(s.groupId)).length,
+        students: data.students.filter((s) => s.status === 'active' && inAnyGroup(s, ids)).length,
         attendance: marks.rate,
         homeworkChecked: handed.length ? handed.filter((r) => r.evaluation).length / handed.length : null,
         averageTest: avg(testScores),

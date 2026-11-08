@@ -3,6 +3,8 @@ import type {
   Catalogs,
   ListItem,
   DayPattern,
+  Group,
+  Weekday,
   Gender,
   GroupStatus,
   GuardianRelationship,
@@ -256,4 +258,24 @@ export function ageOn(dateOfBirth: ISODate, now: Date): number {
 export const dayPatternShort: Record<DayPattern, string> = {
   odd: tr('Odd days'),
   even: tr('Even days'),
+}
+
+export const weekdayShort: Record<Weekday, string> = {
+  1: tr("Mon"),
+  2: tr("Tue"),
+  3: tr("Wed"),
+  4: tr("Thu"),
+  5: tr("Fri"),
+  6: tr("Sat"),
+  7: tr("Sun"),
+}
+
+/** A group's lesson days, e.g. "Mon, Wed, Fri" or, for other days, "Sat, Sun". */
+export function groupDaysLabel(g: Pick<Group, 'days' | 'weekdays'>): string {
+  return g.weekdays?.length ? [...g.weekdays].sort().map((d) => weekdayShort[d]).join(', ') : dayPatternLabel[g.days]
+}
+
+/** Short form for tight spaces: "Odd days", "Even days" or the actual days. */
+export function groupDaysShort(g: Pick<Group, 'days' | 'weekdays'>): string {
+  return g.weekdays?.length ? groupDaysLabel(g) : dayPatternShort[g.days]
 }

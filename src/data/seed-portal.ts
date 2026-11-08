@@ -3,7 +3,7 @@
 
 import type { Branch, Group, Notification, Teacher, User } from '../types'
 import { addDays, atTime, toISODate } from '../lib/dates'
-import { dayPatternLabel, formatDate } from '../lib/format'
+import { formatDate, groupDaysLabel } from '../lib/format'
 
 export const BRANCHES: Branch[] = [
   { id: 'br_bashlik', name: 'Bashlik', address: 'Bashlik, Tashkent', phone: '+998 71 200 00 01' },
@@ -91,7 +91,7 @@ export function seedNotifications(teachers: Teacher[], groups: Group[], now: Dat
       id: `ntf_room_${t.id}`,
       kind: 'schedule',
       title: `Room confirmed for ${group.name}`,
-      body: `${group.name} meets in ${group.room} at ${group.startTime} on ${dayPatternLabel[group.days]}.`,
+      body: `${group.name} meets in ${group.room} at ${group.startTime} on ${groupDaysLabel(group)}.`,
       createdAt: daysAgo(6, '10:00'),
       audience: { teacherId: t.id },
       link: '/teacher/schedule',

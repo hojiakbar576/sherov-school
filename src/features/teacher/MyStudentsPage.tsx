@@ -14,6 +14,7 @@ import { cn } from '../../lib/cn'
 import { rateTone } from './teacher-metrics'
 import { GuardianContacts } from './LearningBadges'
 import { tr } from '../../i18n'
+import { inGroup } from '../../lib/membership'
 
 const FILTERS = ['q', 'group', 'status'] as const
 
@@ -31,7 +32,7 @@ export function MyStudentsPage() {
     const digits = q.replace(/\D/g, '')
     return data.students
       .filter((s) => {
-        if (values.group && s.groupId !== values.group) return false
+        if (values.group && !inGroup(s, values.group)) return false
         if (values.status && s.status !== values.status) return false
         if (!q) return true
         // Search by student or parent name, or a parent's phone number.

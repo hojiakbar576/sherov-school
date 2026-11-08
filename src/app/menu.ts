@@ -161,6 +161,7 @@ export const OWNER_MENU: MenuNode[] = [
       { label: tr("Teacher rating"), to: '/owner/teachers' },
       { label: tr("Users and access"), to: '/owner/users' },
       { label: tr("Owner settings"), to: '/owner/settings' },
+      { label: tr("Move from LC UP"), to: '/owner/import' },
     ],
   },
   ...ADMIN_MENU,

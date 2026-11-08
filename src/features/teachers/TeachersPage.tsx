@@ -14,7 +14,7 @@ import { Select } from '../../components/ui/Field'
 import { ConfirmDialog, Dialog } from '../../components/ui/Dialog'
 import { Avatar, EmptyState, SearchInput } from '../../components/ui/misc'
 import { TeacherStatusBadge } from '../../components/StatusBadges'
-import { dayPatternShort, teacherStatusLabel } from '../../lib/format'
+import { teacherStatusLabel, groupDaysShort } from '../../lib/format'
 import { enrolmentByGroup } from '../../lib/metrics'
 import { TeacherFormDialog } from './TeacherFormDialog'
 import { plural, tr } from '../../i18n'
@@ -159,7 +159,7 @@ export function TeachersPage() {
                       <li key={g.id} className="flex justify-between gap-3">
                         <span className="truncate text-ink">{g.name}</span>
                         <span className="num shrink-0 text-ink-muted">
-                          {dayPatternShort[g.days]}, {g.startTime}
+                          {groupDaysShort(g)}, {g.startTime}
                         </span>
                       </li>
                     ))}

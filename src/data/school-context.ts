@@ -1,3 +1,4 @@
+import type { LcupImport } from '../lib/lcup-import'
 import { createContext, useContext } from 'react'
 import type {
   Assessment,
@@ -201,6 +202,10 @@ export interface SchoolActions {
   /** Marks notifications read for the signed-in person only. */
   markNotificationsRead(ids: string[]): void
   /** Throws away every local change and regenerates the sample data. */
+  /** The other groups a student also studies in (besides their main group). */
+  setExtraGroups(studentId: string, groupIds: string[]): void
+  /** Owner only: replaces one branch's data with an LC UP import (other branches untouched). */
+  importFromLcup(imp: LcupImport): void
   resetDemoData(): void
 }
 

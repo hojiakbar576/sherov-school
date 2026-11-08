@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Archive, ArrowLeft, ArrowRightLeft, Banknote, ClipboardCheck, History, NotebookPen, Pencil, RefreshCcw, Trash2, UserPlus, UserRoundX, Wallet } from 'lucide-react'
-import type { AttendanceMark } from '../../types'
+import type { AttendanceMark, Group, Student } from '../../types'
 import { useSchool } from '../../data/school-context'
 import { Panel } from '../../components/ui/Panel'
 import { Button, ButtonLink } from '../../components/ui/Button'
@@ -12,14 +12,15 @@ import { monthKey } from '../../lib/dates'
 import {
   ageOn,
   attendanceMarkLabel,
-  dayPatternLabel,
   formatDate,
   formatMonth,
   formatPercent,
   formatUZS,
   genderLabel,
   guardianRelationshipLabel,
-  methodName,   tuitionAdjustmentLabel,
+  methodName,
+  tuitionAdjustmentLabel,
+  groupDaysLabel,
 } from '../../lib/format'
 import { groupHistory, isArchived, studentTimeline } from '../../lib/student-lifecycle'
 import { studentAssessments } from '../../lib/assessments'
@@ -38,6 +39,9 @@ import { ExtraLessonsPanel } from './ExtraLessonsPanel'
 import { ContactLogPanel } from '../contacts/ContactLogPanel'
 import { PaymentFormDialog } from '../payments/PaymentFormDialog'
 import { tr } from '../../i18n'
+import { Select } from '../../components/ui/Field'
+import { useToast } from '../../components/ui/toast-context'
+import { groupIdsOf } from '../../lib/membership'
 
 /** One label and value on a line. */
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -105,7 +109,7 @@ export function StudentDetailPage() {
       },
       { replace: true },
     )
-  const { data, now, balances } = useSchool()
+  const { data, now, balances, user } = useSchool()
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [paying, setPaying] = useState(false)
@@ -135,6 +139,8 @@ export function StudentDetailPage() {
   }
 
   const group = data.groups.find((g) => g.id === student.groupId)
+  const canEditStudent = !!user && user.role !== 'teacher'
+  const opening = student.openingBalance
   const teacher = data.teachers.find((t) => t.id === group?.teacherId)
   const branch = data.branches.find((b) => b.id === student.branchId)
   const balance = balances.get(student.id)
@@ -268,14 +274,23 @@ export function StudentDetailPage() {
           <Fact label={tr("Classes")}>
             {group ? (
               <span className="num">
-                {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)}
+                {groupDaysLabel(group)}, {group.startTime}–{endTime(group)}
               </span>
             ) : (
               missing
             )}
           </Fact>
         </dl>
+        {!archived && <OtherGroups student={student} canEdit={canEditStudent} />}
       </section>
+
+      {opening && (
+        <div role="note" className="mb-6 rounded-panel border border-line bg-subtle px-4 py-3 text-sm text-ink">
+          <span className="font-medium">{tr("Balance brought over from {0} on {1}:", opening.source, formatDate(opening.asOf))}</span>{' '}
+          <span className={cn('num font-medium', opening.amount < 0 ? 'text-danger' : 'text-success')}>{formatUZS(opening.amount)}</span>.{' '}
+          {tr("Payments made after that date reduce the debt. New monthly charges start once the centre's billing rules are switched on.")}
+        </div>
+      )}
 
       {archived && (
         <div role="note" className="mb-6 flex flex-wrap items-center gap-3 rounded-panel border border-line bg-subtle px-4 py-3 text-sm">
@@ -331,7 +346,7 @@ export function StudentDetailPage() {
                 {group && (
                   <Row label={tr("Classes")}>
                     <span className="num">
-                      {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)}
+                      {groupDaysLabel(group)}, {group.startTime}–{endTime(group)}
                       <span className="block text-xs text-ink-muted">{group.room}</span>
                     </span>
                   </Row>
@@ -730,5 +745,68 @@ export function StudentDetailPage() {
       <PaymentFormDialog open={paying} studentId={student.id} onClose={() => setPaying(false)} />
       <DeleteStudentDialog student={deleting ? student : null} onClose={() => setDeleting(false)} onDeleted={() => navigate('/students')} />
     </>
+  )
+}
+
+/** The student's other groups (besides the main one), with add and remove. */
+function OtherGroups({ student, canEdit }: { student: Student; canEdit: boolean }) {
+  const { data, actions } = useSchool()
+  const toast = useToast()
+  const [adding, setAdding] = useState('')
+  const extras = (student.extraGroupIds ?? []).map((id) => data.groups.find((g) => g.id === id)).filter((g): g is Group => !!g)
+  const choices = data.groups.filter((g) => g.status === 'active' && g.branchId === student.branchId && !groupIdsOf(student).includes(g.id))
+  if (!extras.length && !canEdit) return null
+  const save = (ids: string[], message: string) => {
+    actions.setExtraGroups(student.id, ids)
+    toast.show(message)
+  }
+  return (
+    <div className="mt-4 border-t border-line pt-4">
+      <p className="mb-2 text-sm font-medium text-ink">{tr("Also studies in")}</p>
+      {extras.length === 0 && <p className="text-sm text-ink-faint">{tr("No other groups.")}</p>}
+      <ul className="flex flex-wrap gap-2">
+        {extras.map((g) => (
+          <li key={g.id} className="flex items-center gap-1.5 rounded-full border border-line bg-surface py-1 pr-1 pl-3 text-sm">
+            <Link to={`/groups/${g.id}`} className="hover:text-brand hover:underline">
+              {g.name}
+            </Link>
+            <span className="text-xs text-ink-muted">{groupDaysLabel(g)}, {g.startTime}</span>
+            {canEdit && (
+              <button
+                type="button"
+                aria-label={tr("Remove from {0}", g.name)}
+                onClick={() => save(extras.filter((x) => x.id !== g.id).map((x) => x.id), tr("Removed from {0}.", g.name))}
+                className="flex size-6 items-center justify-center rounded-full text-ink-muted hover:bg-danger-soft hover:text-danger"
+              >
+                ×
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {canEdit && student.groupId && choices.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Select aria-label={tr("Add another group")} value={adding} onChange={(e) => setAdding(e.target.value)} className="h-9 w-64">
+            <option value="">{tr("Add another group…")}</option>
+            {choices.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name} · {g.subject}
+              </option>
+            ))}
+          </Select>
+          <Button
+            size="sm"
+            disabled={!adding}
+            onClick={() => {
+              const g = data.groups.find((x) => x.id === adding)
+              save([...extras.map((x) => x.id), adding], tr("Added to {0}.", g?.name ?? ''))
+              setAdding('')
+            }}
+          >
+            {tr("Add")}
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }

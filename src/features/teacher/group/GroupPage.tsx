@@ -6,7 +6,7 @@ import { useSchool } from '../../../data/school-context'
 import { Button, ButtonLink } from '../../../components/ui/Button'
 import { Avatar, EmptyState } from '../../../components/ui/misc'
 import { addMonths, monthKey, parseISODate, toISODate } from '../../../lib/dates'
-import { dayPatternLabel, formatDate, formatDayMonth, formatMonth, formatPercent } from '../../../lib/format'
+import { formatDate, formatDayMonth, formatMonth, formatPercent, groupDaysLabel } from '../../../lib/format'
 import { meetsOn, endTime } from '../../../lib/schedule'
 import { summarizeMarks } from '../../../lib/metrics'
 import { homeworkProgress } from '../../../lib/performance'
@@ -16,6 +16,7 @@ import { LessonSheet } from './LessonSheet'
 import { MonthGrid } from './MonthGrid'
 import { formatAverage } from './grade-style'
 import { tr } from '../../../i18n'
+import { inGroup } from '../../../lib/membership'
 
 const TABS = [
   { id: 'attendance', label: tr("Attendance") },
@@ -54,7 +55,7 @@ export function GroupPage() {
   const monthRecords = useMemo(() => records.filter((r) => r.date.startsWith(month)), [records, month])
 
   const students = useMemo<Student[]>(() => {
-    const current = data.students.filter((s) => s.groupId === groupId && (s.status === 'active' || s.status === 'paused'))
+    const current = data.students.filter((s) => inGroup(s, groupId) && (s.status === 'active' || s.status === 'paused'))
     const ids = new Set(current.map((s) => s.id))
     const earlier = monthRecords
       .flatMap((r) => Object.keys(r.marks))
@@ -78,7 +79,7 @@ export function GroupPage() {
   const pending = unmarkedLessons(group, records, now)
   const todayLesson = meetsOn(group, today)
   const todaySaved = records.some((r) => r.date === today)
-  const activeCount = data.students.filter((s) => s.groupId === group.id && s.status === 'active').length
+  const activeCount = data.students.filter((s) => inGroup(s, group.id) && s.status === 'active').length
   const monthSummary = summarizeMarks(monthRecords)
 
   return (
@@ -92,7 +93,7 @@ export function GroupPage() {
           <div className="min-w-0">
             <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">{group.name}</h1>
             <p className="num mt-1 text-ink-muted">
-              {dayPatternLabel[group.days]}, {group.startTime}–{endTime(group)} · {group.room} · {activeCount}{' '}{tr("students")}
+              {groupDaysLabel(group)}, {group.startTime}–{endTime(group)} · {group.room} · {activeCount}{' '}{tr("students")}
             </p>
           </div>
           {todayLesson && (

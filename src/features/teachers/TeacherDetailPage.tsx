@@ -8,7 +8,7 @@ import { Avatar, EmptyState, TableScroll, td, th } from '../../components/ui/mis
 import { PhoneLine } from '../../components/ui/CopyButton'
 import { GroupStatusBadge, SessionStatusBadge, TeacherStatusBadge } from '../../components/StatusBadges'
 import { addDays, monthKey, toISODate } from '../../lib/dates'
-import { dayPatternLabel, formatDate, formatDayShort, formatMonth, formatPercent, formatUZS } from '../../lib/format'
+import { formatDate, formatDayShort, formatMonth, formatPercent, formatUZS, groupDaysLabel } from '../../lib/format'
 import { enrolmentByGroup, sessionsOn, summarizeMarks } from '../../lib/metrics'
 import { endTime } from '../../lib/schedule'
 import { RATING_PART_LABEL, RATING_PARTS, teacherRatings } from '../../lib/rating'
@@ -217,7 +217,7 @@ export function TeacherDetailPage() {
                             <p className="text-xs text-ink-muted">{g.subject}</p>
                           </td>
                           <td className={cn(td, 'num text-ink-muted')}>
-                            {dayPatternLabel[g.days]}, {g.startTime}–{endTime(g)}
+                            {groupDaysLabel(g)}, {g.startTime}–{endTime(g)}
                             <p className="text-xs">{g.room}</p>
                           </td>
                           <td className={cn(td, 'num text-right')}>

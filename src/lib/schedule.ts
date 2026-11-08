@@ -6,8 +6,13 @@ export const DAY_PATTERN_WEEKDAYS: Record<DayPattern, Weekday[]> = {
   even: [2, 4, 6],
 }
 
+/** The weekdays a group meets: its own list when set, otherwise its odd/even pattern. */
+export function weekdaysOf(group: Pick<Group, 'days' | 'weekdays'>): Weekday[] {
+  return group.weekdays?.length ? group.weekdays : DAY_PATTERN_WEEKDAYS[group.days]
+}
+
 export function meetsOnWeekday(group: Group, weekday: Weekday): boolean {
-  return DAY_PATTERN_WEEKDAYS[group.days].includes(weekday)
+  return weekdaysOf(group).includes(weekday)
 }
 
 /** Does this group have a class on this date? Only running groups meet. */
@@ -20,7 +25,8 @@ export function endTime(group: Group): string {
 }
 
 function overlaps(a: Group, b: Group): boolean {
-  if (a.days !== b.days) return false
+  const bDays = weekdaysOf(b)
+  if (!weekdaysOf(a).some((d) => bDays.includes(d))) return false
   const aStart = timeToMinutes(a.startTime)
   const bStart = timeToMinutes(b.startTime)
   return aStart < bStart + b.durationMinutes && bStart < aStart + a.durationMinutes
