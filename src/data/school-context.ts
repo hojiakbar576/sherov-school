@@ -231,7 +231,12 @@ export interface SchoolContextValue {
   /** Only for a signed-in teacher; null for everyone else. */
   teacherView: TeacherView | null
   /** false when changes cannot be kept after a refresh. */
+  /** True once the data has loaded from the database and changes are being saved there. */
   persistent: boolean
+  cloudStatus: 'off' | 'loading' | 'ready' | 'error'
+  /** True while changes are being sent to the database. */
+  saving: boolean
+  retryCloud(): void
   loadProblem: string | null
   dismissLoadProblem(): void
   actions: SchoolActions

@@ -18,7 +18,7 @@ import { tr } from '../../i18n'
 type Errors = Partial<Record<keyof Settings, string>>
 
 export function SettingsPage() {
-  const { data, now, persistent, actions } = useSchool()
+  const { data, now, persistent, saving, user, actions } = useSchool()
   const toast = useToast()
   const [form, setForm] = useState<Settings>(data.settings)
   const [errors, setErrors] = useState<Errors>({})
@@ -57,7 +57,6 @@ export function SettingsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const sizeKb = Math.round(new Blob([JSON.stringify(data)]).size / 1024)
   // Counts are for the administrator's own branch.
   const counts: [string, number][] = [
     [tr("Students in your branch"), data.students.length],
@@ -116,14 +115,14 @@ export function SettingsPage() {
           </form>
         </Panel>
 
-        <Panel id="demo-data" title={tr("Demo data")}>
+        <Panel id="demo-data" title={tr("Data")}>
           <div className="space-y-4 text-sm">
             <div className="flex gap-3 rounded-control bg-subtle px-3 py-3">
               <HardDrive aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-muted" />
               <div>
-                <p className="font-medium text-ink">{persistent ? tr("Saved in this browser only") : tr("Not being saved")}</p>
+                <p className="font-medium text-ink">{!persistent ? tr("Not connected to the database") : saving ? tr("Saving…") : tr("Saved in the database")}</p>
                 <p className="text-ink-muted">
-                  {persistent ? tr("Changes are kept in this browser’s local storage. They are not sent to a server, not backed up, and not shared with other devices or people.") : tr("This browser is blocking local storage, so changes disappear when you refresh.")}
+                  {persistent ? tr("Every change is saved online straight away and shared with everyone who works here, on any device. Old versions of changed or deleted records are kept, so mistakes can be undone.") : tr("The server can’t be reached right now. Check the internet connection.")}
                 </p>
               </div>
             </div>
@@ -139,10 +138,6 @@ export function SettingsPage() {
                 <dt className="text-ink-muted">{tr("Sample data created")}</dt>
                 <dd>{formatRelative(data.seededAt, now)}</dd>
               </div>
-              <div className="flex justify-between py-2">
-                <dt className="text-ink-muted">{tr("Storage used")}</dt>
-                <dd className="num">{formatNumber(sizeKb)}{' '}{tr("KB")}</dd>
-              </div>
             </dl>
 
             <div className="flex flex-wrap gap-2 border-t border-line pt-4">
@@ -150,14 +145,16 @@ export function SettingsPage() {
                 <Download aria-hidden />
                 {tr("Download a copy (JSON)")}
               </Button>
-              <Button variant="ghost" onClick={() => setConfirmReset(true)} className="text-danger hover:bg-danger-soft hover:text-danger">
-                <RotateCcw aria-hidden />
-                {tr("Reset demo data")}
-              </Button>
+              {user?.role === 'owner' && (
+                <Button variant="ghost" onClick={() => setConfirmReset(true)} className="text-danger hover:bg-danger-soft hover:text-danger">
+                  <RotateCcw aria-hidden />
+                  {tr("Load sample data")}
+                </Button>
+              )}
             </div>
             <p className="flex gap-2 text-xs text-ink-muted">
               <Database aria-hidden className="size-3.5 shrink-0" />
-              {tr("A real database and sign-in will replace this once the design is approved.")}
+              {tr("Sample data is for testing only. Before the centre starts using this for real, it will be cleared.")}
             </p>
           </div>
         </Panel>
@@ -174,17 +171,17 @@ export function SettingsPage() {
 
       <ConfirmDialog
         open={confirmReset}
-        title={tr("Reset demo data?")}
-        confirmLabel={tr("Reset demo data")}
+        title={tr("Replace everything with sample data?")}
+        confirmLabel={tr("Load sample data")}
         onClose={() => setConfirmReset(false)}
         onConfirm={() => {
           actions.resetDemoData()
           setForm(DEFAULT_SETTINGS)
-          toast.show(tr("Demo data was reset to fresh sample data."))
+          toast.show(tr("Sample data is being saved. This takes a few seconds."))
         }}
       >
         <p>
-          {tr("Every change made in this browser will be lost, for all three branches and every demo account: students, teachers, groups, payments, attendance, homework and settings you added or edited. The app will start again with fresh sample data dated today.")}
+          {tr("Everything in the database will be replaced, for every branch and every person: students, teachers, groups, payments, attendance, homework and settings. Fresh sample data dated today takes its place. Never do this once real data is in use.")}
         </p>
         <p>{tr("If you might need your changes, download a copy first.")}</p>
       </ConfirmDialog>

@@ -21,7 +21,11 @@ import { useNow } from '../hooks/useNow'
 import { createDemoData } from './seed'
 import { DEFAULT_BRANCH_ID, teacherUser } from './seed-portal'
 import { homeworkStudents } from './seed-learning'
-import { loadData, saveData, STORAGE_KEY, validateSchoolData } from './storage'
+import { clearBrowserCopies } from './storage'
+import { applyToSnapshot, canWriteRow, diff, emptySchool, fromRows, patchData, rowFingerprint, rowKey, snapshotOf, type Snapshot } from './cloud'
+import { listenForChanges, loadRows, saveChanges } from './cloud-io'
+import { migrate } from './migrate'
+import { DATA_VERSION } from './seed'
 import { SchoolContext, type OwnerView, type SchoolActions, type SchoolContextValue, type SignInResult, type TeacherView } from './school-context'
 
 const OWNER_BRANCH_KEY = 'sherov-school:owner-branch'
@@ -54,10 +58,13 @@ type Auth = { status: 'loading' } | { status: 'out' } | { status: 'in'; profile:
 class NotPermittedError extends Error {}
 
 export function SchoolProvider({ children }: { children: ReactNode }) {
-  const [initial] = useState(() => loadData())
-  const [fullData, setData] = useState<SchoolData>(initial.data)
-  const [persistent, setPersistent] = useState(initial.persistent)
-  const [loadProblem, setLoadProblem] = useState<string | null>(initial.problem ?? null)
+  const [fullData, setData] = useState<SchoolData>(() => emptySchool(new Date()))
+  // The school's data comes from the database after sign-in.
+  const [cloud, setCloud] = useState<'off' | 'loading' | 'ready' | 'error'>('off')
+  const [cloudAttempt, setCloudAttempt] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [loadProblem, setLoadProblem] = useState<string | null>(null)
+  const snapshot = useRef<Snapshot>(new Map())
   const [auth, setAuth] = useState<Auth>({ status: 'loading' })
   // True while a sign-in is checked here, so the background listener doesn't load the profile twice.
   const signingIn = useRef(false)
@@ -108,28 +115,91 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     return scopeData(fullData, user)
   }, [fullData, user, ownerBranch])
 
-  // Save every change to localStorage (the "external system" this effect syncs with).
-  // State is only touched when a write fails, e.g. storage is full.
-  useEffect(() => {
-    if (!initial.persistent || saveData(fullData)) return
-    setPersistent(false)
-    setLoadProblem('Changes could not be saved in this browser. They will be lost when you refresh.')
-  }, [fullData, initial.persistent])
+  // Old copies of the demo data in this browser are no longer used: remove them.
+  useEffect(() => clearBrowserCopies(), [])
 
-  // Keep two open tabs in step with each other, including signing in and out.
+  // After sign-in, load everything this person may see from the database.
+  const profile = auth.status === 'in' ? auth.profile : null
   useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY || !event.newValue) return
-      try {
-        const next: unknown = JSON.parse(event.newValue)
-        if (validateSchoolData(next) === null) setData(next as SchoolData)
-      } catch {
-        // Ignore unreadable updates from other tabs.
-      }
+    if (!profile) {
+      snapshot.current = new Map()
+      setData(emptySchool(new Date()))
+      setCloud('off')
+      return
     }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
+    let alive = true
+    setCloud('loading')
+    loadRows(profile.center_id)
+      .then(({ rows, branches }) => {
+        if (!alive) return
+        const now = new Date()
+        let loaded = fromRows(rows, now, branches)
+        if (loaded.version < DATA_VERSION) {
+          const upgraded = migrate(loaded as unknown as Record<string, unknown>, DATA_VERSION, now)
+          if (upgraded) loaded = upgraded as unknown as SchoolData
+        }
+        snapshot.current = snapshotOf(rows)
+        setData(loaded)
+        setCloud('ready')
+      })
+      .catch(() => {
+        if (alive) setCloud('error')
+      })
+    const stop = listenForChanges(
+      profile.center_id,
+      (row) => {
+        const k = rowKey(row.collection, row.id)
+        if (snapshot.current.get(k) === rowFingerprint(row)) return // our own change coming back
+        snapshot.current.set(k, rowFingerprint(row))
+        setData((d) => patchData(d, row))
+      },
+      (removed) => {
+        snapshot.current.delete(rowKey(removed.collection, removed.id))
+        setData((d) => patchData(d, null, removed))
+      },
+    )
+    return () => {
+      alive = false
+      stop()
+    }
+  }, [profile, cloudAttempt])
+
+  // Send every change to the database: only the rows that changed, one save at a time.
+  const latest = useRef(fullData)
+  useEffect(() => {
+    latest.current = fullData
+  }, [fullData])
+  const inFlight = useRef(false)
+  const [retryTick, setRetryTick] = useState(0)
+  useEffect(() => {
+    if (cloud !== 'ready' || !profile || inFlight.current) return
+    const changes = diff(snapshot.current, latest.current, (r) => canWriteRow(profile, r))
+    if (changes.upserts.length === 0 && changes.deletes.length === 0) return
+    inFlight.current = true
+    setSaving(true)
+    saveChanges(profile.center_id, changes)
+      .then(() => {
+        applyToSnapshot(snapshot.current, changes)
+        setLoadProblem(null)
+        setRetryTick((t) => t + 1) // check again in case something changed meanwhile
+      })
+      .catch(() => {
+        setLoadProblem('Your latest changes are not saved yet: the server can’t be reached. Keep this page open; it will try again.')
+        window.setTimeout(() => setRetryTick((t) => t + 1), 5000)
+      })
+      .finally(() => {
+        inFlight.current = false
+        setSaving(false)
+      })
+  }, [fullData, cloud, profile, retryTick])
+
+  // Warn before closing the page while changes are still being sent.
+  useEffect(() => {
+    if (!saving) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [saving])
 
   // Every change is stamped with who made it, for the audit history.
   const actorRef = useRef<string | undefined>(undefined)
@@ -1095,7 +1165,8 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       },
 
       resetDemoData() {
-        requireManager()
+        // Replaces everything in the database with sample data: owner only.
+        requireOwner()
         setData(createDemoData(new Date()))
         setLoadProblem(null)
       },
@@ -1132,19 +1203,22 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       now,
       balances,
       teacherView,
-      persistent,
+      persistent: cloud === 'ready',
+      cloudStatus: cloud,
+      saving,
+      retryCloud: () => setCloudAttempt((n) => n + 1),
       loadProblem,
       dismissLoadProblem: () => setLoadProblem(null),
       actions,
       user,
       branch,
-      authLoading: auth.status === 'loading',
+      authLoading: auth.status === 'loading' || cloud === 'loading',
       signIn,
       signInOwner,
       signOut,
       owner,
     }),
-    [data, now, balances, teacherView, persistent, loadProblem, actions, user, branch, auth.status, signIn, signInOwner, signOut, owner],
+    [data, now, balances, teacherView, cloud, saving, loadProblem, actions, user, branch, auth.status, signIn, signInOwner, signOut, owner],
   )
 
   return <SchoolContext.Provider value={value}>{children}</SchoolContext.Provider>

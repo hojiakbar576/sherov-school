@@ -60,7 +60,7 @@ function LoadProblemBanner() {
   return (
     <div role="alert" className="flex items-start gap-3 border-b border-warning-mark/40 bg-warning-soft px-4 py-3 text-sm text-ink lg:px-8">
       <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
-      <p className="flex-1">{loadProblem}</p>
+      <p className="flex-1">{tr(loadProblem)}</p>
       <button type="button" onClick={dismissLoadProblem} className="font-medium text-warning hover:underline">
         {tr("Dismiss")}
       </button>

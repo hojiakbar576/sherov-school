@@ -29,6 +29,8 @@ export interface Profile {
   username: string
   full_name: string
   app_user_id: string
+  /** For teachers: their teacher record. */
+  teacher_id: string | null
   active: boolean
 }
 
@@ -36,7 +38,7 @@ export interface Profile {
 export async function fetchMyProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, center_id, branch_id, role, username, full_name, app_user_id, active')
+    .select('user_id, center_id, branch_id, role, username, full_name, app_user_id, teacher_id, active')
     .eq('user_id', userId)
     .maybeSingle()
   if (error) throw new Error(error.message)

@@ -61,7 +61,7 @@ describe('roles', () => {
   })
 
   it('a signed-in account becomes the matching person in the app, with the server’s role and branch', () => {
-    const profile = { user_id: 'u1', center_id: 'ctr_sherov', branch_id: 'br_quyliq', role: 'accountant' as const, username: 'accountant.quyliq', full_name: 'Quyliq Accountant', app_user_id: 'usr_accountant_quyliq', active: true }
+    const profile = { user_id: 'u1', center_id: 'ctr_sherov', branch_id: 'br_quyliq', role: 'accountant' as const, username: 'accountant.quyliq', full_name: 'Quyliq Accountant', app_user_id: 'usr_accountant_quyliq', teacher_id: null, active: true }
     const user = userFromProfile(profile, data.users)
     expect(user).toMatchObject({ id: 'usr_accountant_quyliq', role: 'accountant', branchId: 'br_quyliq', fullName: 'Quyliq Accountant', username: 'accountant.quyliq' })
     // The server decides the role, even if the app's own list says otherwise.

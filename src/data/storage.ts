@@ -192,3 +192,13 @@ export function saveData(data: SchoolData): boolean {
     return false
   }
 }
+
+/** Removes copies of the old browser-only data (the database is now the only place data lives). */
+export function clearBrowserCopies() {
+  try {
+    const storage = window.localStorage
+    for (const k of Object.keys(storage)) if (k === STORAGE_KEY || k.startsWith(BACKUP_PREFIX)) storage.removeItem(k)
+  } catch {
+    // Storage blocked: nothing to clear.
+  }
+}
