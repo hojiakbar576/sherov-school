@@ -187,6 +187,7 @@ export const tuitionAdjustmentLabel: Record<TuitionAdjustmentKind, string> = {
 export const teacherStatusLabel: Record<TeacherStatus, string> = {
   active: tr("Teaching"),
   on_leave: tr("On leave"),
+  left: tr("Left"),
 }
 
 export const groupStatusLabel: Record<GroupStatus, string> = {

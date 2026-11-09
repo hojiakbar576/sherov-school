@@ -90,3 +90,25 @@ describe('balances brought over from LC UP', () => {
     expect(computeBalances(data, now).get(s.id)).toMatchObject({ owed: 0, status: 'paid' })
   })
 })
+
+describe('imported payment history', () => {
+  it('counts for the teacher recorded on it, even after the student left', () => {
+    const d = demo()
+    const g = d.groups.find((x) => x.status === 'active')!
+    const left = { ...d.students[0], id: 'stu_left', status: 'left' as const, groupId: null, extraGroupIds: undefined }
+    const pay: Payment = { id: 'h1', studentId: 'stu_left', amount: 600_000, date: '2026-03-10', period: '2026-03', method: 'cash', status: 'paid', imported: true, groupId: g.id, teacherId: g.teacherId }
+    const data = { ...d, students: [...d.students, left], payments: [pay] }
+    const s = teacherSalary(data, g.teacherId, '2026-03')
+    expect(s.collected).toBe(600_000)
+    expect(s.lines[0]).toMatchObject({ studentId: 'stu_left', groupId: g.id })
+    expect(teacherSalary(data, 'someone_else', '2026-03').collected).toBe(0)
+  })
+
+  it('a refund recorded as a negative payment lowers the total', () => {
+    const d = demo()
+    const g = d.groups.find((x) => x.status === 'active')!
+    const s0 = d.students.find((x) => x.groupId === g.id)!
+    const p = (id: string, amount: number): Payment => ({ id, studentId: s0.id, amount, date: '2026-02-20', period: '2026-02', method: 'cash', status: 'paid', imported: true, groupId: g.id, teacherId: g.teacherId })
+    expect(teacherSalary({ ...d, payments: [p('a', 500_000), p('b', -167_000)] }, g.teacherId, '2026-02').collected).toBe(333_000)
+  })
+})

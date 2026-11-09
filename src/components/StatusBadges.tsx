@@ -16,7 +16,7 @@ export function StudentStatusBadge({ status }: { status: StudentStatus }) {
   return <Badge tone={studentTone[status]}>{studentStatusLabel[status]}</Badge>
 }
 
-const teacherTone: Record<TeacherStatus, Tone> = { active: 'success', on_leave: 'warning' }
+const teacherTone: Record<TeacherStatus, Tone> = { active: 'success', on_leave: 'warning', left: 'neutral' }
 export function TeacherStatusBadge({ status }: { status: TeacherStatus }) {
   return <Badge tone={teacherTone[status]}>{teacherStatusLabel[status]}</Badge>
 }

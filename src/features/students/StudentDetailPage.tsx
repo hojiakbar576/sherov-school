@@ -284,6 +284,13 @@ export function StudentDetailPage() {
         {!archived && <OtherGroups student={student} canEdit={canEditStudent} />}
       </section>
 
+      {student.leftOn && (
+        <div role="note" className="mb-3 rounded-panel border border-line bg-subtle px-4 py-3 text-sm text-ink">
+          <span className="font-medium">{tr("Left on {0}", formatDate(student.leftOn))}</span>
+          {student.leftReason && <>: {student.leftReason}</>}
+        </div>
+      )}
+
       {opening && (
         <div role="note" className="mb-6 rounded-panel border border-line bg-subtle px-4 py-3 text-sm text-ink">
           <span className="font-medium">{tr("Balance brought over from {0} on {1}:", opening.source, formatDate(opening.asOf))}</span>{' '}

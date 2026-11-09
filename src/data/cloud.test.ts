@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDemoData } from './seed'
-import { applyToSnapshot, canWriteRow, diff, fromRows, patchData, snapshotOf, toRows } from './cloud'
+import { applyToSnapshot, canWriteRow, changesBetween, diff, fromRows, mergeChanges, patchData, snapshotOf, toChanges, toRows } from './cloud'
 import { branchData } from '../lib/owner'
 
 const now = new Date('2026-11-08T09:00:00')
@@ -124,5 +124,69 @@ describe('live updates from other people', () => {
     expect(renamed.leads.find((l) => l.id === 'lead_new')?.studentName).toBe('Changed')
     const removed = patchData(renamed, null, { collection: 'leads', id: 'lead_new' })
     expect(removed.leads).toHaveLength(d.leads.length)
+  })
+})
+
+describe('saving only what this person changed', () => {
+  const canOwner = (r: Parameters<typeof canWriteRow>[1]) => canWriteRow(owner, r)
+
+  it('a burst of rows arriving from the database is never deleted or saved back', () => {
+    // The screen still shows the old data while many new rows have already reached the database copy.
+    const before = demo()
+    const incoming = { ...before, students: [...before.students, { ...before.students[0], id: 'stu_new_1' }, { ...before.students[0], id: 'stu_new_2' }] }
+    const db = snapshotOf(toRows(incoming))
+    // Meanwhile the person edits one student on the old screen.
+    const edited = { ...before, students: before.students.map((s, i) => (i === 1 ? { ...s, address: 'New street' } : s)) }
+    const changes = changesBetween(before, edited, db, canOwner)
+    expect(changes.deletes).toEqual([])
+    expect(changes.upserts.map((r) => r.id)).toEqual([before.students[1].id])
+  })
+
+  it('rows patched in from someone else are not sent again', () => {
+    const before = demo()
+    const theirs = { ...before.students[0], address: 'Changed elsewhere' }
+    const after = { ...before, students: before.students.map((s, i) => (i === 0 ? theirs : s)) }
+    const db = snapshotOf(toRows(after))
+    expect(changesBetween(before, after, db, canOwner)).toEqual({ upserts: [], deletes: [] })
+  })
+
+  it('a row someone else deleted is not deleted again; one this person deletes is', () => {
+    const before = demo()
+    const [gone, mine] = before.payments
+    const after = { ...before, payments: before.payments.filter((p) => p !== gone && p !== mine) }
+    const db = snapshotOf(toRows(before))
+    db.delete(`payments\u0000${gone.id}`) // already removed by someone else
+    expect(changesBetween(before, after, db, canOwner).deletes).toEqual([{ collection: 'payments', id: mine.id }])
+  })
+
+  it('never asks to delete a row the person may not change', () => {
+    const before = demo()
+    const other = before.students.find((s) => s.branchId !== 'br_bashlik')!
+    const after = { ...before, students: before.students.filter((s) => s !== other) }
+    const changes = changesBetween(before, after, snapshotOf(toRows(before)), (r) => canWriteRow(bashlikAdmin, r))
+    expect(changes.deletes.some((d) => d.id === other.id)).toBe(false)
+  })
+
+  it('waiting changes keep only the newest version of each row', () => {
+    const waiting = new Map()
+    const before = demo()
+    const a = { ...before, students: before.students.map((s, i) => (i === 0 ? { ...s, address: 'A' } : s)) }
+    const b = { ...a, students: a.students.map((s, i) => (i === 0 ? { ...s, address: 'B' } : s)) }
+    const db = snapshotOf(toRows(before))
+    mergeChanges(waiting, changesBetween(before, a, db, canOwner))
+    mergeChanges(waiting, changesBetween(a, b, db, canOwner))
+    const sent = toChanges(waiting)
+    expect(sent.upserts).toHaveLength(1)
+    expect((sent.upserts[0].data as { address: string }).address).toBe('B')
+  })
+})
+
+describe('lead stage order', () => {
+  it('survives saving and loading even though rows load sorted by id', () => {
+    const d = demo()
+    const custom = { id: 'stage_zzz', name: 'Called', color: 'info' as const }
+    const stages = [d.leadStages[0], custom, ...d.leadStages.slice(1)]
+    const rows = toRows({ ...d, leadStages: stages }).sort((a, b) => (a.collection + a.id).localeCompare(b.collection + b.id))
+    expect(fromRows(rows, now).leadStages.map((s) => s.id)).toEqual(stages.map((s) => s.id))
   })
 })

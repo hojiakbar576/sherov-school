@@ -2196,4 +2196,5 @@ export const uz: Record<string, string> = {
   "Add another group…": "Yana guruh qo‘shish…",
   "Added to {0}.": "{0} guruhiga qo‘shildi.",
   "Sun": "Yak",
+  "Left on {0}": "{0} kuni ketgan",
 }

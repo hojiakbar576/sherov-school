@@ -23,7 +23,7 @@ import { createDemoData } from './seed'
 import { DEFAULT_BRANCH_ID, teacherUser } from './seed-portal'
 import { homeworkStudents } from './seed-learning'
 import { clearBrowserCopies } from './storage'
-import { applyToSnapshot, canWriteRow, diff, emptySchool, fromRows, patchData, rowFingerprint, rowKey, snapshotOf, type Snapshot } from './cloud'
+import { applyToSnapshot, canWriteRow, changesBetween, emptySchool, fromRows, mergeChanges, patchData, rowFingerprint, rowKey, snapshotOf, toChanges, type CloudRow, type Snapshot } from './cloud'
 import { listenForChanges, loadRows, saveChanges } from './cloud-io'
 import { migrate } from './migrate'
 import { DATA_VERSION } from './seed'
@@ -67,6 +67,9 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   const [saving, setSaving] = useState(false)
   const [loadProblem, setLoadProblem] = useState<string | null>(null)
   const snapshot = useRef<Snapshot>(new Map())
+  // The last version of the data already compared for changes, and the changes not yet saved.
+  const shown = useRef(fullData)
+  const waiting = useRef(new Map<string, CloudRow | null>())
   const [auth, setAuth] = useState<Auth>({ status: 'loading' })
   // True while a sign-in is checked here, so the background listener doesn't load the profile twice.
   const signingIn = useRef(false)
@@ -125,7 +128,10 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!profile) {
       snapshot.current = new Map()
-      setData(emptySchool(new Date()))
+      waiting.current = new Map()
+      const empty = emptySchool(new Date())
+      shown.current = empty
+      setData(empty)
       setCloud('off')
       return
     }
@@ -135,12 +141,16 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       .then(({ rows, branches }) => {
         if (!alive) return
         const now = new Date()
-        let loaded = fromRows(rows, now, branches)
+        const stored = fromRows(rows, now, branches)
+        let loaded = stored
         if (loaded.version < DATA_VERSION) {
           const upgraded = migrate(loaded as unknown as Record<string, unknown>, DATA_VERSION, now)
           if (upgraded) loaded = upgraded as unknown as SchoolData
         }
         snapshot.current = snapshotOf(rows)
+        waiting.current = new Map()
+        // What the database holds is the starting point; an upgrade on load is saved like any change.
+        shown.current = stored
         setData(loaded)
         setCloud('ready')
       })
@@ -166,32 +176,41 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     }
   }, [profile, cloudAttempt])
 
-  // Send every change to the database: only the rows that changed, one save at a time.
-  const latest = useRef(fullData)
-  useEffect(() => {
-    latest.current = fullData
-  }, [fullData])
+  // Send every change this person makes to the database, one save at a time.
+  // Changes are found by comparing each version of the screen with the one
+  // before it, never the screen with the database: rows that arrive from the
+  // database (someone else's change, an import) are never saved back or deleted.
   const inFlight = useRef(false)
   const [retryTick, setRetryTick] = useState(0)
   useEffect(() => {
-    if (cloud !== 'ready' || !profile || inFlight.current) return
-    const changes = diff(snapshot.current, latest.current, (r) => canWriteRow(profile, r))
-    if (changes.upserts.length === 0 && changes.deletes.length === 0) return
+    if (cloud !== 'ready' || !profile) {
+      shown.current = fullData
+      return
+    }
+    if (shown.current !== fullData) {
+      mergeChanges(waiting.current, changesBetween(shown.current, fullData, snapshot.current, (r) => canWriteRow(profile, r)))
+      shown.current = fullData
+    }
+    if (inFlight.current || waiting.current.size === 0) return
+    const sending = new Map(waiting.current)
+    const changes = toChanges(sending)
     inFlight.current = true
     setSaving(true)
     saveChanges(profile.center_id, changes)
       .then(() => {
         applyToSnapshot(snapshot.current, changes)
+        // Done, unless the row changed again while it was being sent.
+        for (const [k, r] of sending) if (waiting.current.get(k) === r) waiting.current.delete(k)
         setLoadProblem(null)
-        setRetryTick((t) => t + 1) // check again in case something changed meanwhile
       })
       .catch(() => {
         setLoadProblem('Your latest changes are not saved yet: the server can’t be reached. Keep this page open; it will try again.')
-        window.setTimeout(() => setRetryTick((t) => t + 1), 5000)
+        return new Promise((r) => window.setTimeout(r, 5000))
       })
       .finally(() => {
         inFlight.current = false
         setSaving(false)
+        setRetryTick((t) => t + 1) // send anything that changed meanwhile
       })
   }, [fullData, cloud, profile, retryTick])
 

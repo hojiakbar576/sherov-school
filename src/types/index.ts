@@ -117,7 +117,8 @@ export interface Room {
 
 // ---------------------------------------------------------------- people and classes
 
-export type TeacherStatus = 'active' | 'on_leave'
+/** "left": a former teacher, kept so old groups, payments and salaries stay linked. */
+export type TeacherStatus = 'active' | 'on_leave' | 'left'
 export interface Teacher {
   id: string
   fullName: string
@@ -231,6 +232,11 @@ export interface Student {
   status: StudentStatus
   /** Tag ids from Catalogs.studentTags, e.g. "Sibling", "VIP", "Needs follow-up". */
   tags?: string[]
+  /** When and why a student who left stopped studying. */
+  leftOn?: ISODate
+  leftReason?: string
+  /** The student's record numbers in the previous system (LC UP), to match records on a later import. */
+  lcupIds?: string[]
 }
 
 /** A one-to-one or small extra lesson outside the group's timetable. */
@@ -327,6 +333,8 @@ export interface Payment {
   groupId?: string
   /** Brought over from the previous system; already counted in the student's opening balance. */
   imported?: boolean
+  /** The teacher this payment counted for when it was made (kept for imported history). */
+  teacherId?: string
   /** Receipt number, given when the payment is recorded, e.g. "CH-000123". */
   receiptNo?: string
   /** Every correction after it was recorded, oldest first. */

@@ -2196,4 +2196,5 @@ export const ru: Record<string, string> = {
   "Add another group…": "Добавить ещё группу…",
   "Added to {0}.": "Добавлен в {0}.",
   "Sun": "Вс",
+  "Left on {0}": "Ушёл {0}",
 }

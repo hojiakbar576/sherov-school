@@ -60,7 +60,8 @@ export function toRows(d: SchoolData): CloudRow[] {
   push('branches', d.branches, none)
   push('users', d.users, none, (u: SchoolData['users'][number]) => u.id)
   push('courses', d.courses, none)
-  push('leadStages', d.leadStages, none)
+  // The board's column order is the list order; it is stored with each stage because rows load sorted by id.
+  for (const [i, st] of d.leadStages.entries()) rows.push({ collection: 'leadStages', id: st.id, branch_id: null, person_id: null, data: { ...st, order: i } })
   push('teachers', d.teachers, (t: SchoolData['teachers'][number]) => t.branchId, (t: SchoolData['teachers'][number]) => t.id)
   push('groups', d.groups, (g: SchoolData['groups'][number]) => g.branchId)
   push('students', d.students, (s: SchoolData['students'][number]) => s.branchId)
@@ -121,6 +122,14 @@ export function fromRows(rows: readonly CloudRow[], now: Date, branchNames: read
       lists[r.collection].push(r.data)
     }
   }
+  lists.leadStages = (lists.leadStages as { order?: number }[])
+    .map((st, i) => ({ st, i }))
+    .sort((x, y) => (x.st.order ?? 1e6 + x.i) - (y.st.order ?? 1e6 + y.i))
+    .map(({ st }) => {
+      const stage = { ...st }
+      delete stage.order
+      return stage
+    })
   for (const c of LIST_COLLECTIONS) if (c !== 'leadStages' || sawStages) d[c] = lists[c]
   // Branches always exist in the database even before their details are filled in.
   const known = new Set((d.branches as { id: string }[]).map((b) => b.id))
@@ -162,6 +171,61 @@ export function diff(snapshot: Snapshot, next: SchoolData, canWrite: (r: Pick<Cl
     const [collection, id] = k.split('\u0000')
     if (APPEND_ONLY.has(collection)) continue
     deletes.push({ collection, id })
+  }
+  return { upserts, deletes }
+}
+
+/**
+ * The changes this person made between two versions of the data on their
+ * screen, ready to save. Rows that only arrived from the database (someone
+ * else's change, an import) are left out: an upsert already matches the
+ * database, and a row is only deleted when the database still has it.
+ * Comparing two screen versions, never the screen with the database, means a
+ * burst of incoming rows can never be mistaken for rows to delete.
+ */
+export function changesBetween(
+  prev: SchoolData,
+  next: SchoolData,
+  db: Snapshot,
+  canWrite: (r: Pick<CloudRow, 'collection' | 'branch_id' | 'id' | 'person_id'>) => boolean,
+): Changes {
+  if (prev === next) return { upserts: [], deletes: [] }
+  const before = new Map(toRows(prev).map((r) => [key(r.collection, r.id), r]))
+  const upserts: CloudRow[] = []
+  const seen = new Set<string>()
+  for (const r of toRows(next)) {
+    const k = key(r.collection, r.id)
+    seen.add(k)
+    const fp = fingerprint(r)
+    const old = before.get(k)
+    if (old && fingerprint(old) === fp) continue // unchanged on screen
+    if (db.get(k) === fp) continue // already in the database (it came from there)
+    if (canWrite(r)) upserts.push(r)
+  }
+  const deletes: Changes['deletes'] = []
+  for (const [k, r] of before) {
+    if (seen.has(k) || !db.has(k) || APPEND_ONLY.has(r.collection) || !canWrite(r)) continue
+    deletes.push({ collection: r.collection, id: r.id })
+  }
+  return { upserts, deletes }
+}
+
+/** Merges new changes into the ones still waiting to be saved (the newest version of a row wins). */
+export function mergeChanges(waiting: Map<string, CloudRow | null>, changes: Changes) {
+  for (const r of changes.upserts) waiting.set(key(r.collection, r.id), r)
+  for (const d of changes.deletes) waiting.set(key(d.collection, d.id), null)
+}
+
+/** The waiting changes as one batch to send. */
+export function toChanges(waiting: Map<string, CloudRow | null>): Changes {
+  const upserts: CloudRow[] = []
+  const deletes: Changes['deletes'] = []
+  for (const [k, r] of waiting) {
+    if (r) upserts.push(r)
+    else {
+      const [collection, id] = k.split('\u0000')
+      deletes.push({ collection, id })
+    }
   }
   return { upserts, deletes }
 }
