@@ -13,6 +13,7 @@ import { Panel } from "../../components/ui/Panel";
 import { Button } from "../../components/ui/Button";
 import { Field, Select } from "../../components/ui/Field";
 import { ConfirmDialog } from "../../components/ui/Dialog";
+import { MigrationFilePanel } from "./MigrationFilePanel";
 import { readSpreadsheet, readSpreadsheetsInZip } from "../../lib/xlsx-read";
 import {
   buildLcupImport,
@@ -319,6 +320,8 @@ export function LcupImportPage() {
           )}
         </Panel>
       </div>
+
+      <MigrationFilePanel />
 
       <ConfirmDialog
         open={confirm && !!imp}

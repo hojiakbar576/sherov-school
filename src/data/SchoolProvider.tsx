@@ -11,6 +11,7 @@ import { applyStudentChange, isArchived } from '../lib/student-lifecycle'
 import { createId } from '../lib/id'
 import { formatUZS, groupDaysLabel } from '../lib/format'
 import { applyLcupImport } from '../lib/lcup-import'
+import { applyBundle } from '../lib/migration-bundle'
 import { computeBalances } from '../lib/metrics'
 import { signsInOnOwnerPage, userFromProfile } from '../lib/auth'
 import { fetchMyProfile, loginEmail, supabase, type Profile } from '../lib/supabase'
@@ -1205,6 +1206,10 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         )
       },
 
+      applyMigration(bundle) {
+        requireOwner()
+        update((d) => withActivity(applyBundle(d, bundle), activity('settings_changed', 'Migration file applied', bundle.title, bundle.branchId)))
+      },
       importFromLcup(imp) {
         // Replaces one branch's people, groups and payments with LC UP's: owner only.
         requireOwner()

@@ -1,4 +1,5 @@
 import type { LcupImport } from '../lib/lcup-import'
+import type { MigrationBundle } from '../lib/migration-bundle'
 import { createContext, useContext } from 'react'
 import type {
   Assessment,
@@ -206,6 +207,8 @@ export interface SchoolActions {
   setExtraGroups(studentId: string, groupIds: string[]): void
   /** Owner only: replaces one branch's data with an LC UP import (other branches untouched). */
   importFromLcup(imp: LcupImport): void
+  /** Owner only: applies a prepared migration file (see lib/migration-bundle). */
+  applyMigration(bundle: MigrationBundle): void
   resetDemoData(): void
 }
 

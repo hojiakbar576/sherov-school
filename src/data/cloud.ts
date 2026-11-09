@@ -28,7 +28,7 @@ export const LIST_COLLECTIONS = [
   'notifications', 'activity', 'assessments', 'bonuses', 'extraLessons', 'expenses', 'salaryPayments',
   'staffAttendance', 'contactLogs',
 ] as const satisfies readonly (keyof SchoolData)[]
-type ListCollection = (typeof LIST_COLLECTIONS)[number]
+export type ListCollection = (typeof LIST_COLLECTIONS)[number]
 
 /** Shared by the whole centre (no branch). */
 const CENTRE_WIDE = new Set<string>(['meta', 'settings', 'catalogs', 'branches', 'users', 'courses', 'leadStages', 'notificationReads'])
