@@ -78,8 +78,8 @@ interface WeekTimetableProps {
 /**
  * The weekly timetable of running groups: Day/Week switch, previous/next,
  * teacher and subject filters, a colour legend, the class count and a card
- * per class. Used on the Schedule page and the Dashboard. Its filters live in
- * the component, so each page keeps its own.
+ * per class. Used on the Timetable (Schedule) page. Its filters live in
+ * the component, not the address bar.
  */
 export function WeekTimetable({ showTeacher, initialView = 'week', labelLevel = 'h2' }: WeekTimetableProps) {
   const { data, now } = useSchool()

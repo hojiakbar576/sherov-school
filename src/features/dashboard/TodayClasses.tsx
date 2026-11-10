@@ -4,105 +4,44 @@ import { Panel } from '../../components/ui/Panel'
 import { ButtonLink } from '../../components/ui/Button'
 import { EmptyState, TableScroll, td, th } from '../../components/ui/misc'
 import { SessionStatusBadge } from '../../components/StatusBadges'
-import { minutesSinceMidnight, timeToMinutes } from '../../lib/dates'
+import { timeToMinutes } from '../../lib/dates'
 import type { Session, SessionStatus } from '../../lib/metrics'
 import { cn } from '../../lib/cn'
 import { tr } from '../../i18n'
 
-const DAY_START = 8 * 60
-const DAY_END = 20 * 60 + 30
-const HOURS = [8, 10, 12, 14, 16, 18, 20]
+/** The dashboard shows a preview only; the full day is on the Timetable page. */
+const MAX_ROWS = 8
 
-const blockStyle: Record<SessionStatus, string> = {
-  recorded: 'bg-brand-soft text-brand-ink border-brand/25',
-  in_progress: 'bg-brand text-white border-brand',
-  upcoming: 'bg-surface text-ink border-line-strong',
-  not_recorded: 'bg-danger-soft text-danger border-danger/30',
+// What matters most right now: running classes, then ones still missing attendance, then the next ones.
+const PRIORITY: Record<SessionStatus, number> = { in_progress: 0, not_recorded: 1, upcoming: 2, recorded: 3 }
+
+/** The classes worth showing: the most relevant ones, listed in time order. */
+function previewClasses(sessions: Session[], max = MAX_ROWS): Session[] {
+  return [...sessions]
+    .sort((a, b) => PRIORITY[a.status] - PRIORITY[b.status] || timeToMinutes(a.start) - timeToMinutes(b.start))
+    .slice(0, max)
+    .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start))
 }
 
-const pct = (minutes: number) => `${((minutes - DAY_START) / (DAY_END - DAY_START)) * 100}%`
-
-/**
- * The school day at a glance: one lane per room, each class a block between
- * 08:00 and 20:30, with a line marking the current time.
- */
-function DayRibbon({ sessions, now }: { sessions: Session[]; now: Date }) {
-  const rooms = Array.from(new Set(sessions.map((s) => s.group.room))).sort()
-  const nowMinutes = minutesSinceMidnight(now)
-  const showNow = nowMinutes >= DAY_START && nowMinutes <= DAY_END
-
-  return (
-    <div aria-hidden className="relative overflow-x-auto px-5 pb-4">
-      <div className="min-w-[720px]">
-        <div className="relative ml-28 h-5 text-2xs text-ink-muted">
-          {HOURS.map((h) => (
-            <span key={h} className="num absolute -translate-x-1/2" style={{ left: pct(h * 60) }}>
-              {String(h).padStart(2, '0')}:00
-            </span>
-          ))}
-        </div>
-        <div className="relative">
-          {rooms.map((room) => (
-            <div key={room} className="flex h-9 items-center border-t border-line first:border-t-0">
-              <span className="w-28 shrink-0 truncate pr-3 text-xs text-ink-muted">{room}</span>
-              <div className="relative h-7 flex-1">
-                {HOURS.map((h) => (
-                  <span key={h} className="absolute top-0 bottom-0 w-px bg-line/70" style={{ left: pct(h * 60) }} />
-                ))}
-                {sessions
-                  .filter((s) => s.group.room === room)
-                  .map((s) => {
-                    const start = timeToMinutes(s.start)
-                    return (
-                      <span
-                        key={s.group.id}
-                        title={`${s.start}–${s.end} ${s.group.name}`}
-                        className={cn('absolute top-0 bottom-0 flex items-center overflow-hidden rounded-[5px] border px-2 text-xs font-medium whitespace-nowrap', blockStyle[s.status])}
-                        style={{ left: pct(start), width: `calc(${pct(start + s.group.durationMinutes)} - ${pct(start)} - 2px)` }}
-                      >
-                        <span className="truncate">{s.group.name}</span>
-                      </span>
-                    )
-                  })}
-              </div>
-            </div>
-          ))}
-          {showNow && (
-            <div className="pointer-events-none absolute top-0 bottom-0 right-0 left-28">
-              <div className="absolute top-[-6px] bottom-0 w-0.5 bg-ink" style={{ left: pct(nowMinutes) }}>
-                <span className="absolute -top-1 left-1/2 size-2 -translate-x-1/2 rounded-full bg-ink" />
-              </div>
-            </div>
-          )}
-        </div>
-        <ul className="mt-3 ml-28 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-          {RIBBON_LEGEND.map(([status, label]) => (
-            <li key={status} className="flex items-center gap-1.5">
-              <span className={cn('size-2.5 rounded-[3px] border', blockStyle[status])} />
-              {label}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  )
+interface TodayClassesProps {
+  sessions: Session[]
+  /** Whether the person may open attendance sheets (otherwise no attendance links). */
+  canTakeAttendance: boolean
 }
 
-const RIBBON_LEGEND: [SessionStatus, string][] = [
-  ['recorded', tr("Attendance taken")],
-  ['in_progress', tr("In progress")],
-  ['upcoming', tr("Upcoming")],
-  ['not_recorded', tr("Attendance missing")],
-]
-
-export function TodayClasses({ sessions, now }: { sessions: Session[]; now: Date }) {
+export function TodayClasses({ sessions, canTakeAttendance }: TodayClassesProps) {
   const recorded = sessions.filter((s) => s.status === 'recorded').length
+  const shown = previewClasses(sessions)
   return (
     <Panel
       id="today-classes"
       title={tr("Today’s classes")}
       description={sessions.length ? tr("{0} classes, {1} with attendance taken", sessions.length, recorded) : undefined}
-      actions={<ButtonLink to="/schedule" size="sm">{tr("Full schedule")}</ButtonLink>}
+      actions={
+        <ButtonLink to="/schedule?view=day" size="sm">
+          {tr("Open timetable")}
+        </ButtonLink>
+      }
       flush
     >
       {sessions.length === 0 ? (
@@ -111,7 +50,6 @@ export function TodayClasses({ sessions, now }: { sessions: Session[]; now: Date
         </EmptyState>
       ) : (
         <>
-          <DayRibbon sessions={sessions} now={now} />
           <TableScroll>
             <table className="w-full min-w-[640px] text-sm">
               <caption className="sr-only">{tr("Classes today with time, group, teacher, room and attendance status")}</caption>
@@ -122,11 +60,15 @@ export function TodayClasses({ sessions, now }: { sessions: Session[]; now: Date
                   <th scope="col" className={th}>{tr("Teacher")}</th>
                   <th scope="col" className={th}>{tr("Room")}</th>
                   <th scope="col" className={th}>{tr("Status")}</th>
-                  <th scope="col" className={th}><span className="sr-only">{tr("Action")}</span></th>
+                  {canTakeAttendance && (
+                    <th scope="col" className={th}>
+                      <span className="sr-only">{tr("Action")}</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {sessions.map((s) => (
+                {shown.map((s) => (
                   <tr key={s.group.id}>
                     <td className={cn(td, 'num whitespace-nowrap')}>
                       <span className="font-medium text-ink">{s.start}</span>
@@ -141,19 +83,29 @@ export function TodayClasses({ sessions, now }: { sessions: Session[]; now: Date
                     <td className={td}>
                       <SessionStatusBadge status={s.status} />
                     </td>
-                    <td className={cn(td, 'text-right')}>
-                      {s.status !== 'upcoming' && (
-                        <Link to={`/attendance?group=${s.group.id}&date=${s.date}`} className="text-sm font-medium whitespace-nowrap text-brand hover:underline">
-                          {s.status === 'recorded' ? tr("View") : tr("Take attendance")}
-                          <span className="sr-only">{' '}{tr("for")}{' '}{s.group.name}</span>
-                        </Link>
-                      )}
-                    </td>
+                    {canTakeAttendance && (
+                      <td className={cn(td, 'text-right')}>
+                        {s.status !== 'upcoming' && (
+                          <Link to={`/attendance?group=${s.group.id}&date=${s.date}`} className="text-sm font-medium whitespace-nowrap text-brand hover:underline">
+                            {s.status === 'recorded' ? tr("View") : tr("Take attendance")}
+                            <span className="sr-only">{' '}{tr("for")}{' '}{s.group.name}</span>
+                          </Link>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </TableScroll>
+          {sessions.length > shown.length && (
+            <p className="border-t border-line px-5 py-2.5 text-xs text-ink-muted">
+              {tr("Showing {0} of {1} classes.", shown.length, sessions.length)}{' '}
+              <Link to="/schedule?view=day" className="font-medium text-brand hover:underline">
+                {tr("See the whole day in the timetable")}
+              </Link>
+            </p>
+          )}
         </>
       )}
     </Panel>

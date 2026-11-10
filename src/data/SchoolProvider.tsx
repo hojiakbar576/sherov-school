@@ -24,7 +24,7 @@ import { createDemoData } from './seed'
 import { DEFAULT_BRANCH_ID, teacherUser } from './seed-portal'
 import { homeworkStudents } from './seed-learning'
 import { clearBrowserCopies } from './storage'
-import { applyToSnapshot, canWriteRow, changesBetween, emptySchool, fromRows, mergeChanges, patchData, rowFingerprint, rowKey, snapshotOf, toChanges, type CloudRow, type Snapshot } from './cloud'
+import { APPEND_ONLY, applyToSnapshot, canWriteRow, changesBetween, emptySchool, fromRows, mergeChanges, patchData, rowFingerprint, rowKey, snapshotOf, toChanges, type CloudRow, type Snapshot } from './cloud'
 import { listenForChanges, loadRows, saveChanges } from './cloud-io'
 import { migrate } from './migrate'
 import { DATA_VERSION } from './seed'
@@ -60,6 +60,12 @@ type Auth = { status: 'loading' } | { status: 'out' } | { status: 'in'; profile:
 
 class NotPermittedError extends Error {}
 
+/** Whether two copies of an account say the same thing (same person, role, branch, status…). */
+function sameProfile(a: Profile, b: Profile): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof Profile>
+  return [...keys].every((k) => a[k] === b[k])
+}
+
 export function SchoolProvider({ children }: { children: ReactNode }) {
   const [fullData, setData] = useState<SchoolData>(() => emptySchool(new Date()))
   // The school's data comes from the database after sign-in.
@@ -77,6 +83,12 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   // The owner can narrow the administrator pages to one branch (kept for this browser session).
   const [ownerBranchId, setOwnerBranchId] = useState<string | null>(() => readOwnerBranch())
   const now = useNow()
+
+  // The signed-in account, readable from the sign-in listener (which is set up once).
+  const profileRef = useRef<Profile | null>(null)
+  useEffect(() => {
+    profileRef.current = auth.status === 'in' ? auth.profile : null
+  }, [auth])
 
   const user = useMemo(() => (auth.status === 'in' ? userFromProfile(auth.profile, fullData.users) : null), [auth, fullData.users])
   const userId = user?.id ?? null
@@ -104,10 +116,31 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
         if (alive) setAuth({ status: 'out' })
       }
     }
+    // Supabase also sends SIGNED_IN whenever the tab comes back into view (it re-checks the
+    // saved session). For the person already signed in that is not a new sign-in: reloading
+    // the profile would hand out a new profile object and reload all the school's data behind
+    // a blank "Loading" screen. Instead, quietly re-check the account and change nothing
+    // unless it was turned off or its role/branch changed.
+    const recheck = async (current: Profile) => {
+      try {
+        const fresh = await fetchMyProfile(current.user_id)
+        if (!alive) return
+        if (!fresh) {
+          await supabase.auth.signOut()
+          if (alive) setAuth({ status: 'out' })
+        } else if (!sameProfile(fresh, current)) setAuth({ status: 'in', profile: fresh })
+      } catch {
+        // Offline for a moment: keep the person signed in; the database still checks every request.
+      }
+    }
     void supabase.auth.getSession().then(({ data }) => load(data.session?.user.id))
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') setAuth({ status: 'out' })
-      else if (event === 'SIGNED_IN' && session && !signingIn.current) void load(session.user.id)
+      else if (event === 'SIGNED_IN' && session && !signingIn.current) {
+        const current = profileRef.current
+        if (current && current.user_id === session.user.id) void recheck(current)
+        else void load(session.user.id)
+      }
     })
     return () => {
       alive = false
@@ -158,19 +191,41 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         if (alive) setCloud('error')
       })
-    const stop = listenForChanges(
-      profile.center_id,
-      (row) => {
-        const k = rowKey(row.collection, row.id)
-        if (snapshot.current.get(k) === rowFingerprint(row)) return // our own change coming back
-        snapshot.current.set(k, rowFingerprint(row))
-        setData((d) => patchData(d, row))
-      },
-      (removed) => {
-        snapshot.current.delete(rowKey(removed.collection, removed.id))
-        setData((d) => patchData(d, null, removed))
-      },
-    )
+    const onRow = (row: CloudRow) => {
+      const k = rowKey(row.collection, row.id)
+      if (snapshot.current.get(k) === rowFingerprint(row)) return // our own change coming back
+      snapshot.current.set(k, rowFingerprint(row))
+      setData((d) => patchData(d, row))
+    }
+    const onRemove = (removed: { collection: string; id: string }) => {
+      snapshot.current.delete(rowKey(removed.collection, removed.id))
+      setData((d) => patchData(d, null, removed))
+    }
+    // The live connection dropped and came back (e.g. the computer slept): changes made
+    // meanwhile were missed. Fetch once in the background and apply only what differs,
+    // the same way live updates are applied: no loading screen, the page stays as it is,
+    // and anything this person changed that isn't saved yet is left alone.
+    const catchUp = () => {
+      loadRows(profile.center_id)
+        .then(({ rows }) => {
+          if (!alive) return
+          const inDatabase = new Set<string>()
+          for (const row of rows) {
+            const k = rowKey(row.collection, row.id)
+            inDatabase.add(k)
+            if (!waiting.current.has(k)) onRow(row)
+          }
+          for (const k of [...snapshot.current.keys()]) {
+            if (inDatabase.has(k) || waiting.current.has(k)) continue
+            const [collection, id] = k.split('\u0000')
+            if (!APPEND_ONLY.has(collection)) onRemove({ collection, id }) // only the newest activity is loaded
+          }
+        })
+        .catch(() => {
+          // Still offline: the next reconnect tries again.
+        })
+    }
+    const stop = listenForChanges(profile.center_id, onRow, onRemove, catchUp)
     return () => {
       alive = false
       stop()

@@ -66,12 +66,18 @@ export async function saveChanges(centerId: string, changes: Changes): Promise<v
   }
 }
 
-/** Live updates when someone else changes something. Returns a function that stops listening. */
+/**
+ * Live updates when someone else changes something. Returns a function that stops listening.
+ * `onReconnect` runs when the live connection comes back after it was lost (for example the
+ * computer slept): changes made meanwhile were not delivered, so the caller can catch up.
+ */
 export function listenForChanges(
   centerId: string,
   onRow: (row: CloudRow) => void,
   onRemove: (r: { collection: string; id: string }) => void,
+  onReconnect?: () => void,
 ): () => void {
+  let lost = false
   const channel = supabase
     .channel(`records:${centerId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'records', filter: `center_id=eq.${centerId}` }, (payload) => {
@@ -83,6 +89,11 @@ export function listenForChanges(
         onRow({ collection: r.collection, id: r.id, branch_id: r.branch_id, person_id: r.person_id, data: r.data })
       }
     })
-    .subscribe()
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        if (lost) onReconnect?.()
+        lost = false
+      } else lost = true // CHANNEL_ERROR, TIMED_OUT or CLOSED: updates may be missed until it rejoins
+    })
   return () => void supabase.removeChannel(channel)
 }
