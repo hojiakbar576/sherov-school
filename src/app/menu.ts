@@ -156,6 +156,7 @@ export const OWNER_MENU: MenuNode[] = [
     icon: Building2,
     children: [
       { label: tr("Overview"), to: '/owner' },
+      { label: tr("Lead analytics"), to: '/owner/leads' },
       { label: tr("Branches"), to: '/owner/branches' },
       { label: tr("All finances"), to: '/owner/finance' },
       { label: tr("Teacher rating"), to: '/owner/teachers' },

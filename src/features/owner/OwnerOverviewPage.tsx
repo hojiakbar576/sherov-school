@@ -1,214 +1,484 @@
-import { useMemo, type ReactNode } from 'react'
-import { useNavigate } from 'react-router'
-import { ArrowRight, CircleCheck } from 'lucide-react'
-import type { BranchSummary } from '../../lib/owner'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router'
+import {
+  ArrowRight,
+  CalendarDays,
+  CalendarX2,
+  ChevronRight,
+  CircleCheck,
+  Database,
+  GraduationCap,
+  Lightbulb,
+  Megaphone,
+  Minus,
+  Phone,
+  TrendingDown,
+  TrendingUp,
+  UserRoundX,
+  UserX,
+  Wallet,
+  WalletCards,
+  type LucideIcon,
+} from 'lucide-react'
 import { useSchool } from '../../data/school-context'
 import { Panel } from '../../components/ui/Panel'
-import { Button } from '../../components/ui/Button'
-import { TableScroll, td, th } from '../../components/ui/misc'
-import { formatLongDate, formatNumber, formatPercent, formatUZSCompact, greeting } from '../../lib/format'
-import { branchSummaries, change, organisationTotals } from '../../lib/owner'
+import { ButtonLink } from '../../components/ui/Button'
+import { Select } from '../../components/ui/Field'
+import { EmptyState, TableScroll, td, th } from '../../components/ui/misc'
+import { addMonths, monthKey, monthRange } from '../../lib/dates'
+import { formatLongDate, formatMonth, formatNumber, formatPercent, formatUZSCompact, greeting } from '../../lib/format'
+import { branchData } from '../../lib/owner'
+import { financeByMonth, isEmpty, ownerAttention, ownerInsights, ownerMonth, type BranchMonth, type Insight, type OwnerAttention, type OwnerMonth } from '../../lib/owner-dashboard'
 import { cn } from '../../lib/cn'
-import { formatChange } from './owner-ui'
-import { plural, tr } from '../../i18n'
+import { OwnerFinanceChart } from './OwnerFinanceChart'
+import { tr } from '../../i18n'
+
+const ALL = 'all'
 
 /**
- * The owner's first screen: how the whole school is doing, how the three
- * branches compare, and where to look first.
+ * The owner's first screen. Top to bottom: the four headline numbers, what
+ * they mean, what needs acting on, money over 12 months, enquiries, and the
+ * branches side by side. Filters: month and branch. Every number is worked
+ * out from stored records (lib/owner-dashboard); where records don't exist
+ * yet the page says so and never shows a made-up figure.
  */
 export function OwnerOverviewPage() {
   const { owner, now } = useSchool()
   const navigate = useNavigate()
-  const data = owner!.data
-  const rows = useMemo(() => branchSummaries(data, now), [data, now])
-  const totals = useMemo(() => organisationTotals(data, rows, now), [data, rows, now])
-  // Compared with the same point last month, so early in the month doesn't look like a drop.
-  const revenueChange = change(totals.revenueThisMonth, totals.revenueLastMonthToDate)
+  const all = owner!.data
+  const thisMonth = monthKey(now)
+  const [month, setMonth] = useState(thisMonth)
+  // The branch filter is the same one as the switcher in the header, so the two can never disagree
+  // and the branch pages opened from here stay on the chosen branch.
+  const branch = all.branches.find((b) => b.id === owner!.branchId)
+  const months = useMemo(() => monthRange(addMonths(thisMonth, -11), thisMonth).reverse(), [thisMonth])
 
-  // Open a branch's administrator pages, narrowed to that branch.
-  const openBranch = (branchId: string, path = '/') => {
-    owner!.setBranch(branchId)
+  const scoped = useMemo(() => (branch ? branchData(all, branch.id) : all), [all, branch])
+  const current = useMemo(() => ownerMonth(scoped, month, now), [scoped, month, now])
+  const previous = useMemo(() => ownerMonth(scoped, addMonths(month, -1), now), [scoped, month, now])
+  const branches: BranchMonth[] = useMemo(() => all.branches.map((b) => ({ id: b.id, name: b.name, m: ownerMonth(branchData(all, b.id), month, now) })), [all, month, now])
+  const insights = useMemo(() => ownerInsights({ data: scoped, current, previous, branches: branch ? [] : branches, now }), [scoped, current, previous, branches, branch, now])
+  const attention = useMemo(() => ownerAttention(scoped, current, now), [scoped, current, now])
+  const finance = useMemo(() => financeByMonth(scoped, now), [scoped, now])
+
+  // The branch pages follow the dashboard's branch filter.
+  const open = (path: string, toBranch: string | null = branch?.id ?? null) => {
+    owner!.setBranch(toBranch)
     navigate(path)
   }
+  const isThisMonth = month === thisMonth
+  const monthName = formatMonth(month)
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">{greeting(now)}{tr(", Mr. Sherzod")}</h1>
-        <p className="mt-1 text-ink-muted">
-          {data.settings.centerName}{tr(": all")}{' '}{data.branches.length}{' '}{tr("branches,")}{' '}{formatLongDate(now)}.
-        </p>
+    <div className="space-y-6 pb-16">
+      {/* Header and filters */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] text-ink">
+            {greeting(now)}
+            {tr(", Mr. Sherzod")}
+          </h1>
+          <p className="mt-1 text-ink-muted">
+            {all.settings.centerName} · {branch ? tr("{0} branch", branch.name) : tr("All {0} branches", all.branches.length)} · {formatLongDate(now)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select aria-label={tr("Month")} value={month} onChange={(e) => setMonth(e.target.value)} className="w-60">
+            {months.map((m) => (
+              <option key={m} value={m}>
+                {formatMonth(m)}
+                {m === thisMonth ? tr(" (this month)") : ''}
+              </option>
+            ))}
+          </Select>
+          <Select aria-label={tr("Branch")} value={branch ? branch.id : ALL} onChange={(e) => owner!.setBranch(e.target.value === ALL ? null : e.target.value)} className="w-44">
+            <option value={ALL}>{tr("All branches")}</option>
+            {all.branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+          <ButtonLink to="/schedule" variant="ghost">
+            <CalendarDays aria-hidden />
+            {tr("Timetable")}
+          </ButtonLink>
+        </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line lg:grid-cols-5">
-        <Kpi label={tr("Active students")} value={formatNumber(totals.activeStudents)} detail={tr("+{0} joined, {1} left this month", totals.newStudentsThisMonth, totals.leftThisMonth)} />
-        <Kpi
-          label={tr("Collected this month")}
-          value={formatUZSCompact(totals.revenueThisMonth)}
-          detail={revenueChange === null ? tr("Nothing collected by this date last month") : tr("{0} on the same point last month", formatChange(revenueChange))}
-        />
-        <Kpi label={tr("Overdue tuition")} value={formatUZSCompact(totals.overdue)} tone={totals.overdue > 0 ? 'danger' : undefined} detail={tr("{0} students past the due day", totals.overdueStudents)} />
-        <Kpi label={tr("Attendance, 30 days")} value={totals.attendanceRate === null ? '—' : formatPercent(totals.attendanceRate)} detail={tr("{0} running groups, {1} of seats filled", totals.runningGroups, totals.fill === null ? '—' : formatPercent(totals.fill))} />
-        <Kpi label={tr("Open enquiries")} value={formatNumber(totals.openLeads)} detail={tr("Not yet enrolled or lost")} className="col-span-2 lg:col-span-1" />
-      </dl>
+      {isEmpty(current) && (
+        <div className="flex items-start gap-3 rounded-panel border border-line bg-surface px-5 py-4">
+          <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-full bg-subtle text-ink-muted">
+            <Database className="size-4" />
+          </span>
+          <div className="min-w-0 text-sm">
+            <p className="font-medium text-ink">{branch ? tr("{0} has no school data yet", branch.name) : tr("There is no school data yet")}</p>
+            <p className="mt-0.5 text-ink-muted">{tr("This page fills in by itself as students, payments, attendance and enquiries are recorded. Until then it shows “no data” instead of zeros.")}</p>
+          </div>
+        </div>
+      )}
 
-      <Panel title={tr("Branches side by side")} description={tr("This month so far. Click a branch to work in it.")} flush>
-        <BranchTable rows={rows} totals={totals} onOpen={(id) => openBranch(id)} />
-      </Panel>
+      {/* 1. Headline numbers */}
+      <section aria-label={tr("Key figures")} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Tile
+          icon={GraduationCap}
+          label={tr("Students")}
+          onOpen={() => open('/students?status=active')}
+          value={current.has.students ? formatNumber(current.activeStudents) : null}
+          caption={current.has.students ? tr("active today · changes in {0}", monthName) : tr("No students recorded yet")}
+        >
+          {current.has.students && (
+            <Facts
+              rows={[
+                [tr("Joined"), <Signed key="j" value={current.joined} sign="+" />],
+                [tr("Left"), <Signed key="l" value={current.left} sign="−" />],
+                [tr("Net change"), <Net key="n" value={current.net} />],
+              ]}
+            />
+          )}
+        </Tile>
 
-      <Panel title={tr("Where to look")} description={tr("The biggest open issues in each branch, from its administrator’s task list.")} flush>
-        <WhereToLook rows={rows} onOpen={openBranch} />
+        <Tile
+          icon={Wallet}
+          label={tr("Money")}
+          onOpen={() => navigate('/owner/finance')}
+          value={current.has.payments ? formatUZSCompact(current.collected) : null}
+          caption={current.has.payments ? tr("collected in {0}", monthName) : tr("No payments recorded yet")}
+        >
+          {current.has.payments && (
+            <Facts
+              rows={[
+                [tr("Payments received"), formatNumber(current.payments)],
+                [tr("% of expected"), <Unavailable key="u" title={tr("Expected tuition needs the billing rules, which are not set up yet.")} />],
+              ]}
+            />
+          )}
+        </Tile>
+
+        <Tile
+          icon={WalletCards}
+          label={tr("Debt")}
+          onOpen={() => open('/payments?view=owing')}
+          value={current.has.students ? formatUZSCompact(current.overdue) : null}
+          tone={current.overdue > 0 ? 'danger' : undefined}
+          caption={current.has.students ? tr("overdue today") : tr("No students recorded yet")}
+        >
+          {current.has.students && (
+            <Facts
+              rows={[
+                [tr("Students overdue"), formatNumber(current.overdueStudents)],
+                [tr("Outstanding"), formatUZSCompact(current.outstanding)],
+                [tr("Students who owe"), formatNumber(current.owingStudents)],
+              ]}
+            />
+          )}
+        </Tile>
+
+        <Tile
+          icon={Megaphone}
+          label={tr("Enquiries")}
+          onOpen={() => open('/leads')}
+          value={current.has.leads ? formatNumber(current.leads.enquiries) : null}
+          caption={current.has.leads ? tr("received in {0}", monthName) : tr("No enquiries recorded yet")}
+        >
+          {current.has.leads && (
+            <Facts
+              rows={[
+                [tr("Enrolled"), formatNumber(current.leads.enrolled)],
+                [tr("Started studying"), formatNumber(current.leads.started)],
+              ]}
+            />
+          )}
+        </Tile>
+      </section>
+
+      {/* 2. What this means + 3. Needs attention */}
+      <div className="grid gap-6 xl:grid-cols-3">
+        <Panel id="owner-insights" title={tr("What this means")} description={isThisMonth ? tr("{0} so far, from the recorded data", monthName) : tr("{0}, from the recorded data", monthName)} className="xl:col-span-2">
+          <InsightList items={insights} />
+        </Panel>
+        <Panel id="owner-attention" title={tr("Needs attention")} flush>
+          <AttentionList items={attention} onOpen={(to) => open(to)} />
+        </Panel>
+      </div>
+
+      {/* 4. Money over 12 months + 5. Enquiries */}
+      <div className="grid gap-6 xl:grid-cols-3">
+        <OwnerFinanceChart rows={finance.rows} hasAny={finance.hasAny} monthsWithoutCosts={finance.monthsWithoutCosts} className="xl:col-span-2" />
+        <LeadPerformance m={current} monthName={monthName} inProgress={isThisMonth} />
+      </div>
+
+      {/* 6. Branches side by side */}
+      <Panel id="owner-branches" title={tr("Branches side by side")} description={tr("{0}. Click a branch to work in it.", monthName)} flush>
+        <BranchTable rows={branches} selected={branch?.id} onOpen={(id) => open('/', id)} />
       </Panel>
     </div>
   )
 }
 
-function Kpi({ label, value, detail, tone, className }: { label: string; value: ReactNode; detail: ReactNode; tone?: 'danger'; className?: string }) {
+// ---------------------------------------------------------------- headline tiles
+
+function Tile({ icon: Icon, label, value, caption, tone, onOpen, children }: { icon: LucideIcon; label: string; value: string | null; caption: string; tone?: 'danger'; onOpen: () => void; children?: ReactNode }) {
   return (
-    <div className={cn('min-w-0 bg-surface px-5 py-4', className)}>
-      <dt className="text-sm text-ink-muted">{label}</dt>
-      <dd className={cn('num mt-1 text-[1.6rem] leading-8 font-semibold tracking-[-0.02em]', tone === 'danger' ? 'text-danger' : 'text-ink')}>{value}</dd>
-      <dd className="mt-0.5 text-xs text-ink-muted">{detail}</dd>
-    </div>
+    <article className="flex min-w-0 flex-col rounded-panel border border-line bg-surface">
+      <button type="button" onClick={onOpen} className="group flex flex-col items-start rounded-t-panel px-5 pt-5 pb-4 text-left hover:bg-canvas/60 focus-visible:-outline-offset-2">
+        <span className="flex w-full items-center gap-2.5 text-sm font-medium text-ink-muted">
+          <span aria-hidden className="flex size-8 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
+            <Icon className="size-4" />
+          </span>
+          {label}
+          <ChevronRight aria-hidden className="ml-auto size-4 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+        </span>
+        <span className={cn('num mt-4 text-[2rem] leading-none font-semibold tracking-[-0.02em]', value === null ? 'text-ink-faint' : tone === 'danger' ? 'text-danger' : 'text-ink')}>{value ?? '—'}</span>
+        <span className="mt-1.5 text-sm text-ink-muted">{caption}</span>
+      </button>
+      {children && <div className="mt-auto border-t border-line px-5 py-3">{children}</div>}
+    </article>
   )
 }
 
-type Totals = ReturnType<typeof organisationTotals>
-
-/** One row per branch; the weakest value in a column is marked so it stands out. */
-function BranchTable({ rows, totals, onOpen }: { rows: BranchSummary[]; totals: Totals; onOpen: (branchId: string) => void }) {
-  const lowest = (pick: (r: BranchSummary) => number | null) => {
-    const values = rows.map(pick).filter((v): v is number => v !== null)
-    return values.length > 1 ? Math.min(...values) : null
-  }
-  const highest = (pick: (r: BranchSummary) => number) => (rows.length > 1 ? Math.max(...rows.map(pick)) : null)
-  const worstAttendance = lowest((r) => r.attendanceRate)
-  const worstOverdue = highest((r) => r.overdue)
-  const worstFill = lowest((r) => r.fill)
-
+function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return (
-    <TableScroll>
-      <table className="w-full min-w-[900px] text-sm">
-        <caption className="sr-only">{tr("Branch comparison for this month")}</caption>
-        <thead className="border-y border-line bg-canvas">
-          <tr>
-            <th scope="col" className={th}>{tr("Branch")}</th>
-            <th scope="col" className={cn(th, 'text-right')}>{tr("Students")}</th>
-            <th scope="col" className={cn(th, 'text-right')}>{tr("Groups filled")}</th>
-            <th scope="col" className={cn(th, 'text-right')}>{tr("Collected")}</th>
-            <th scope="col" className={cn(th, 'text-right')}>{tr("Overdue")}</th>
-            <th scope="col" className={cn(th, 'text-right')}>{tr("Attendance")}</th>
-            <th scope="col" className={cn(th, 'text-right')}>{tr("Joined / left")}</th>
-            <th scope="col" className={cn(th, 'text-right')}>{tr("Enquiries")}</th>
-            <th scope="col" className={th}><span className="sr-only">{tr("Open")}</span></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {rows.map((r) => (
-            <tr key={r.branch.id} onClick={() => onOpen(r.branch.id)} className="cursor-pointer hover:bg-canvas/70">
-              <th scope="row" className={cn(td, 'text-left font-normal')}>
-                <span className="block font-medium text-ink">{r.branch.name}</span>
-                <span className="block text-xs text-ink-muted">{r.adminName ?? tr("No administrator")} · {r.activeTeachers}{' '}{tr("teachers")}</span>
-              </th>
-              <td className={cn(td, 'num text-right')}>
-                {r.activeStudents}
-                {r.pausedStudents > 0 && <span className="block text-xs text-ink-muted">+{r.pausedStudents}{' '}{tr("paused")}</span>}
-              </td>
-              <td className={cn(td, 'num text-right', r.fill === worstFill && 'text-warning')}>
-                {r.fill === null ? '—' : formatPercent(r.fill)}
-                <span className="block text-xs text-ink-muted">{r.runningGroups}{' '}{tr("groups")}</span>
-              </td>
-              <td className={cn(td, 'num text-right')}>
-                {formatUZSCompact(r.revenueThisMonth)}
-                <span className="block text-xs text-ink-muted">{formatChange(change(r.revenueThisMonth, r.revenueLastMonthToDate)) || '—'}{' '}{tr("vs same point last month")}</span>
-              </td>
-              <td className={cn(td, 'num text-right', r.overdue > 0 && r.overdue === worstOverdue && 'font-medium text-danger')}>
-                {formatUZSCompact(r.overdue)}
-                <span className="block text-xs text-ink-muted">{r.overdueStudents}{' '}{tr("students")}</span>
-              </td>
-              <td className={cn(td, 'num text-right', r.attendanceRate === worstAttendance && 'text-warning')}>{r.attendanceRate === null ? '—' : formatPercent(r.attendanceRate)}</td>
-              <td className={cn(td, 'num text-right')}>
-                +{r.newStudentsThisMonth} / −{r.leftThisMonth}
-              </td>
-              <td className={cn(td, 'num text-right')}>
-                {r.openLeads}{' '}{tr("open")}
-                <span className="block text-xs text-ink-muted">{r.conversion === null ? tr("No results yet") : tr("{0} enrol", formatPercent(r.conversion))}</span>
-              </td>
-              <td className={cn(td, 'text-right')}>
-                <ArrowRight aria-hidden className="ml-auto size-4 text-ink-faint" />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot className="border-t border-line-strong bg-canvas/60 font-medium">
-          <tr>
-            <th scope="row" className={cn(td, 'text-left')}>{tr("All branches")}</th>
-            <td className={cn(td, 'num text-right')}>{totals.activeStudents}</td>
-            <td className={cn(td, 'num text-right')}>{totals.fill === null ? '—' : formatPercent(totals.fill)}</td>
-            <td className={cn(td, 'num text-right')}>{formatUZSCompact(totals.revenueThisMonth)}</td>
-            <td className={cn(td, 'num text-right')}>{formatUZSCompact(totals.overdue)}</td>
-            <td className={cn(td, 'num text-right')}>{totals.attendanceRate === null ? '—' : formatPercent(totals.attendanceRate)}</td>
-            <td className={cn(td, 'num text-right')}>
-              +{totals.newStudentsThisMonth} / −{totals.leftThisMonth}
-            </td>
-            <td className={cn(td, 'num text-right')}>{totals.openLeads}{' '}{tr("open")}</td>
-            <td className={td} />
-          </tr>
-        </tfoot>
-      </table>
-    </TableScroll>
+    <dl className="space-y-1.5 text-sm">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex items-baseline justify-between gap-3">
+          <dt className="min-w-0 truncate text-ink-muted">{label}</dt>
+          <dd className="num shrink-0 font-medium text-ink">{value}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 
-interface Issue {
-  branchId: string
-  branch: string
-  text: string
-  action: string
-  path: string
-  /** Higher sorts first. */
-  weight: number
+/** +9 in green, −4 plainly (a fall is worth noticing, not an alarm), 0 as is. */
+function Net({ value }: { value: number }) {
+  if (value > 0) return <span className="text-success">+{value}</span>
+  if (value < 0) return <span>−{-value}</span>
+  return <span>0</span>
 }
 
-const count = (n: number, one: string, many: string) => `${n} ${plural(n, one, many)}`
-
-function issuesFor(r: BranchSummary): Issue[] {
-  const n = (k: keyof BranchSummary['tasks']) => r.tasks[k] ?? 0
-  const base = { branchId: r.branch.id, branch: r.branch.name }
-  const items: Issue[] = []
-  if (r.overdueStudents) items.push({ ...base, text: tr("{0} with overdue tuition ({1})", count(r.overdueStudents, 'student', 'students'), formatUZSCompact(r.overdue)), action: tr("Debtors"), path: '/payments?view=owing', weight: 50 + r.overdueStudents })
-  if (n('attendance_missing')) items.push({ ...base, text: tr("{0} from the last week without attendance", count(n('attendance_missing'), 'class', 'classes')), action: tr("Attendance"), path: '/', weight: 60 + n('attendance_missing') })
-  if (n('teacher_away')) items.push({ ...base, text: tr("{0} without an available teacher", count(n('teacher_away'), 'running group', 'running groups')), action: tr("Groups"), path: '/groups', weight: 80 })
-  if (n('trial_result') + n('lead_new')) {
-    const parts = [n('lead_new') && tr('{0} waiting for a call', count(n('lead_new'), 'enquiry', 'enquiries')), n('trial_result') && tr('{0} not recorded', count(n('trial_result'), 'trial result', 'trial results'))].filter(Boolean)
-    items.push({ ...base, text: parts.join(', '), action: tr("Admissions"), path: '/leads', weight: 30 + n('lead_new') })
-  }
-  if (n('absences')) items.push({ ...base, text: tr("{0} missed 3+ classes in two weeks", count(n('absences'), 'student', 'students')), action: tr("Dashboard"), path: '/', weight: 20 + n('absences') })
-  return items
+/** "+4" or "−2"; a plain 0 when nothing changed. */
+function Signed({ value, sign }: { value: number; sign: '+' | '−' }) {
+  return <>{value === 0 ? '0' : `${sign}${value}`}</>
 }
 
-function WhereToLook({ rows, onOpen }: { rows: BranchSummary[]; onOpen: (branchId: string, path: string) => void }) {
-  const issues = rows.flatMap(issuesFor).sort((a, b) => b.weight - a.weight)
-  if (issues.length === 0) {
+function Unavailable({ title }: { title: string }) {
+  return (
+    <span title={title} className="rounded-full bg-subtle px-2 py-0.5 text-xs font-normal text-ink-muted">
+      {tr("Not available yet")}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------- what this means
+
+const INSIGHT_STYLE: Record<Insight['tone'], { icon: LucideIcon; tint: string }> = {
+  good: { icon: TrendingUp, tint: 'bg-success-soft text-success' },
+  watch: { icon: TrendingDown, tint: 'bg-warning-soft text-warning' },
+  neutral: { icon: Minus, tint: 'bg-subtle text-ink-muted' },
+}
+
+function InsightList({ items }: { items: Insight[] }) {
+  if (items.length === 0) {
     return (
-      <p className="flex items-center gap-2 border-t border-line px-5 py-4 text-sm text-ink-muted">
-        <CircleCheck aria-hidden className="size-4 text-success" />
-        {tr("Nothing stands out in any branch today.")}
-      </p>
+      <EmptyState icon={Lightbulb} title={tr("Nothing to conclude yet")}>
+        {tr("Short conclusions appear here once there is enough recorded data to support them. Nothing is guessed.")}
+      </EmptyState>
+    )
+  }
+  return (
+    <ul className="space-y-3">
+      {items.map((i) => {
+        const { icon: Icon, tint } = INSIGHT_STYLE[i.tone]
+        return (
+          <li key={i.key} className="flex items-start gap-3">
+            <span aria-hidden className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full', tint)}>
+              <Icon className="size-3.5" />
+            </span>
+            <p className="min-w-0 text-[0.9375rem] leading-relaxed text-ink">{i.text}</p>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+// ---------------------------------------------------------------- needs attention
+
+const ATTENTION_ICON: Record<OwnerAttention['key'], LucideIcon> = {
+  attendance: CalendarX2,
+  overdue: Wallet,
+  waiting: Phone,
+  'not-started': UserRoundX,
+  absences: UserX,
+}
+
+function AttentionList({ items, onOpen }: { items: OwnerAttention[]; onOpen: (to: string) => void }) {
+  if (items.length === 0) {
+    return (
+      <EmptyState icon={CircleCheck} title={tr("All clear")}>
+        {tr("No missed attendance, overdue tuition or waiting enquiries right now.")}
+      </EmptyState>
     )
   }
   return (
     <ul className="divide-y divide-line border-t border-line">
-      {issues.slice(0, 8).map((i) => (
-        <li key={`${i.branchId}-${i.action}-${i.text}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 text-sm">
-          <span className="w-24 shrink-0 font-medium text-ink">{i.branch}</span>
-          <span className="min-w-0 flex-1 basis-56 text-ink-muted">{i.text}</span>
-          <Button size="sm" variant="ghost" onClick={() => onOpen(i.branchId, i.path)}>
-            {i.action}
-            <ArrowRight aria-hidden />
-          </Button>
-        </li>
-      ))}
+      {items.map((i) => {
+        const Icon = ATTENTION_ICON[i.key]
+        return (
+          <li key={i.key}>
+            <button type="button" onClick={() => onOpen(i.to)} className="flex w-full items-center gap-3 px-5 py-3.5 text-left hover:bg-canvas focus-visible:-outline-offset-2">
+              <span aria-hidden className={cn('flex size-9 shrink-0 items-center justify-center rounded-full', i.tone === 'danger' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning')}>
+                <Icon className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-ink">{i.label}</span>
+                <span className="block text-xs text-ink-muted">{i.detail}</span>
+              </span>
+              <span className="num text-lg font-semibold text-ink">{i.count}</span>
+              <ChevronRight aria-hidden className="size-4 shrink-0 text-ink-faint" />
+            </button>
+          </li>
+        )
+      })}
     </ul>
+  )
+}
+
+// ---------------------------------------------------------------- lead performance
+
+function LeadPerformance({ m, monthName, inProgress }: { m: OwnerMonth; monthName: string; inProgress: boolean }) {
+  const { enquiries, enrolled, started, enrolledNotStarted } = m.leads
+  const steps: [string, number, string][] = [
+    [tr("Enquiries"), enquiries, 'bg-brand'],
+    [tr("Enrolled"), enrolled, 'bg-brand'],
+    [tr("Started studying"), started, 'bg-brand'],
+  ]
+  return (
+    <Panel
+      id="owner-leads"
+      title={tr("Enquiries to students")}
+      description={inProgress ? tr("Enquiries received in {0} (month still in progress)", monthName) : tr("Enquiries received in {0}", monthName)}
+      actions={
+        <Link to="/owner/leads" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline">
+          {tr("Lead analytics")}
+          <ArrowRight aria-hidden className="size-3.5" />
+        </Link>
+      }
+    >
+      {!m.has.leads ? (
+        <EmptyState icon={Megaphone} title={tr("No enquiries recorded yet")}>
+          {tr("Once enquiries are added in Admissions, this shows how many enrol and how many actually start.")}
+        </EmptyState>
+      ) : enquiries === 0 ? (
+        <p className="py-6 text-center text-sm text-ink-muted">{tr("No enquiries were received in {0}.", monthName)}</p>
+      ) : (
+        <>
+          <ol className="space-y-4">
+            {steps.map(([label, n, bar]) => (
+              <li key={label}>
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="text-ink-muted">{label}</span>
+                  <span className="num font-semibold text-ink">
+                    {formatNumber(n)}
+                    {label !== steps[0][0] && <span className="ml-1.5 text-xs font-normal text-ink-muted">{formatPercent(n / enquiries)}</span>}
+                  </span>
+                </div>
+                <div aria-hidden className="mt-1.5 h-2 rounded-full bg-subtle">
+                  <div className={cn('h-2 rounded-full', bar)} style={{ width: `${Math.max(n > 0 ? 3 : 0, (n / enquiries) * 100)}%` }} />
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-5 flex items-center justify-between gap-3 rounded-control bg-subtle px-3 py-2.5 text-sm">
+            <span className="text-ink-muted">{tr("Enrolled but not started")}</span>
+            <span className={cn('num font-semibold', enrolledNotStarted > 0 ? 'text-warning' : 'text-ink')}>{formatNumber(enrolledNotStarted)}</span>
+          </div>
+          <p className="mt-3 text-xs text-ink-muted">{tr("“Started” means the student attended at least one class. Enrolling alone doesn’t count.")}</p>
+        </>
+      )}
+    </Panel>
+  )
+}
+
+// ---------------------------------------------------------------- branch comparison
+
+function BranchTable({ rows, selected, onOpen }: { rows: BranchMonth[]; selected?: string; onOpen: (branchId: string) => void }) {
+  const withData = rows.filter((r) => !isEmpty(r.m))
+  // Mark the weakest value in a column only when there is something to compare it with.
+  const worstOverdue = withData.length > 1 ? Math.max(...withData.map((r) => r.m.overdue)) : 0
+  const rates = withData.map((r) => r.m.attendanceRate).filter((v): v is number => v !== null)
+  const worstAttendance = rates.length > 1 && Math.max(...rates) - Math.min(...rates) >= 0.05 ? Math.min(...rates) : null
+  const sum = (pick: (m: OwnerMonth) => number) => rows.reduce((total, r) => total + pick(r.m), 0)
+  const right = cn(th, 'text-right')
+  const cell = cn(td, 'num text-right whitespace-nowrap')
+
+  return (
+    <TableScroll>
+      <table className="w-full min-w-[1040px] text-sm">
+        <caption className="sr-only">{tr("Branch comparison")}</caption>
+        <thead className="border-y border-line bg-canvas">
+          <tr>
+            <th scope="col" className={th}>{tr("Branch")}</th>
+            <th scope="col" className={right}>{tr("Students")}</th>
+            <th scope="col" className={right}>{tr("Joined")}</th>
+            <th scope="col" className={right}>{tr("Left")}</th>
+            <th scope="col" className={right}>{tr("Net change")}</th>
+            <th scope="col" className={right}>{tr("Collected")}</th>
+            <th scope="col" className={right}>{tr("Overdue")}</th>
+            <th scope="col" className={right}>{tr("Attendance")}</th>
+            <th scope="col" className={right}>{tr("Enquiries")}</th>
+            <th scope="col" className={right}>{tr("Enrolled")}</th>
+            <th scope="col" className={right}>{tr("Started")}</th>
+            <th scope="col" className={th}><span className="sr-only">{tr("Open")}</span></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {rows.map(({ id, name, m }) => {
+            const empty = isEmpty(m)
+            const dash = <span className="text-ink-faint">—</span>
+            return (
+              <tr key={id} onClick={() => onOpen(id)} className={cn('cursor-pointer hover:bg-canvas/70', id === selected && 'bg-brand-soft/40')}>
+                <th scope="row" className={cn(td, 'text-left font-normal')}>
+                  <span className="block font-medium text-ink">{name}</span>
+                  {empty && <span className="mt-0.5 inline-block rounded-full bg-subtle px-2 py-0.5 text-xs text-ink-muted">{tr("No data yet")}</span>}
+                </th>
+                <td className={cell}>{m.has.students ? formatNumber(m.activeStudents) : dash}</td>
+                <td className={cell}>{m.has.students ? <Signed value={m.joined} sign="+" /> : dash}</td>
+                <td className={cell}>{m.has.students ? <Signed value={m.left} sign="−" /> : dash}</td>
+                <td className={cell}>{m.has.students ? <Net value={m.net} /> : dash}</td>
+                <td className={cell}>{m.has.payments ? formatUZSCompact(m.collected) : dash}</td>
+                <td className={cn(cell, m.overdue > 0 && m.overdue === worstOverdue && 'font-medium text-danger')}>{m.has.students ? formatUZSCompact(m.overdue) : dash}</td>
+                <td className={cn(cell, m.attendanceRate !== null && m.attendanceRate === worstAttendance && 'text-warning')}>{m.attendanceRate === null ? dash : formatPercent(m.attendanceRate)}</td>
+                <td className={cell}>{m.has.leads ? formatNumber(m.leads.enquiries) : dash}</td>
+                <td className={cell}>{m.has.leads ? formatNumber(m.leads.enrolled) : dash}</td>
+                <td className={cell}>{m.has.leads ? formatNumber(m.leads.started) : dash}</td>
+                <td className={cn(td, 'text-right')}>
+                  <ArrowRight aria-hidden className="ml-auto size-4 text-ink-faint" />
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+        {withData.length > 1 && (
+          <tfoot className="border-t border-line-strong bg-canvas/60 font-medium">
+            <tr>
+              <th scope="row" className={cn(td, 'text-left')}>{tr("All branches")}</th>
+              <td className={cell}>{formatNumber(sum((m) => m.activeStudents))}</td>
+              <td className={cell}><Signed value={sum((m) => m.joined)} sign="+" /></td>
+              <td className={cell}><Signed value={sum((m) => m.left)} sign="−" /></td>
+              <td className={cell}><Net value={sum((m) => m.net)} /></td>
+              <td className={cell}>{formatUZSCompact(sum((m) => m.collected))}</td>
+              <td className={cell}>{formatUZSCompact(sum((m) => m.overdue))}</td>
+              <td className={cell} />
+              <td className={cell}>{formatNumber(sum((m) => m.leads.enquiries))}</td>
+              <td className={cell}>{formatNumber(sum((m) => m.leads.enrolled))}</td>
+              <td className={cell}>{formatNumber(sum((m) => m.leads.started))}</td>
+              <td className={td} />
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </TableScroll>
   )
 }

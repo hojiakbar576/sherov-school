@@ -13,9 +13,14 @@ import { scopeData } from './scope'
 import { teacherSalary } from './salary'
 
 /** Paid tuition in a month, counting only payments on or before that day of the month. */
-function paidUpTo(data: SchoolData, month: MonthKey, day: number): number {
+export function paidUpTo(data: SchoolData, month: MonthKey, day: number): number {
   const last = `${month}-${String(day).padStart(2, '0')}`
   return data.payments.filter((p) => p.status === 'paid' && p.date.startsWith(month) && p.date <= last).reduce((sum, p) => sum + p.amount, 0)
+}
+
+/** Students who left or graduated in a month (from their history events). */
+export function leftInMonth(data: SchoolData, month: MonthKey): number {
+  return data.studentEvents.filter((e) => e.type === 'status_changed' && e.on.startsWith(month) && (e.title === 'Left the centre' || e.title === 'Graduated')).length
 }
 
 /** Exactly what the branch's administrator sees. */
@@ -86,7 +91,7 @@ export function branchSummary(data: SchoolData, branch: Branch, now: Date): Bran
     overdueStudents: owing.overdueStudents,
     attendanceRate: summarizeMarks(d.attendance.filter((r) => r.date >= since)).rate,
     newStudentsThisMonth: d.students.filter((s) => s.enrolledOn.startsWith(month)).length,
-    leftThisMonth: d.studentEvents.filter((e) => e.type === 'status_changed' && e.on.startsWith(month) && (e.title === 'Left the centre' || e.title === 'Graduated')).length,
+    leftThisMonth: leftInMonth(d, month),
     openLeads: d.leads.filter(isOpenLead).length,
     conversion: closed.length ? closed.filter((l) => l.stage === 'enrolled').length / closed.length : null,
     // Salary is worked out on the full data: a teacher's students all belong to their branch.

@@ -6,6 +6,7 @@ import { Logo } from '../components/layout/Logo'
 import { Sidebar, SidebarNav, TeacherSidebar } from '../components/layout/Sidebar'
 import { IconButton } from '../components/ui/Button'
 import { useSchool } from '../data/school-context'
+import { SherovIntelligence } from '../features/owner/intelligence/SherovIntelligence'
 import { tr } from '../i18n'
 
 const COLLAPSED_KEY = 'sherov-school:sidebar-collapsed'
@@ -104,6 +105,8 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      {/* The owner's assistant: Owner Portal pages only, and only for the owner. */}
+      {user?.role === 'owner' && (pathname === '/owner' || pathname.startsWith('/owner/')) && <SherovIntelligence />}
     </div>
   )
 }

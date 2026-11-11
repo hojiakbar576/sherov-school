@@ -33,6 +33,7 @@ import { NotificationsPage } from '../features/teacher/NotificationsPage'
 import { NotFoundPage } from './NotFoundPage'
 import { OwnerLoginPage } from './OwnerLoginPage'
 import { OwnerOverviewPage } from '../features/owner/OwnerOverviewPage'
+import { OwnerLeadAnalyticsPage } from '../features/owner/OwnerLeadAnalyticsPage'
 import { OwnerBranchesPage } from '../features/owner/OwnerBranchesPage'
 import { OwnerFinancePage } from '../features/owner/OwnerFinancePage'
 import { OwnerTeachersPage } from '../features/owner/OwnerTeachersPage'
@@ -65,6 +66,7 @@ export function App() {
         }
       >
         <Route index element={<OwnerOverviewPage />} />
+        <Route path="leads" element={<OwnerLeadAnalyticsPage />} />
         <Route path="branches" element={<OwnerBranchesPage />} />
         <Route path="finance" element={<OwnerFinancePage />} />
         <Route path="teachers" element={<OwnerTeachersPage />} />
